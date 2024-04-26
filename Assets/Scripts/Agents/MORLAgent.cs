@@ -36,6 +36,11 @@ namespace Env5
             sensor.AddObservation(distanceToBridgeObs);
             Vector3 distanceToBridgeObs2 = (playerController.env.BridgeEntranceLeft2 - playerPos) / playerController.env.Width;
             sensor.AddObservation(distanceToBridgeObs2);
+
+            int bridgeIsDown;
+            bridgeIsDown = playerController.env.Button1Pressed() ? 1: 0;
+            sensor.AddObservation(bridgeIsDown);
+
         }
 
         public override void Heuristic(in ActionBuffers actionsOut)
