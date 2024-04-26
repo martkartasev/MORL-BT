@@ -80,6 +80,11 @@ namespace Env5
             }
         }
 
+        public bool IsTriggerCarried()
+        {
+            return false; //TODO: Mart will fill this out
+        }
+        
         public bool Button1Pressed()
         {
             return button.gameObject.GetComponent<CollisionDetector>().Touching(trigger.gameObject);
