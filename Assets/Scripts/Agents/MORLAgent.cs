@@ -53,7 +53,8 @@ namespace Env5
             playerController.ApplyAcceleration(actuator.GetAcceleration(actions) * 5);
 
             bool reset = actions.DiscreteActions[1] == 1;
-            if (reset || envController.AtGoal()) EndEpisode();
+            // if (reset || envController.AtGoal()) EndEpisode();
+            if (reset) EndEpisode();
         }
 
         public override void OnEpisodeBegin()
