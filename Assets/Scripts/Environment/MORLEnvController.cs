@@ -79,11 +79,6 @@ namespace Env5
                 Debug.Log("You win!");
             }
         }
-
-        public bool IsTriggerCarried()
-        {
-            return false; //TODO: Mart will fill this out
-        }
         
         public bool Button1Pressed()
         {

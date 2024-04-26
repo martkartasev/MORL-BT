@@ -41,6 +41,7 @@ namespace Env5
             bridgeIsDown = playerController.env.Button1Pressed() ? 1: 0;
             sensor.AddObservation(bridgeIsDown);
 
+            Debug.Log(playerController.IsControllingT1());
         }
 
         public override void Heuristic(in ActionBuffers actionsOut)
