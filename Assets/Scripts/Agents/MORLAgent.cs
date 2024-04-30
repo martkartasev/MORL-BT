@@ -41,7 +41,9 @@ namespace Env5
             bridgeIsDown = playerController.env.Button1Pressed() ? 1: 0;
             sensor.AddObservation(bridgeIsDown);
 
-            Debug.Log(playerController.IsControllingT1());
+            int triggerIsCarried;
+            triggerIsCarried = playerController.IsControllingT1() ? 1 : 0;
+            sensor.AddObservation(triggerIsCarried);
         }
 
         public override void Heuristic(in ActionBuffers actionsOut)
