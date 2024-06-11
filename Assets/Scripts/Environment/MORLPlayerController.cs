@@ -1,6 +1,3 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace Env5
@@ -27,22 +24,11 @@ namespace Env5
             }
         }
 
-        public float DistanceToTrigger1()
-        {
-            return Vector3.Distance(player.position, env.goal.position);
-        }
-
-        internal bool IsCloseToTrigger1()
-        {
-            var condition = DistanceToTrigger1() < closenessDistance;
-            return condition;
-        }
-
-        void OnCollisionEnter(UnityEngine.Collision collision)
+        void OnCollisionStay(Collision collision)
         {
             if (collision.gameObject.tag == "Target")
             {
-                if (!env.Button1Pressed())
+                if (!env.Button1Pressed() && !player.GetComponent<CollisionDetector>().Touching("Button"))
                 {
                     StartControlTrigger();
                 }
@@ -75,11 +61,6 @@ namespace Env5
                     env.trigger.position = new Vector3(env.button.position.x, env.button.position.y + 0.5f, env.button.position.z);
                 }
                 env.trigger.GetComponentInParent<Rigidbody>().velocity = Vector3.zero;
-                // The physics engine would be one FixedUpdate behind if we don't do this. This would lead to the BT executing MoveToT1 for one FixedUpdate.
-                if (press)
-                {
-                    env.button.GetComponentInParent<CollisionDetector>().ManuallyAdd(env.trigger.gameObject.tag);
-                }
             }
         }
 

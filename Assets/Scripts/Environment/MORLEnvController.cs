@@ -49,8 +49,8 @@ namespace Env5
 
         public float BridgeZ => bridgeZ;
 
-        public Vector3 BridgeEntranceLeft => new Vector3(X1, ElevatedGroundY, BridgeZ);
-        public Vector3 BridgeEntranceLeft2 => new Vector3(X1, ElevatedGroundY, bridgeDown2.transform.localPosition.z);
+        public Vector3 BridgeEntranceLeft => new(X1, ElevatedGroundY, BridgeZ);
+        public Vector3 BridgeEntranceLeft2 => new(X1, ElevatedGroundY, bridgeDown2.transform.localPosition.z);
 
         void Awake()
         {
@@ -79,7 +79,7 @@ namespace Env5
                 Debug.Log("You win!");
             }
         }
-        
+
         public bool Button1Pressed()
         {
             return button.gameObject.GetComponent<CollisionDetector>().Touching(trigger.gameObject);
@@ -88,75 +88,6 @@ namespace Env5
         public bool AtGoal()
         {
             return agent.gameObject.GetComponent<CollisionDetector>().Touching(goal.gameObject);
-        }
-
-        public float DistancePlayerX1FromRight()
-        {
-            var distance = agent.localPosition.x - x1 - Utility.eps;
-            return Mathf.Max(distance, 0);
-        }
-
-        public float DistancePlayerX3FromLeft()
-        {
-            var distance = x3 - agent.localPosition.x - Utility.eps;
-            return Mathf.Max(distance, 0);
-        }
-
-        public bool PlayerRightOfX3()
-        {
-            return DistancePlayerX3FromLeft() == 0;
-        }
-
-        public float DistancePlayerX3FromRight()
-        {
-            var distance = agent.localPosition.x - x3 - Utility.eps;
-            return Mathf.Max(distance, 0);
-        }
-
-        public bool PlayerLeftOfX3()
-        {
-            return DistancePlayerX3FromRight() == 0;
-        }
-
-        public float DistancePlayerX1FromLeft()
-        {
-            var distance = x1 - agent.localPosition.x - Utility.eps;
-            return Mathf.Max(distance, 0);
-        }
-
-        public bool PlayerRightOfX1()
-        {
-            return DistancePlayerX1FromLeft() == 0;
-        }
-
-        public float DistancePlayerBridgeFromNorth()
-        {
-            float bridgeNorthEdge = bridgeDown.transform.localPosition.z + BridgeWidth / 2;
-            var distance = agent.localPosition.z - bridgeNorthEdge - Utility.eps;
-            return Mathf.Max(distance, 0);
-        }
-
-        public float DistancePlayerBridgeFromSouth()
-        {
-            float bridgeSouthEdge = bridgeDown.transform.localPosition.z - BridgeWidth / 2;
-            var distance = bridgeSouthEdge - agent.localPosition.z - Utility.eps;
-            return Mathf.Max(distance, 0);
-        }
-
-        public bool PlayerOnBridge()
-        {
-            return DistancePlayerBridgeFromSouth() == 0 && DistancePlayerBridgeFromNorth() == 0 && PlayerRightOfX1() && PlayerUp();
-        }
-
-        public float DistancePlayerUp()
-        {
-            var distance = elevatedGroundY + playerScale / 2f - agent.localPosition.y - Utility.eps;
-            return Mathf.Max(distance, 0);
-        }
-
-        public bool PlayerUp()
-        {
-            return DistancePlayerUp() == 0;
         }
 
         public void Initialize()
@@ -208,8 +139,6 @@ namespace Env5
         {
             var playerController = agent.GetComponentInParent<MORLPlayerController>();
             playerController.StopControl();
-            // It is manually set to true in PlayerController.StopControl() when the player touches button2 or button1 for the BT to behave correctly.
-            button.GetComponentInParent<CollisionDetector>().ManuallyRemove(trigger.gameObject.tag);
             Initialize();
         }
     }
