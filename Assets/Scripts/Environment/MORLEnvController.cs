@@ -176,7 +176,7 @@ namespace Env5
             float minZ = z0 + margin + playerScale / 2;
             float maxZ = z1 - margin - playerScale / 2;
             float playerY = elevatedGroundY + playerScale / 2;
-            float buttonY = elevatedGroundY + buttonHeight / 2;
+            float buttonY = elevatedGroundY + buttonHeight / 2 + 0.1f;
 
             agent.localPosition = new Vector3(-18, playerY, -2);
             agent.gameObject.GetComponent<Rigidbody>().velocity = Vector3.zero;
