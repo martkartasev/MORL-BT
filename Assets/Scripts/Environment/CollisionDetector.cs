@@ -16,14 +16,6 @@ namespace Env5
         {
             return touchedObjects.Contains(tag);
         }
-        public void ManuallyAdd(string tag)
-        {
-            touchedObjects.Add(tag);
-        }
-        public void ManuallyRemove(string tag)
-        {
-            touchedObjects.Remove(tag);
-        }
 
         void OnCollisionEnter(Collision collision)
         {
