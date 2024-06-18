@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
+using Unity.MLAgents.Policies;
 using Unity.MLAgents.Sensors;
 using UnityEngine;
 
@@ -12,6 +13,8 @@ namespace Env5
         public MORLEnvController envController;
         public IEnvActuator actuator = new EnvActuatorGrid5x5();
         public Camera envCamera;
+        private DecisionRequester decisionRequester;
+        private int counter;
 
         private void Start()
         {
@@ -19,6 +22,7 @@ namespace Env5
             {
                 Directory.CreateDirectory(Application.dataPath + "/Screenshots");
             }
+            decisionRequester = GetComponent<DecisionRequester>();
         }
 
         public override void CollectObservations(VectorSensor sensor)
@@ -46,12 +50,10 @@ namespace Env5
             Vector3 distanceToBridgeObs2 = (playerController.env.BridgeEntranceLeft2 - playerPos) / playerController.env.Width;
             sensor.AddObservation(distanceToBridgeObs2);
 
-            int bridgeIsDown;
-            bridgeIsDown = playerController.env.Button1Pressed() ? 1 : 0;
+            int bridgeIsDown = playerController.env.Button1Pressed() ? 1 : 0;
             sensor.AddObservation(bridgeIsDown);
 
-            int triggerIsCarried;
-            triggerIsCarried = playerController.IsControllingT1() ? 1 : 0;
+            int triggerIsCarried = playerController.IsControllingT1() ? 1 : 0;
             sensor.AddObservation(triggerIsCarried);
         }
 
@@ -63,14 +65,19 @@ namespace Env5
         public override void OnActionReceived(ActionBuffers actions)
         {
             playerController.ApplyAcceleration(actuator.GetAcceleration(actions) * 5);
-
-
+            
             bool reset = actions.DiscreteActions[1] == 1;
             bool screenshot = actions.DiscreteActions[2] == 1;
-
-            // if (reset || envController.AtGoal()) EndEpisode();
+            
             if (reset) EndEpisode();
-            if (screenshot) TakeScreenShot();
+          
+            if (screenshot && (!decisionRequester.TakeActionsBetweenDecisions || counter >= decisionRequester.DecisionPeriod))
+            {
+                TakeScreenShot();
+                counter = 0;
+            }
+
+            counter++;
         }
 
         public override void OnEpisodeBegin()
