@@ -53,7 +53,7 @@ if __name__ == '__main__':
 
     env = UnityEnvironment(
         file_name="../experiments-ml-agents/builds/MORL/MORL-BT.exe",
-        no_graphics=True,  # Can disable graphics if needed
+        no_graphics=False,  # Can disable graphics if needed
         # base_port= 10000 # for starting multiple envs
         side_channels=[engine])
     env.reset()  # Initializes env
