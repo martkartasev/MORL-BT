@@ -1,8 +1,8 @@
-﻿using Unity.MLAgents;
+﻿using System.IO;
+using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace Env5
 {
@@ -11,6 +11,15 @@ namespace Env5
         public MORLPlayerController playerController;
         public MORLEnvController envController;
         public IEnvActuator actuator = new EnvActuatorGrid5x5();
+        public Camera envCamera;
+
+        private void Start()
+        {
+            if (!Directory.Exists(Application.dataPath + "/Screenshots"))
+            {
+                Directory.CreateDirectory(Application.dataPath + "/Screenshots");
+            }
+        }
 
         public override void CollectObservations(VectorSensor sensor)
         {
@@ -38,7 +47,7 @@ namespace Env5
             sensor.AddObservation(distanceToBridgeObs2);
 
             int bridgeIsDown;
-            bridgeIsDown = playerController.env.Button1Pressed() ? 1: 0;
+            bridgeIsDown = playerController.env.Button1Pressed() ? 1 : 0;
             sensor.AddObservation(bridgeIsDown);
 
             int triggerIsCarried;
@@ -55,14 +64,36 @@ namespace Env5
         {
             playerController.ApplyAcceleration(actuator.GetAcceleration(actions) * 5);
 
+
             bool reset = actions.DiscreteActions[1] == 1;
+            bool screenshot = actions.DiscreteActions[2] == 1;
+
             // if (reset || envController.AtGoal()) EndEpisode();
             if (reset) EndEpisode();
+            if (screenshot) TakeScreenShot();
         }
 
         public override void OnEpisodeBegin()
         {
             envController.Reset();
+        }
+
+        public void TakeScreenShot()
+        {
+            if (envCamera == null) return;
+            RenderTexture.active = envCamera.targetTexture;
+            envCamera.Render();
+
+            Texture2D imageOverview = new Texture2D(envCamera.targetTexture.width, envCamera.targetTexture.height, TextureFormat.RGB24, false);
+            imageOverview.ReadPixels(new Rect(0, 0, envCamera.targetTexture.width, envCamera.targetTexture.height), 0, 0);
+            imageOverview.Apply();
+
+            byte[] bytes = imageOverview.EncodeToPNG();
+
+            string filename = transform.parent.name + "_" + Time.fixedTime + ".png";
+
+            var path = Application.dataPath + "/Screenshots/" + filename;
+            File.WriteAllBytes(path, bytes);
         }
     }
 }
