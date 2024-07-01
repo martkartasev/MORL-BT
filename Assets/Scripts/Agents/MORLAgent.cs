@@ -28,7 +28,7 @@ namespace Env5
 
             decisionRequester = GetComponent<DecisionRequester>();
             rb = GetComponent<Rigidbody>();
-            envController = this.transform.parent.GetComponent<EnvController>();
+            envController = transform.parent.GetComponent<EnvController>();
         }
         
         public override void OnEpisodeBegin()

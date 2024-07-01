@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Env5
 {
-    public class MORLEnvController : MonoBehaviour
+    public class MORLEnvController : MonoBehaviour, EnvController
     {
         public Transform agent;
         public Transform trigger;
