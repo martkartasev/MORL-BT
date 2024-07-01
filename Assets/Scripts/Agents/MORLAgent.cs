@@ -1,7 +1,6 @@
 ﻿using System.IO;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
-using Unity.MLAgents.Policies;
 using Unity.MLAgents.Sensors;
 using UnityEngine;
 
@@ -10,11 +9,15 @@ namespace Env5
     public class MORLAgent : Agent
     {
         public MORLPlayerController playerController;
-        public MORLEnvController envController;
+        public EnvController envController;
         public IEnvActuator actuator = new EnvActuatorGrid5x5();
         public Camera envCamera;
-        private DecisionRequester decisionRequester;
-        private int counter;
+        public bool velocityBased;
+        protected DecisionRequester decisionRequester;
+        protected int counter;
+        protected Rigidbody rb;
+
+        internal float maxSpeed = 10f;
 
         private void Start()
         {
@@ -22,7 +25,15 @@ namespace Env5
             {
                 Directory.CreateDirectory(Application.dataPath + "/Screenshots");
             }
+
             decisionRequester = GetComponent<DecisionRequester>();
+            rb = GetComponent<Rigidbody>();
+            envController = this.transform.parent.GetComponent<EnvController>();
+        }
+        
+        public override void OnEpisodeBegin()
+        {
+            envController.Reset();
         }
 
         public override void CollectObservations(VectorSensor sensor)
@@ -31,7 +42,7 @@ namespace Env5
             Vector3 playerPosObs = playerPos / playerController.env.Width * 2f;
             sensor.AddObservation(playerPosObs);
 
-            sensor.AddObservation(playerController.rb.velocity / playerController.maxSpeed);
+            sensor.AddObservation(playerController.rb.velocity / maxSpeed);
 
             Vector3 triggerPos = playerController.env.trigger.localPosition;
             Vector3 distanceToTriggerObs = (triggerPos - playerPos) / playerController.env.Width;
@@ -64,13 +75,21 @@ namespace Env5
 
         public override void OnActionReceived(ActionBuffers actions)
         {
-            playerController.ApplyAcceleration(actuator.GetAcceleration(actions) * 5);
-            
+            if (velocityBased)
+            {
+                ApplyVelocity(actuator.GetAcceleration(actions) * 5);
+            }
+            else
+            {
+                ApplyAcceleration(actuator.GetAcceleration(actions) * 5);
+            }
+
+
             bool reset = actions.DiscreteActions[1] == 1;
             bool screenshot = actions.DiscreteActions[2] == 1;
-            
+
             if (reset) EndEpisode();
-          
+
             if (screenshot && (!decisionRequester.TakeActionsBetweenDecisions || counter >= decisionRequester.DecisionPeriod))
             {
                 TakeScreenShot();
@@ -80,9 +99,23 @@ namespace Env5
             counter++;
         }
 
-        public override void OnEpisodeBegin()
+        public void ApplyAcceleration(Vector3 acceleration)
         {
-            envController.Reset();
+            rb.AddForce(acceleration, ForceMode.Acceleration);
+
+            if (rb.velocity.magnitude > maxSpeed)
+            {
+                rb.velocity = rb.velocity.normalized * maxSpeed;
+            }
+        }
+
+        public void ApplyVelocity(Vector3 velocity)
+        {
+            var rbVelocity = rb.velocity;
+            rbVelocity.x = 0;
+            rbVelocity.z = 0;
+            rb.velocity = rbVelocity;
+            rb.AddForce(velocity, ForceMode.VelocityChange);
         }
 
         public void TakeScreenShot()

@@ -8,21 +8,7 @@ namespace Env5
         public Rigidbody rb;
         public MORLEnvController env;
         private float closenessDistance = 3.0f;
-        private float maxAcc = 10f;
-        internal float maxSpeed = 10f;
         public bool safelyPlaceTrigger;
-
-        public float MaxAcc { get => maxAcc; }
-
-        public void ApplyAcceleration(Vector3 acceleration)
-        {
-            rb.AddForce(acceleration, ForceMode.Acceleration);
-
-            if (rb.velocity.magnitude > maxSpeed)
-            {
-                rb.velocity = rb.velocity.normalized * maxSpeed;
-            }
-        }
 
         void OnCollisionStay(Collision collision)
         {
@@ -35,7 +21,7 @@ namespace Env5
             }
             else if (collision.gameObject.tag == "Button")
             {
-                StopControlTrigger1(true);
+                StopControlTrigger1();
             }
         }
 
@@ -44,7 +30,7 @@ namespace Env5
             StopControlTrigger1();
         }
 
-        private void StopControlTrigger1(bool press = false)
+        private void StopControlTrigger1()
         {
             if (IsControllingT1())
             {
@@ -60,6 +46,7 @@ namespace Env5
                 {
                     env.trigger.position = new Vector3(env.button.position.x, env.button.position.y + 0.5f, env.button.position.z);
                 }
+
                 env.trigger.GetComponentInParent<Rigidbody>().velocity = Vector3.zero;
             }
         }
@@ -84,13 +71,12 @@ namespace Env5
             return controlOther.enabled && controlOther.other == env.trigger.GetComponent<Rigidbody>();
         }
 
-        
+
         private void StartControlTrigger()
         {
             ControlOther controlOther = GetComponent<ControlOther>();
             controlOther.enabled = true;
             controlOther.other = env.trigger.GetComponent<Rigidbody>();
         }
-    
     }
 }
