@@ -127,6 +127,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3519073662416306596, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
+      propertyPath: velocityBased
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3953118571179030308, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
       propertyPath: m_Name
       value: SimpleEnv (7)
@@ -184,6 +188,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3519073662416306596, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
+      propertyPath: velocityBased
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3953118571179030308, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
       propertyPath: m_Name
       value: SimpleEnv (9)
@@ -241,6 +249,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3519073662416306596, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
+      propertyPath: velocityBased
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3953118571179030308, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
       propertyPath: m_Name
       value: SimpleEnv (10)
@@ -298,6 +310,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3519073662416306596, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
+      propertyPath: velocityBased
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3953118571179030308, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
       propertyPath: m_Name
       value: SimpleEnv (13)
@@ -355,6 +371,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3519073662416306596, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
+      propertyPath: velocityBased
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3953118571179030308, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
       propertyPath: m_Name
       value: SimpleEnv (11)
@@ -412,6 +432,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3519073662416306596, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
+      propertyPath: velocityBased
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3953118571179030308, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
       propertyPath: m_Name
       value: SimpleEnv (12)
@@ -654,6 +678,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3519073662416306596, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
+      propertyPath: velocityBased
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3953118571179030308, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
       propertyPath: m_Name
       value: SimpleEnv (14)
@@ -711,6 +739,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3519073662416306596, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
+      propertyPath: velocityBased
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3953118571179030308, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
       propertyPath: m_Name
       value: SimpleEnv (8)
@@ -768,6 +800,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3519073662416306596, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
+      propertyPath: velocityBased
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3953118571179030308, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
       propertyPath: m_Name
       value: SimpleEnv (6)
@@ -825,6 +861,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3519073662416306596, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
+      propertyPath: velocityBased
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3953118571179030308, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
       propertyPath: m_Name
       value: SimpleEnv (5)
@@ -882,6 +922,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3519073662416306596, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
+      propertyPath: velocityBased
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3953118571179030308, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
       propertyPath: m_Name
       value: SimpleEnv (1)
@@ -939,6 +983,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3519073662416306596, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
+      propertyPath: velocityBased
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3953118571179030308, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
       propertyPath: m_Name
       value: SimpleEnv (2)
@@ -996,6 +1044,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3519073662416306596, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
+      propertyPath: velocityBased
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3953118571179030308, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
       propertyPath: m_Name
       value: SimpleEnv (3)
@@ -1053,6 +1105,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3519073662416306596, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
+      propertyPath: velocityBased
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3953118571179030308, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
       propertyPath: m_Name
       value: SimpleEnv (4)
@@ -1110,6 +1166,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3519073662416306596, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
+      propertyPath: velocityBased
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3953118571179030308, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
       propertyPath: m_Name
       value: SimpleEnv (15)
@@ -1167,6 +1227,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3519073662416306596, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
+      propertyPath: velocityBased
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3953118571179030308, guid: aa378659d17588345bb3ca75250a5c0c, type: 3}
       propertyPath: m_Name
       value: SimpleEnv
