@@ -88,8 +88,8 @@ class LavaGoalConveyerAccelerationEnv(gym.Env):
             np.array([1.0, 2.0, 0.0, 0.0, self.goal_x, self.goal_y]),  # conveyer belt avoidable due to no velocity...
             np.array([1.75, 2.0, 0.0, 0.0, self.goal_x, self.goal_y]),  # conveyer belt avoidable due to no velocity, but will fail in one step to the right
             np.array([1.0, 2.0, 2.0, 0.0, self.goal_x, self.goal_y]),  # conveyer belt unavoidable due to velocity
-            np.array([1.25, 1.25, 2.0, 0.0, self.goal_x, self.goal_y]),  # conveyer belt unavoidable due to velocity
-            np.array([1.5, 2.0, 2.0, 0.0, self.goal_x, self.goal_y]),  # conveyer belt unavoidable due to velocity
+            np.array([1.25, 2.0, 2.0, 0.0, self.goal_x, self.goal_y]),  # conveyer belt unavoidable due to velocity, closer to conveyer
+            np.array([1.5, 2.0, 2.0, 0.0, self.goal_x, self.goal_y]),  # conveyer belt unavoidable due to velocity, even closer to conveyer
             np.array([0.25, 2.0, 2.0, 0.0, self.goal_x, self.goal_y]),  # conveyer belt avoidable
             np.array([0.25, 0.25, 0.0, 0.0, self.goal_x, self.goal_y]),  # no velocity in safe area, all good
             np.array([6, 0.8, 0.0, 0.0, self.goal_x, self.goal_y]),  # close to lava area
