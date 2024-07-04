@@ -19,7 +19,7 @@ namespace Env5
 
         internal float maxSpeed = 10f;
 
-        private void Start()
+        protected void Start()
         {
             if (!Directory.Exists(Application.dataPath + "/Screenshots"))
             {
