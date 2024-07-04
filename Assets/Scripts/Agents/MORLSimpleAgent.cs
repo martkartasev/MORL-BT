@@ -17,6 +17,8 @@ namespace Env5
             Vector3 button2Pos = goal.localPosition;
             Vector3 distanceTobutton2Obs = (button2Pos - playerPos);
             sensor.AddObservation(distanceTobutton2Obs);
+            
+            if(!velocityBased) sensor.AddObservation(rb.velocity);
         }
     }
 }
