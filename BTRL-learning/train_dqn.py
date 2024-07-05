@@ -278,7 +278,7 @@ def main():
         exp_dir += f"_{params['unity_task']}"
 
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
-    exp_dir += timestamp
+    exp_dir += f"/{timestamp}"
 
     os.makedirs(exp_dir, exist_ok=True)
     writer = SummaryWriter(f"{exp_dir}")
