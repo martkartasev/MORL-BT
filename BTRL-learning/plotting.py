@@ -92,3 +92,50 @@ def plot_discrete_actions(dqn, state, device, action_map, save_path=""):
         plt.show()
 
     plt.close()
+
+
+def create_plots_numpy_env(
+        network,
+        env,
+        device,
+        save_dir,
+):
+
+    # plot value function with different velocities
+    for vel in [
+        np.array([0.0, 0.0]),
+        np.array([2.0, 0.0]),
+        np.array([-2.0, 0.0]),
+        np.array([0.0, 2.0]),
+        np.array([0.0, -2.0]),
+    ]:
+        value_function = "min"
+        plot_value_2D(
+            dqn=network,
+            velocity=vel,
+            value_function=value_function,
+            env=env,
+            x_lim=env.x_range,
+            x_steps=env.x_range[-1] + 1,
+            y_lim=env.y_range,
+            y_steps=env.y_range[-1] + 1,
+            device=device,
+            save_path=f"{save_dir}/vf:{value_function}_velocity:{vel}.png"
+        )
+
+    # plot Q-function in particular states
+    for eval_state in env.eval_states:
+        plot_discrete_actions(
+            dqn=network,
+            state=eval_state,
+            action_map=env.action_map,
+            device=device,
+            save_path=f"{save_dir}/qf_state:{eval_state}.png",
+        )
+
+
+if __name__ == "__main__":
+
+
+
+    create_plots_numpy_env()
