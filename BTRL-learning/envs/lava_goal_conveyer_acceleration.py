@@ -9,12 +9,14 @@ class LavaGoalConveyerAccelerationEnv(gym.Env):
             task="goal",  # "goal" or "lava"
             render_mode="human",
             max_velocity=2.0,
-            dt=0.5
+            dt=0.5,
+            with_conveyer=True
     ):
 
         self.render_mode = render_mode
         assert task in ["goal", "lava", "sum"], "Invalid task! Must be 'goal', 'lava', or 'sum'."
         self.task = task
+        self.with_conveyer = with_conveyer
 
         # discrete actions corresponding to accelerating in 8 direction, or no-op
         self.single_action_space = gym.spaces.Discrete(9)
@@ -90,6 +92,8 @@ class LavaGoalConveyerAccelerationEnv(gym.Env):
             np.array([4, 0.8, 0.0, 0.0, self.goal_x, self.goal_y]),  # close to conveyer belt
             np.array([4, 0.8, 0.0, 2, self.goal_x, self.goal_y]),  # close to conveyer, but upwards velocity
         ]
+        
+        self.state_predicate_names = ["in_lava", "on_conveyer", "at_goal"]
 
     def reset(self, seed=None, options={}):
         x = np.random.uniform(self.x_range[0], self.x_range[1])
@@ -139,53 +143,54 @@ class LavaGoalConveyerAccelerationEnv(gym.Env):
 
         return lava_reward
 
+    def check_state_predicates(self, state):
+        agent_x, agent_y = state[0], state[1]
+        goal_x, goal_y = state[4], state[5]
+
+        in_lava = int(self.lava_x_range[0] <= agent_x <= self.lava_x_range[-1] and self.lava_y_range[0] <= agent_y <= self.lava_y_range[-1])
+        on_conveyer = int(self.conveyer_x_range[0] <= agent_x <= self.conveyer_x_range[-1] and self.conveyer_y_range[0] <= agent_y <= self.conveyer_y_range[-1])
+        at_goal = int(np.linalg.norm(np.array([agent_x, agent_y]) - np.array([goal_x, goal_y])) <= 0.5)
+
+        # make sure this order corresponds to names in self.state_predicate_names!
+        return np.array([in_lava, on_conveyer, at_goal])
+
     def step(self, action):
-        goal_reward = self.compute_goal_reward(agent_x=self.agent_pos[0], agent_y=self.agent_pos[1])
-        lava_reward = self.compute_lava_reward(agent_x=self.agent_pos[0], agent_y=self.agent_pos[1])
+        current_state = self._get_obs()
+        goal_reward = self.compute_goal_reward(agent_x=current_state[0], agent_y=current_state[1])
+        lava_reward = self.compute_lava_reward(agent_x=current_state[0], agent_y=current_state[1])
+        state_predicates = self.check_state_predicates(current_state)
 
         if self.task == "goal":
             rew = goal_reward
-            if np.linalg.norm(np.array([self.agent_pos[0], self.agent_pos[1]]) - np.array([self.goal_x, self.goal_y])) <= 0.5:
-                print("Goal reached!")
-
         elif self.task == "lava":
             rew = lava_reward
-            if self.lava_x_range[0] <= self.agent_pos[0] <= self.lava_x_range[-1] and self.lava_y_range[0] <= self.agent_pos[1] <= self.lava_y_range[-1]:
-                print("in lava!")
-
         elif self.task == "sum":
             rew = goal_reward + lava_reward
-            if np.linalg.norm(np.array([self.agent_pos[0], self.agent_pos[1]]) - np.array([self.goal_x, self.goal_y])) <= 0.1:
-                print("Goal reached!")
-            if self.lava_x_range[0] <= self.agent_pos[0] <= self.lava_x_range[-1] and self.lava_y_range[0] <= self.agent_pos[1] <= self.lava_y_range[-1]:
-                print("in lava!")
         else:
             raise ValueError("Invalid task")
 
         terminated = False
 
-        # transition to next state
-        # if agent steps onto conveyer belt, actions have no consquences and agent moves to the right
-        if self.conveyer_x_range[0] <= self.agent_pos[0] <= self.conveyer_x_range[-1] and self.conveyer_y_range[0] <= self.agent_pos[1] <= self.conveyer_y_range[-1]:
-            self.agent_vel = np.array([1.0, 0.0], dtype=np.float32)
-            acceleration = np.array([0.0, 0.0])  # move right
-        else:
-            acceleration = self.action_map[action]
+        # compute transition
+        acceleration = self.action_map[action]
+        if self.with_conveyer:
+            if self.conveyer_x_range[0] <= self.agent_pos[0] <= self.conveyer_x_range[-1] and self.conveyer_y_range[0] <= self.agent_pos[1] <= self.conveyer_y_range[-1]:
+                # if agent steps onto conveyer belt, actions have no consquences and agent moves to the right
+                acceleration = np.array([0.0, 0.0])  # apply no movement
+                self.agent_vel = np.array([1.0, 0.0], dtype=np.float32)  # directly set velocity to move right
 
         # update velocity
-        self.agent_vel += acceleration * self.dt
-
-        # make sure agent doesn't exceed max velocity
-        self.agent_vel = np.clip(self.agent_vel, -self.max_velocity, self.max_velocity)
+        new_vel = self.agent_vel + acceleration * self.dt
+        clipped_vel = np.clip(new_vel, -self.max_velocity, self.max_velocity)
 
         # update position
-        self.agent_pos += self.agent_vel * self.dt
+        new_pos = self.agent_pos + self.agent_vel * self.dt
+        clipped_pos = np.clip(new_pos, [self.x_range[0], self.y_range[0]], [self.x_range[1], self.y_range[1]])
 
-        # make sure agent doesn't leave the grid world
-        self.agent_pos[0] = np.clip(self.agent_pos[0], self.x_range[0], self.x_range[1])
-        self.agent_pos[1] = np.clip(self.agent_pos[1], self.y_range[0], self.y_range[1])
-
-        obs = self._get_obs()
+        # set new state
+        self.agent_vel = clipped_vel
+        self.agent_pos = clipped_pos
+        next_state = self._get_obs()
 
         self.episode_step_counter += 1
         truncated = self.episode_step_counter >= self.max_episode_steps
@@ -193,9 +198,11 @@ class LavaGoalConveyerAccelerationEnv(gym.Env):
         info_dict = {
             "goal_reward": goal_reward,
             "lava_reward": lava_reward,
+            "state_predicates": state_predicates,
+            "state_predicates_names": self.state_predicate_names,
         }
 
-        return obs, rew, terminated, truncated, info_dict
+        return next_state, rew, terminated, truncated, info_dict
 
     def get_render_patches(self, with_conveyer_arrows=False):
         lava_rect_w = self.lava_x_range[-1] - self.lava_x_range[0]
@@ -207,14 +214,18 @@ class LavaGoalConveyerAccelerationEnv(gym.Env):
         conveyer_rect = plt.Rectangle((self.conveyer_x_range[0], self.conveyer_y_range[0]), conveyer_rect_w,
                                       conveyer_rect_h, color="gray")
 
-        patches = [lava_rect, conveyer_rect]
-        if with_conveyer_arrows:
-            for x in range(self.conveyer_x_range[-1] - 1):
-                for y in range(self.conveyer_y_range[-1]):
-                    # plt.arrow(self.conveyer_x_range[0] + x + 0.1, self.conveyer_y_range[0] + y + 0.5, 0.5, 0, head_width=0.2, head_length=0.2, fc='k', ec='k')
-                    arr = plt.arrow(self.conveyer_x_range[0] + x, self.conveyer_y_range[0] + y, 0.5, 0, head_width=0.2, head_length=0.2, fc='k', ec='k', zorder=10)
+        patches = [lava_rect]
 
-                    patches.append(arr)
+        if self.with_conveyer:
+            patches.append(conveyer_rect)
+
+            if with_conveyer_arrows:
+                for x in range(self.conveyer_x_range[-1] - 2):
+                    for y in range(self.conveyer_y_range[-1]):
+                        # plt.arrow(self.conveyer_x_range[0] + x + 0.1, self.conveyer_y_range[0] + y + 0.5, 0.5, 0, head_width=0.2, head_length=0.2, fc='k', ec='k')
+                        arr = plt.arrow(self.conveyer_x_range[0] + x, self.conveyer_y_range[0] + y, 0.5, 0, head_width=0.2, head_length=0.2, fc='k', ec='k', zorder=10)
+
+                        patches.append(arr)
 
         return patches
 
@@ -290,22 +301,22 @@ class LavaGoalConveyerAccelerationEnv(gym.Env):
             plt.gca().add_patch(patch)
 
         for e in range(n_traj):
-            # obs, _ = self.reset(options={"x": 1.5, "y": 1.5, "vel_x": 2.0, "vel_y": 0.0})
-            obs, _ = self.reset()
+            obs, _ = self.reset(options={"x": 1.0, "y": 2, "vel_x": 2.0, "vel_y": 0.0})
+            # obs, _ = self.reset()
             done, trunc = False, False
             pos_hist = [obs[0:2]]
             reward_hist = []
             step_counter = 0
             while not (done or trunc):
-                print(obs)
                 action = self.action_space.sample()
-                obs, reward, done, trunc, info = self.step(action)
+                next_obs, reward, done, trunc, info = self.step(action)
                 # self.render()
                 pos_hist.append(obs[0:2])
                 reward_hist += [reward]
                 step_counter += 1
-                print(f"obs: {obs}, action: {action}, reward: {reward}, done: {done}, info: {info}")
-                print("--------------------------------")
+                print(f"obs: {obs}, action: {action}, reward: {reward}, next_obs: {next_obs}, done: {done}, info: {info}")
+                obs = next_obs
+                # print("--------------------------------")
 
             # compute discounted return
             discount_factor = 0.99
@@ -331,13 +342,30 @@ class LavaGoalConveyerAccelerationEnv(gym.Env):
         traj_fig.gca().set_ylabel("y")
         plt.show()
 
+    def plot_env(self):
+        plt.xlim(self.x_range[0] - 0.1, self.x_range[1] + 0.1)
+        plt.xticks([], [])
+        plt.ylim(self.y_range[0] - 0.1, self.y_range[1] + 0.1)
+        plt.yticks([], [])
+        plt.gca().set_aspect("equal", adjustable="box")
+        patches = self.get_render_patches(with_conveyer_arrows=True)
+        for patch in patches:
+            plt.gca().add_patch(patch)
+
+        # plt.title(f"Environment, task={self.task}")
+        # plt.xlabel("x")
+        # plt.ylabel("y")
+        plt.tight_layout()
+        plt.show()
+
     def close(self):
         pass
 
 
 if __name__ == "__main__":
-    env = LavaGoalConveyerAccelerationEnv(task="lava", render_mode="human")
-    env.plot_reward()
-    env.plot_random_trajectories(n_traj=50)
+    env = LavaGoalConveyerAccelerationEnv(task="lava", render_mode="human", with_conveyer=True)
+    env.plot_env()
+    # env.plot_reward()
+    # env.plot_random_trajectories(n_traj=50)
     env.close()
 

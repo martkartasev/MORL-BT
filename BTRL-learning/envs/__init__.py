@@ -11,6 +11,14 @@ gym.envs.register(
 )
 
 gym.envs.register(
+    id="LavaGoalConveyerAcceleration-lava-noConveyer-v0",
+    entry_point="envs:LavaGoalConveyerAccelerationEnv",
+    max_episode_steps=200,
+    reward_threshold=0,
+    kwargs={"task": "lava", "with_conveyer": False},
+)
+
+gym.envs.register(
     id="LavaGoalConveyerAcceleration-goal-v0",
     entry_point="envs:LavaGoalConveyerAccelerationEnv",
     max_episode_steps=200,
