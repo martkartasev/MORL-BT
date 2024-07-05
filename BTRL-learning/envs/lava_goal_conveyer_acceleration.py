@@ -4,15 +4,9 @@ import matplotlib.pyplot as plt
 
 
 class LavaGoalConveyerAccelerationEnv(gym.Env):
-    """
-    2D goal navigation env, continuous state space containing agent position, agent velocity, and goal position.
-    There 9 discerete actions, corresponding to 8 directions of acceleration, and no-op.
-    There is a lava obstacle which yields negative cost.
-    There is a conveyer belt that transports the agent into the lava, over some number of steps, if steped onto.
-    """
     def __init__(
             self,
-            task="goal",  # "goal" or "lava" or "sum"
+            task="goal",  # "goal" or "lava"
             render_mode="human",
             max_velocity=2.0,
             dt=0.5
@@ -64,10 +58,10 @@ class LavaGoalConveyerAccelerationEnv(gym.Env):
             8: np.array([0, 0]),  # no-op
         }
 
-        self.lava_x_range = np.array([6.01, 8])
+        self.lava_x_range = np.array([5.01, 7])
         self.lava_y_range = np.array([1, 2, 3])
 
-        self.conveyer_x_range = np.array([3, 4, 5, 6])
+        self.conveyer_x_range = np.array([2, 3, 4, 5])
         self.conveyer_y_range = np.array([1, 2, 3])
 
         self.max_episode_steps = 100
@@ -78,7 +72,7 @@ class LavaGoalConveyerAccelerationEnv(gym.Env):
         # episode vars, need to be reset
         self.agent_pos = [0, 0]
         self.agent_vel = [0, 0]
-        self.goal_x = 1
+        self.goal_x = 9
         self.goal_y = 2
         self.goal_pos = [None, None]
         self.episode_step_counter = 0
@@ -88,8 +82,8 @@ class LavaGoalConveyerAccelerationEnv(gym.Env):
             np.array([1.0, 2.0, 0.0, 0.0, self.goal_x, self.goal_y]),  # conveyer belt avoidable due to no velocity...
             np.array([1.75, 2.0, 0.0, 0.0, self.goal_x, self.goal_y]),  # conveyer belt avoidable due to no velocity, but will fail in one step to the right
             np.array([1.0, 2.0, 2.0, 0.0, self.goal_x, self.goal_y]),  # conveyer belt unavoidable due to velocity
-            np.array([1.25, 2.0, 2.0, 0.0, self.goal_x, self.goal_y]),  # conveyer belt unavoidable due to velocity, closer to conveyer
-            np.array([1.5, 2.0, 2.0, 0.0, self.goal_x, self.goal_y]),  # conveyer belt unavoidable due to velocity, even closer to conveyer
+            np.array([1.25, 1.25, 2.0, 0.0, self.goal_x, self.goal_y]),  # conveyer belt unavoidable due to velocity
+            np.array([1.5, 2.0, 2.0, 0.0, self.goal_x, self.goal_y]),  # conveyer belt unavoidable due to velocity
             np.array([0.25, 2.0, 2.0, 0.0, self.goal_x, self.goal_y]),  # conveyer belt avoidable
             np.array([0.25, 0.25, 0.0, 0.0, self.goal_x, self.goal_y]),  # no velocity in safe area, all good
             np.array([6, 0.8, 0.0, 0.0, self.goal_x, self.goal_y]),  # close to lava area
@@ -322,6 +316,8 @@ class LavaGoalConveyerAccelerationEnv(gym.Env):
             print(f"Episode {e} finished after {len(pos_hist)} steps with total reward {np.sum(reward_hist)}, dicounted return {discounted_return}.")
 
             pos_hist = np.array(pos_hist)
+            # x = pos_hist[:, 0] * self.x_range[1]
+            # y = pos_hist[:, 1] * self.y_range[1]
             x = pos_hist[:, 0]
             y = pos_hist[:, 1]
 
@@ -340,7 +336,7 @@ class LavaGoalConveyerAccelerationEnv(gym.Env):
 
 
 if __name__ == "__main__":
-    env = LavaGoalConveyerAccelerationEnv(task="sum", render_mode="human")
+    env = LavaGoalConveyerAccelerationEnv(task="lava", render_mode="human")
     env.plot_reward()
     env.plot_random_trajectories(n_traj=50)
     env.close()
