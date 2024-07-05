@@ -7,6 +7,7 @@ import gymnasium as gym
 import time
 
 import torch
+import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 
 from mlagents_envs.base_env import ActionTuple
@@ -26,23 +27,24 @@ def setup_numpy_env(env_id):
     action_dim = env.action_space.n
 
     obs, info = env.reset()
-    episodes_done, ep_len, ep_reward_sum, ep_acc_violations = 0, 0, 0, 0
+    episodes_done, ep_len, ep_reward_sum = 0, 0, 0
     loss_hist = []
     avg_q_hist = []
     ep_reward_hist = []
     ep_len_hist = []
-    ep_acc_violations_hist = []
+    ep_state_predicates = np.zeros(len(env.state_predicate_names))
+    ep_state_predicate_hist = []
 
     logging_dict = {
         "episodes_done": episodes_done,
         "ep_len": ep_len,
         "ep_reward_sum": ep_reward_sum,
-        "ep_acc_violations": ep_acc_violations,
+        "ep_state_predicates": ep_state_predicates,
         "loss_hist": loss_hist,
         "avg_q_hist": avg_q_hist,
         "ep_reward_hist": ep_reward_hist,
         "ep_len_hist": ep_len_hist,
-        "ep_acc_violations_hist": ep_acc_violations_hist
+        "ep_state_predicate_hist": ep_state_predicate_hist
     }
 
     return env, state_dim, action_dim, obs, info, logging_dict
@@ -72,6 +74,13 @@ def setup_unity_env(unity_scene_dir):
     )
     n_agents = 16  # number of agents in the unity scene
 
+    env.state_predicate_names = ["on_goal", "on_button", "trigger_on_button", "trigger_is_carried"]
+
+    def state_predicate_check(obs):
+        print("STATE PREDICATES NOT YET IMPLEMENTED FOR UNITY")
+        return np.zeros((n_agents, len(env.state_predicate_names)))
+    env.check_state_predicates = state_predicate_check
+
     env.reset()  # init unity env and all agents within
 
     episodes_done = 0
@@ -79,21 +88,21 @@ def setup_unity_env(unity_scene_dir):
     avg_q_hist = []
     ep_reward_hist = []
     ep_len_hist = []
-    ep_acc_violations_hist = []
+    ep_state_predicate_hist = []
     ep_reward_sum = np.zeros((n_agents, 1))
     ep_len = np.zeros((n_agents, 1))
-    ep_acc_violations = np.zeros((n_agents, 1))
+    ep_state_predicate = np.zeros((n_agents, len(env.state_predicate_names)))
 
     logging_dict = {
         "episodes_done": episodes_done,
         "ep_len": ep_len,
         "ep_reward_sum": ep_reward_sum,
-        "ep_acc_violations": ep_acc_violations,
+        "ep_state_predicates": ep_state_predicate,
         "loss_hist": loss_hist,
         "avg_q_hist": avg_q_hist,
         "ep_reward_hist": ep_reward_hist,
         "ep_len_hist": ep_len_hist,
-        "ep_acc_violations_hist": ep_acc_violations_hist
+        "ep_state_predicate_hist": ep_state_predicate_hist
     }
 
     return env, state_dim, action_dim, logging_dict
@@ -123,26 +132,28 @@ def env_interaction_numpy_env(
     obs = next_obs
     logging_dict["ep_len"] += 1
     logging_dict["ep_reward_sum"] += reward
+    logging_dict["ep_state_predicates"] += info["state_predicates"]
 
     if (done or trunc):
         obs, info = env.reset()
         writer.add_scalar("episode/length", logging_dict["ep_len"], logging_dict["episodes_done"])
         writer.add_scalar("episode/reward_sum", logging_dict["ep_reward_sum"], logging_dict["episodes_done"])
-        writer.add_scalar("episode/acc_violations", logging_dict["ep_acc_violations"], logging_dict["episodes_done"])
+        # writer.add_scalar("episode/acc_violations", logging_dict["ep_acc_violations"], logging_dict["episodes_done"])
+        for i, state_predicate in enumerate(env.state_predicate_names):
+            writer.add_scalar(f"episode/{state_predicate}", logging_dict["ep_state_predicates"][i], logging_dict["episodes_done"])
         logging_dict["ep_reward_hist"].append(logging_dict["ep_reward_sum"])
         logging_dict["ep_len_hist"].append(logging_dict["ep_len"])
-        logging_dict["ep_acc_violations_hist"].append(logging_dict["ep_acc_violations"])
+        logging_dict["ep_state_predicate_hist"].append(logging_dict["ep_state_predicates"])
 
         print(
             f"Episode {logging_dict['episodes_done']} | "
             f"Length: {logging_dict['ep_len']} | "
             f"Reward: {logging_dict['ep_reward_sum']} | "
-            f"Acc Violations: {logging_dict['ep_acc_violations']} | "
             f"{global_step} / {params['total_timesteps']} steps")
 
         logging_dict["ep_len"] = 0
         logging_dict["ep_reward_sum"] = 0
-        logging_dict["ep_acc_violations"] = 0
+        logging_dict["ep_state_predicates"] = np.zeros(len(env.state_predicate_names))
         logging_dict["episodes_done"] += 1
         
     return obs
@@ -195,6 +206,10 @@ def env_interaction_unity_env(
                 # compute reward
                 rew = np.array([rewards_flat_acc_env(agent_obs, task=params["unity_task"])])
                 logging_dict["ep_reward_sum"][j] += rew
+                logging_dict["ep_len"][j] += 1
+
+                state_predicates = env.check_state_predicates(agent_obs)
+                logging_dict["ep_state_predicates"][j] += state_predicates[j]
 
                 # check done
                 done = done_check_flat_acc_env(obs)
@@ -207,9 +222,11 @@ def env_interaction_unity_env(
                 writer.add_scalar("episode/length", logging_dict['ep_len'][j], logging_dict["episodes_done"])
                 logging_dict["ep_len_hist"].append(logging_dict["ep_len"][j].copy())
                 logging_dict["ep_reward_hist"].append(logging_dict['ep_reward_sum'][j].copy())
+                logging_dict["ep_state_predicate_hist"].append(logging_dict["ep_state_predicates"][j].copy())
                 logging_dict['ep_reward_sum'][j] = 0
                 logging_dict["ep_len"][j] = 0
                 logging_dict["episodes_done"] += 1
+                logging_dict["ep_state_predicates"][j] = np.zeros(len(env.state_predicate_names))
 
                 termination = np.array([int(done)])
                 info = None
@@ -229,6 +246,10 @@ def env_interaction_unity_env(
             # compute reward
             rew = np.array([rewards_flat_acc_env(agent_obs, task=params["unity_task"])])
             logging_dict["ep_reward_sum"][j] += rew
+            logging_dict["ep_len"][j] += 1
+
+            state_predicates = env.check_state_predicates(agent_obs)
+            logging_dict["ep_state_predicates"][j] += state_predicates[j]
 
             # check done ( should not be done here, since those cases are handeled above...
             done = done_check_flat_acc_env(obs)
@@ -246,22 +267,24 @@ def env_interaction_unity_env(
 
 def main():
     # HYPERPARAMETERS
-    which_env = "unity"
+    which_env = "unity"  # "unity" or "numpy
     params = {
-        "which_env": which_env,  # "unity" or "numpy"
+        "which_env": which_env,
         # "env_id": "LavaGoalConveyerAcceleration-lava-v0",
+        # "env_id": "LavaGoalConveyerAcceleration-lava-noConveyer-v0",
         "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
         "unity_take_screenshots": False,
         "unity_max_ep_len": 1000,
         "unity_task": "fetch_trigger",
-        "total_timesteps": 200_000,
+        "total_timesteps": 2_000,
         "lr": 0.0005,
         "buffer_size": 1e6,
         "gamma": 0.99,
         "tau": 1,
         "target_freq": 10_000,
-        "batch_size": 256 if which_env == "unity" else 1024,
-        "hidden_dim": 64 if which_env == "unity" else 32,
+        "batch_size": 256,
+        "hidden_dim": 64,
+        "hidden_activation": nn.ReLU,
         "start_epsilon": 1.0,
         "end_epsilon": 0.05,
         "exp_fraction": 0.5,
@@ -313,6 +336,7 @@ def main():
         action_dim=action_dim,
         state_dim=state_dim,
         hidden_dim=params["hidden_dim"],
+        hidden_activation=params["hidden_activation"],
         device=device,
         lr=params["lr"],
         gamma=params["gamma"],
@@ -387,18 +411,29 @@ def main():
     replay_buffer.save(f"{exp_dir}/replay_buffer.npz")
 
     # PLOT TRAINING CURVES
-    titles = ["Loss Q", "Avg Q", "Episode Reward", "Episode Length", "Episode Acc Violations"]
+    titles = ["Loss Q", "Avg Q", "Episode Reward", "Episode Length"]
     graphs = [
         logging_dict["loss_hist"],
         logging_dict["avg_q_hist"],
         logging_dict["ep_reward_hist"],
         logging_dict["ep_len_hist"],
-        logging_dict["ep_acc_violations_hist"]
         ]
     for y_data, title in zip(graphs, titles):
         plt.plot(y_data)
         plt.title(title)
         plt.savefig(f"{exp_dir}/{title}.png")
+        plt.close()
+
+    state_predicate_occurances = np.asarray(logging_dict["ep_state_predicate_hist"])
+    colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple", "tab:brown", "tab:pink", "tab:gray", "tab:olive", "tab:cyan"]
+    for i, state_predicate in enumerate(env.state_predicate_names):
+        y_data = state_predicate_occurances[:, i]
+        # apply some smoothing
+        y_data_smoothed = np.convolve(y_data, np.ones(10) / 10, mode="same")
+        plt.plot(y_data_smoothed, label=state_predicate, color=colors[i])
+        plt.plot(y_data, alpha=0.1, color=colors[i])
+        plt.title(f"{state_predicate} Occurances")
+        plt.savefig(f"{exp_dir}/state_predicate_{state_predicate}.png")
         plt.close()
 
     if params["which_env"] == "numpy":
