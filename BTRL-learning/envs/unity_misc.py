@@ -27,3 +27,15 @@ def rewards_flat_acc_env(agent_obs, task="reach_goal"):
 
 def done_check_flat_acc_env(agent_obs):
     return False
+
+
+unity_state_predicate_names = ["on_goal", "on_button", "trigger_on_button", "trigger_is_carried"]
+
+
+def unity_state_predicate_check(agent_obs):
+    on_goal = np.linalg.norm(agent_obs[3:6]) < 0.1
+    on_button = np.linalg.norm(agent_obs[12:15]) < 0.1
+    trigger_on_button = agent_obs[16]
+    agent_has_trigger = agent_obs[15]
+    return np.array([on_goal, on_button, trigger_on_button, agent_has_trigger])
+

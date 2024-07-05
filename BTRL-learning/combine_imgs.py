@@ -4,7 +4,7 @@ from PIL import Image
 
 unity_screenshot_dir = "/home/finn/repos/MORL-BT/Assets/Screenshots"
 runs_dir = "/home/finn/repos/MORL-BT/BTRL-learning/runs"
-exp_name = "/flat-acc-button_fetch_trigger/2024-07-05-15-56-20"
+exp_name = "/flat-acc-button_fetch_trigger/2024-07-05-16-45-29"
 q_img_dir = runs_dir + exp_name + "/imgs/Q"
 acc_img_dir = runs_dir + exp_name + "/imgs/ACC"
 
@@ -20,19 +20,13 @@ acc_fun_files = natsort.natsorted([f for f in os.listdir(acc_img_dir) if f.endsw
 
 print(f"Found {len(unity_files)} unity images and {len(q_fun_files)} q_fun images")
 
-# copy unity screenshots to exp dir
-print("Copying from unity dir to exp dir")
-for unity_file in unity_files:
-    unity_img = Image.open(os.path.join(unity_screenshot_dir, unity_file))
-    unity_img.save(f"{unity_img_dir}/{unity_file}")
-
-    # del from unity_screenshot_dir
-    os.remove(os.path.join(unity_screenshot_dir, unity_file))
-
 # combine images
 print("Combining images")
 for i, (unity_file, q_fun_file, acc_fun_file) in enumerate(zip(unity_files, q_fun_files, acc_fun_files)):
-    unity_img = Image.open(os.path.join(unity_img_dir, unity_file))
+    unity_img = Image.open(os.path.join(unity_screenshot_dir, unity_file))
+    unity_img.save(f"{unity_img_dir}/{unity_file}")
+    os.remove(os.path.join(unity_screenshot_dir, unity_file))
+
     q_fun_img = Image.open(os.path.join(q_img_dir, q_fun_file))
     acc_fun_img = Image.open(os.path.join(acc_img_dir, acc_fun_file))
 

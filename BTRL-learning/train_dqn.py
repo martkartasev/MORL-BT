@@ -15,7 +15,7 @@ from mlagents_envs.environment import UnityEnvironment
 from mlagents_envs.side_channel.engine_configuration_channel import EngineConfigurationChannel
 
 import envs
-from envs.unity_misc import rewards_flat_acc_env, done_check_flat_acc_env
+from envs.unity_misc import rewards_flat_acc_env, done_check_flat_acc_env, unity_state_predicate_check, unity_state_predicate_names
 from misc import ReplayBuffer
 from dqn import DQN
 from plotting import create_plots_numpy_env, plot_unity_q_vals
@@ -74,12 +74,9 @@ def setup_unity_env(unity_scene_dir):
     )
     n_agents = 16  # number of agents in the unity scene
 
-    env.state_predicate_names = ["on_goal", "on_button", "trigger_on_button", "trigger_is_carried"]
+    env.state_predicate_names = unity_state_predicate_names
 
-    def state_predicate_check(obs):
-        print("STATE PREDICATES NOT YET IMPLEMENTED FOR UNITY")
-        return np.zeros((n_agents, len(env.state_predicate_names)))
-    env.check_state_predicates = state_predicate_check
+    env.check_state_predicates = unity_state_predicate_check
 
     env.reset()  # init unity env and all agents within
 
@@ -178,34 +175,36 @@ def env_interaction_unity_env(
     if nr_agents > 0:
         unity_actions = np.zeros((nr_agents, 3))
         for i in decision_steps.agent_id:
-            rl_action = dqn.act(obs[i], epsilon)
+            rl_action, q_vals, con_mask = dqn.act(obs[i], epsilon, ret_vals=True)
             logging_dict["ep_len"][i] += 1
 
-            screenshot_action = 1 if params["unity_take_screenshots"] else 0
+            screenshot_action = 0
             reset_action = 0 if params["unity_max_ep_len"] > logging_dict["ep_len"][i] else 1
-            unity_actions[i] = [rl_action, reset_action, screenshot_action]
 
-            if screenshot_action:
-                os.makedirs(f"{exp_dir}/imgs/Q", exist_ok=True)
-                os.makedirs(f"{exp_dir}/imgs/ACC", exist_ok=True)
-                plot_unity_q_vals(
-                    obs[i],
-                    dqn.q_net,
-                    device,
-                    save_path=f"{exp_dir}/imgs/Q/{global_step}_Q.png",
-                    title=f"Q values: xyz={obs[i][0:3]}",
-                )
-                if dqn.con_model is not None:
+            if params["unity_take_screenshots"]:
+                if -2 < obs[i][0] < 2:
+                    screenshot_action = 1
+                    os.makedirs(f"{exp_dir}/imgs/Q", exist_ok=True)
                     plot_unity_q_vals(
                         obs[i],
-                        dqn.con_model,
+                        dqn.q_net,
                         device,
-                        save_path=f"{exp_dir}/imgs/ACC/{global_step}_reachabilityQ.png",
-                        title=f"feasibility Q values, xzy={obs[i][0:3]}",
-                        vmin=0,
-                        vmax=1
+                        save_path=f"{exp_dir}/imgs/Q/{global_step}_Q.png",
+                        title=f"Q values: xyz={obs[i][0:3]}",
                     )
+                    if dqn.con_model is not None:
+                        os.makedirs(f"{exp_dir}/imgs/ACC", exist_ok=True)
+                        plot_unity_q_vals(
+                            obs[i],
+                            dqn.con_model,
+                            device,
+                            save_path=f"{exp_dir}/imgs/ACC/{global_step}_reachabilityQ.png",
+                            title=f"feasibility Q values, xzy={obs[i][0:3]}",
+                            vmin=0,
+                            vmax=1
+                        )
 
+            unity_actions[i] = [rl_action, reset_action, screenshot_action]
 
     else:
         unity_actions = np.zeros((0, 3))  # we still need to pass an empty action tuple even if no agent acts
@@ -231,7 +230,7 @@ def env_interaction_unity_env(
                 logging_dict["ep_len"][j] += 1
 
                 state_predicates = env.check_state_predicates(agent_obs)
-                logging_dict["ep_state_predicates"][j] += state_predicates[j]
+                logging_dict["ep_state_predicates"][j] += state_predicates
 
                 # check done
                 done = done_check_flat_acc_env(obs)
@@ -271,7 +270,7 @@ def env_interaction_unity_env(
             logging_dict["ep_len"][j] += 1
 
             state_predicates = env.check_state_predicates(agent_obs)
-            logging_dict["ep_state_predicates"][j] += state_predicates[j]
+            logging_dict["ep_state_predicates"][j] += state_predicates
 
             # check done ( should not be done here, since those cases are handeled above...
             done = done_check_flat_acc_env(obs)
@@ -306,14 +305,14 @@ def main():
         "target_freq": 10_000,
         "batch_size": 256,
         "hidden_dim": 64,
-        "hidden_activation": nn.ReLU,
+        "hidden_activation": nn.ELU,
         "start_epsilon": 1.0,
         "end_epsilon": 0.05,
         "exp_fraction": 0.5,
         "learning_start": 50_000,
         "seed": 1,
         "load_cp_dqn": "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34/q_net.pth",
-        "load_cp_con": "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34/feasibility_2024-07-05-15-30-27_x>0/feasibility_dqn.pt",
+        "load_cp_con": "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34/feasibility_2024-07-05-16-24-45_x>0/feasibility_dqn.pt",
         "con_thresh": 0.25,
     }
 

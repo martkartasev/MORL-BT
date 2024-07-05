@@ -100,7 +100,7 @@ class DQN:
                 tau * q_param.data + (1.0 - tau) * target_param.data
             )
 
-    def act(self, state, epsilon):
+    def act(self, state, epsilon, ret_vals=False):
         state = torch.from_numpy(state).float().to(self.device)
         q_values = self.q_net(state)
 
@@ -120,7 +120,10 @@ class DQN:
         else:
             action = np.argmax(q_values.detach().cpu().numpy())
 
-        return action
+        if ret_vals:
+            return action, q_values.detach().cpu().numpy()
+        else:
+            return action
 
 
 
