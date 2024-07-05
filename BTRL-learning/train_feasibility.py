@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import time
-
+from mlagents_envs.environment import UnityEnvironment
 import yaml
 
 from envs import LavaGoalConveyerAccelerationEnv
@@ -81,36 +81,36 @@ def create_training_plots(model, env, exp_dir, train_loss_hist=None, lr_hist=Non
         plt.savefig(f"{exp_dir}/feasibility_lr.png")
         plt.close()
 
-    # if isinstance(env, LavaGoalConveyerAccelerationEnv):
-    for vel in [
-        np.array([0.0, 0.0]),
-        np.array([2.0, 0.0]),
-        np.array([-2.0, 0.0]),
-        np.array([0.0, 2.0]),
-        np.array([0.0, -2.0]),
-    ]:
-        value_function = "min"
-        plot_value_2D(
-            dqn=model,
-            velocity=vel,
-            value_function=value_function,
-            env=env,
-            x_lim=env.x_range,
-            x_steps=env.x_range[-1] + 1,
-            y_lim=env.y_range,
-            y_steps=env.y_range[-1] + 1,
-            device="cpu",
-            save_path=f"{exp_dir}/feasibility_vf:{value_function}_velocity:{vel}.png"
-        )
+    if env is not None and isinstance(env, LavaGoalConveyerAccelerationEnv):
+        for vel in [
+            np.array([0.0, 0.0]),
+            np.array([2.0, 0.0]),
+            np.array([-2.0, 0.0]),
+            np.array([0.0, 2.0]),
+            np.array([0.0, -2.0]),
+        ]:
+            value_function = "min"
+            plot_value_2D(
+                dqn=model,
+                velocity=vel,
+                value_function=value_function,
+                env=env,
+                x_lim=env.x_range,
+                x_steps=env.x_range[-1] + 1,
+                y_lim=env.y_range,
+                y_steps=env.y_range[-1] + 1,
+                device="cpu",
+                save_path=f"{exp_dir}/feasibility_vf:{value_function}_velocity:{vel}.png"
+            )
 
-    for eval_state in env.eval_states:
-        plot_discrete_actions(
-            dqn=model,
-            state=eval_state,
-            action_map=env.action_map,
-            device="cpu",
-            save_path=f"{exp_dir}/feasibility_qf_state:{eval_state}.png",
-        )
+        for eval_state in env.eval_states:
+            plot_discrete_actions(
+                dqn=model,
+                state=eval_state,
+                action_map=env.action_map,
+                device="cpu",
+                save_path=f"{exp_dir}/feasibility_qf_state:{eval_state}.png",
+            )
 
 
 def train_model(
@@ -223,21 +223,32 @@ def train_model(
 
 
 def main():
-    load_rb_dir = "/home/finn/repos/MORL-BT/BTRL-learning/runs/LavaGoalConveyerAcceleration-lava-v0/2024-07-04-21-02-36"
+    # load_rb_dir = "runs/LavaGoalConveyerAcceleration-lava-v0/2024-07-05-09-56-06_veryGood_afterRefactor"
+    # load_rb_dir = "runs/LavaGoalConveyerAcceleration-lava-noConveyer-v0/2024-07-05-14-53-05"
+    load_rb_dir = "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34"
     rb_path = f"{load_rb_dir}/replay_buffer.npz"
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
     exp_dir = f"{load_rb_dir}/feasibility_{timestamp}"
     os.makedirs(exp_dir, exist_ok=True)
 
-    env = LavaGoalConveyerAccelerationEnv(task="lava")
-    n_obs = 6
-    n_actions = 9
+    # for numpy env
+    # env = LavaGoalConveyerAccelerationEnv(task="lava")
+    # n_obs = 6
+    # n_actions = 9
+    # def label_fun(state):
+    #     return env.lava_x_range[0] < state[0] < env.lava_x_range[-1] and env.lava_y_range[0] < state[1] < env.lava_y_range[-1]
+
+    # unity env
+    env = None
+    n_obs = 17
+    n_actions = 25
+    def label_fun(state):
+        return state[0] > 0.0
+
     print("Loading data...")
     data, obs, actions, next_obs, dones = load_data_from_rb(rb_path, n_obs, n_actions)
 
     print("Labeling transitions...")
-    def label_fun(state):
-        return env.lava_x_range[0] < state[0] < env.lava_x_range[-1] and env.lava_y_range[0] < state[1] < env.lava_y_range[-1]
     labels = label_data(all_obs=obs, label_fun=label_fun)
 
     params = {
@@ -246,6 +257,7 @@ def main():
         "batch_size": 1024,
         "epochs": 500,
         "nuke_layer_every": 1e6,
+        "hidden_activation": torch.nn.ELU
     }
 
     # save params as yaml
@@ -253,8 +265,8 @@ def main():
         yaml.dump(params, f)
 
     print("Setting up model...")
-    model = MLP(input_size=n_obs, output_size=n_actions, squash_output=True)
-    target_model = MLP(input_size=n_obs, output_size=n_actions, squash_output=True)
+    model = MLP(input_size=n_obs, output_size=n_actions, squash_output=True, hidden_activation=params["hidden_activation"])
+    target_model = MLP(input_size=n_obs, output_size=n_actions, squash_output=True, hidden_activation=params["hidden_activation"])
     target_model.load_state_dict(model.state_dict())
     optimizer = torch.optim.Adam(model.parameters(), lr=params["optimizer_initial_lr"])
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=params["exponential_lr_decay"])

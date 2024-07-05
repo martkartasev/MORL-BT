@@ -133,3 +133,77 @@ def create_plots_numpy_env(
             save_path=f"{save_dir}/qf_state:{eval_state}.png",
         )
 
+
+class EnvActuatorGrid5x5:
+    def __init__(self):
+        self.num_actions = 25
+
+    def get_acceleration(self, action):
+        """
+        Get acceleration from discrete action, taken form unity env actuator
+        @param action: int, discrete action
+        """
+        i = action % 5
+        j = action // 5
+        acceleration_x = (i - 2) / 2.0
+        acceleration_z = (j - 2) / 2.0
+        return (acceleration_x, 0.0, acceleration_z)
+
+    def plot_action_acceleration_mapping(self):
+        for action in range(25):
+            acceleration = self.get_acceleration(action)
+            action_row = action // 5
+            row_markers = ["v", "s", "o", "d", "^"]
+            action_col = action % 5
+            colors = ["r", "g", "b", "c", "m", "y", "k", "w"]
+            plt.scatter(
+                acceleration[0],
+                acceleration[2],
+                label=f"Action {action}",
+                marker=row_markers[action_row],
+                color=colors[action_col])
+
+        plt.xlabel("Acceleration x")
+        plt.ylabel("Acceleration z")
+
+        # put legend left and outside
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        plt.tight_layout()
+        plt.show()
+
+
+def plot_unity_q_vals(state, dqn, device, save_path="", title="", vmin=None, vmax=None):
+    q_vals = dqn(torch.Tensor(state).to(device).unsqueeze(0)).detach().cpu().numpy().flatten()
+    actuator = EnvActuatorGrid5x5()
+    for action in range(q_vals.shape[0]):
+        acceleration = actuator.get_acceleration(action)
+        plt.scatter(
+            acceleration[0],
+            acceleration[2],
+            s=100,
+            c=q_vals[action],
+            cmap='viridis',
+            vmin=min(q_vals) if vmin is None else vmin,
+            vmax=max(q_vals) if vmax is None else vmax,
+        )
+        plt.text(acceleration[0], acceleration[2] + 0.05, str(action), fontsize=6, ha='center', va='center')
+
+    # plt.title(f"Button: [{button_relative_position[0]:.3f}, {button_relative_position[2]:.3f}] , Trigger: [{trigger_relative_position[0]:.3f}, {trigger_relative_position[2]:.3f}]")
+    plt.title(title)
+    plt.xlabel("Acceleration x")
+    plt.ylabel("Acceleration z")
+    plt.colorbar(label="Q-value")
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, bbox_inches="tight")
+    else:
+        plt.show()
+
+    plt.close()
+
+
+if __name__ == "__main__":
+    env_actuator = EnvActuatorGrid5x5()
+    env_actuator.plot_action_acceleration_mapping()
+

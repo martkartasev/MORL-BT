@@ -18,7 +18,7 @@ import envs
 from envs.unity_misc import rewards_flat_acc_env, done_check_flat_acc_env
 from misc import ReplayBuffer
 from dqn import DQN
-from plotting import create_plots_numpy_env
+from plotting import create_plots_numpy_env, plot_unity_q_vals
 
 
 def setup_numpy_env(env_id):
@@ -57,7 +57,7 @@ def setup_unity_env(unity_scene_dir):
     engine.set_configuration_parameters(width=1000, height=1000)
     print("Creating unity env (instance started?)...")
     env = UnityEnvironment(
-        file_name=f"envs/unity_builds/{unity_scene_dir}/myBuild-MORL-BT.x86_64",  # comment out to connect to unity editor instance
+        # file_name=f"envs/unity_builds/{unity_scene_dir}/myBuild-MORL-BT.x86_64",  # comment out to connect to unity editor instance
         no_graphics=False,  # Can disable graphics if needed
         # base_port=10001,  # for starting multiple envs
         side_channels=[engine])
@@ -163,6 +163,9 @@ def env_interaction_unity_env(
         dqn,
         epsilon,
         env,
+        device,
+        exp_dir,
+        global_step,
         replay_buffer,
         writer,
         params,
@@ -183,7 +186,26 @@ def env_interaction_unity_env(
             unity_actions[i] = [rl_action, reset_action, screenshot_action]
 
             if screenshot_action:
-                raise NotImplementedError("Taking screenshots is not implemented yet.")
+                os.makedirs(f"{exp_dir}/imgs/Q", exist_ok=True)
+                os.makedirs(f"{exp_dir}/imgs/ACC", exist_ok=True)
+                plot_unity_q_vals(
+                    obs[i],
+                    dqn.q_net,
+                    device,
+                    save_path=f"{exp_dir}/imgs/Q/{global_step}_Q.png",
+                    title=f"Q values: xyz={obs[i][0:3]}",
+                )
+                if dqn.con_model is not None:
+                    plot_unity_q_vals(
+                        obs[i],
+                        dqn.con_model,
+                        device,
+                        save_path=f"{exp_dir}/imgs/ACC/{global_step}_reachabilityQ.png",
+                        title=f"feasibility Q values, xzy={obs[i][0:3]}",
+                        vmin=0,
+                        vmax=1
+                    )
+
 
     else:
         unity_actions = np.zeros((0, 3))  # we still need to pass an empty action tuple even if no agent acts
@@ -273,7 +295,7 @@ def main():
         # "env_id": "LavaGoalConveyerAcceleration-lava-v0",
         # "env_id": "LavaGoalConveyerAcceleration-lava-noConveyer-v0",
         "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
-        "unity_take_screenshots": False,
+        "unity_take_screenshots": True,
         "unity_max_ep_len": 1000,
         "unity_task": "fetch_trigger",
         "total_timesteps": 2_000,
@@ -290,9 +312,9 @@ def main():
         "exp_fraction": 0.5,
         "learning_start": 50_000,
         "seed": 1,
-        "load_cp_dqn": "",
-        "load_cp_con": "",
-        "con_thresh": 0.1,
+        "load_cp_dqn": "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34/q_net.pth",
+        "load_cp_con": "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34/feasibility_2024-07-05-15-30-27_x>0/feasibility_dqn.pt",
+        "con_thresh": 0.25,
     }
 
     # DIR FOR LOGGING
@@ -326,11 +348,6 @@ def main():
     else:
         raise ValueError(f"which_env must be 'numpy' or 'unity' but got '{params['which_env']}'")
 
-    if params["load_cp_con"]:
-        raise NotImplementedError("Constrained model is not implemented yet.")
-    else:
-        con_model = None
-
     # MODEL
     dqn = DQN(
         action_dim=action_dim,
@@ -341,7 +358,7 @@ def main():
         lr=params["lr"],
         gamma=params["gamma"],
         load_cp=params["load_cp_dqn"],
-        con_model=con_model,
+        con_model_load_cp=params["load_cp_con"],
         con_thresh=params["con_thresh"],
     )
 
@@ -355,7 +372,10 @@ def main():
     # TRAINING
     epsilon_vals = np.linspace(params["start_epsilon"], params["end_epsilon"], int(params["exp_fraction"] * params["total_timesteps"]))
     for global_step in range(params["total_timesteps"]):
-        epsilon = epsilon_vals[min(global_step, len(epsilon_vals) - 1)]
+        if params["load_cp_dqn"]:
+            epsilon = epsilon_vals[-1]
+        else:
+            epsilon = epsilon_vals[min(global_step, len(epsilon_vals) - 1)]
         writer.add_scalar("epsilon", epsilon, global_step)
 
         # one-step interaction with the environment
@@ -376,6 +396,9 @@ def main():
                 dqn=dqn,
                 epsilon=epsilon,
                 env=env,
+                device=device,
+                exp_dir=exp_dir,
+                global_step=global_step,
                 replay_buffer=replay_buffer,
                 writer=writer,
                 params=params,
