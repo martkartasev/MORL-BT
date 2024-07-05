@@ -30,6 +30,10 @@ class DQN:
         self.con_thresh = con_thresh
 
         self.q_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_size=self.hidden_dim)
+
+        if self.load_cp:
+            self.q_net.load_state_dict(torch.load(self.load_cp))
+
         self.q_target_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_size=self.hidden_dim)
         self.q_target_net.load_state_dict(self.q_net.state_dict())
 
