@@ -175,7 +175,7 @@ def env_interaction_unity_env(
     if nr_agents > 0:
         unity_actions = np.zeros((nr_agents, 3))
         for i in decision_steps.agent_id:
-            rl_action, q_vals, con_mask = dqn.act(obs[i], epsilon, ret_vals=True)
+            rl_action, q_vals = dqn.act(obs[i], epsilon, ret_vals=True)
             logging_dict["ep_len"][i] += 1
 
             screenshot_action = 0
