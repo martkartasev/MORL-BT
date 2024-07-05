@@ -133,9 +133,3 @@ def create_plots_numpy_env(
             save_path=f"{save_dir}/qf_state:{eval_state}.png",
         )
 
-
-if __name__ == "__main__":
-
-
-
-    create_plots_numpy_env()
