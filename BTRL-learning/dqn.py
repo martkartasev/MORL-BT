@@ -6,6 +6,7 @@ import torch.optim as optim
 
 from networks import MLP
 
+
 class DQN:
     def __init__(
             self,
@@ -13,6 +14,7 @@ class DQN:
             state_dim,
             hidden_dim,
             device,
+            hidden_activation=nn.ELU,
             lr=1e-3,
             gamma=0.99,
             load_cp="",
@@ -22,6 +24,7 @@ class DQN:
         self.action_dim = action_dim
         self.state_dim = state_dim
         self.hidden_dim = hidden_dim
+        self.hidden_activation = hidden_activation
         self.device = device
         self.lr = lr
         self.gamma = gamma
@@ -29,12 +32,12 @@ class DQN:
         self.con_model = con_model
         self.con_thresh = con_thresh
 
-        self.q_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_size=self.hidden_dim)
+        self.q_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_size=self.hidden_dim, hidden_activation=self.hidden_activation)
 
         if self.load_cp:
             self.q_net.load_state_dict(torch.load(self.load_cp))
 
-        self.q_target_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_size=self.hidden_dim)
+        self.q_target_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_size=self.hidden_dim, hidden_activation=self.hidden_activation)
         self.q_target_net.load_state_dict(self.q_net.state_dict())
 
         for model in [self.q_net, self.q_target_net]:
