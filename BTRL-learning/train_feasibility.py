@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import time
-from mlagents_envs.environment import UnityEnvironment
+# from mlagents_envs.environment import UnityEnvironment
 import yaml
 
-from envs import LavaGoalConveyerAccelerationEnv
+from envs import LavaGoalConveyerAccelerationEnv, SimpleAccEnv
 from networks import MLP
 from plotting import plot_value_2D, plot_discrete_actions
 
@@ -67,7 +67,7 @@ def label_data(all_obs, label_fun):
 def create_training_plots(model, env, exp_dir, train_loss_hist=None, lr_hist=None):
     if train_loss_hist is not None:
         plt.plot(train_loss_hist, label="train_loss")
-        plt.ylabel("TD MSE-Loss")
+        plt.ylabel("TD Loss")
         plt.xlabel("Updates")
         plt.legend()
         plt.savefig(f"{exp_dir}/feasibility_qf_loss.png")
@@ -128,17 +128,17 @@ def train_model(
         exp_dir,
         epochs=10,
         nuke_layer_every=1e6,
+        criterion=torch.nn.MSELoss()
 ):
 
-    # criterion = torch.nn.MSELoss()
-    criterion = torch.nn.BCELoss()
+    criterion = criterion()
 
     train_loss_hist = []
     lr_hist = []
     print("Training model...")
 
     batches_per_episode = states.shape[0] // batch_size
-    gamma = 0.9999
+    gamma = 0.99
     for epoch in range(epochs):
         model.train()
         target_model.train()
@@ -156,16 +156,17 @@ def train_model(
 
             # compute TD target
             with torch.no_grad():
-                # target_q_values = target_model(next_state_batch.float())
-                target_q_values = model(next_state_batch.float())
+                target_q_values = target_model(next_state_batch.float())
+                # target_q_values = model(next_state_batch.float())
 
                 # target_max = target_q_values.max(dim=1, keepdim=True)[0]
                 # td_target = reward_batch + gamma * target_max * (1 - done_batch)
 
-                current_state_val = (1 - gamma) * reward_batch
+                # current_state_val = (1 - gamma) * reward_batch
+                current_state_val = reward_batch
                 target_min = target_q_values.min(dim=1, keepdim=True)[0]
                 future_val = torch.max(target_min, reward_batch)
-                td_target = current_state_val + gamma * future_val * (1 - done_batch)
+                td_target = current_state_val + gamma * future_val
 
             q_values = model(state_batch.float())
             q_values = q_values.gather(dim=1, index=action_batch.to(torch.int64))
@@ -195,21 +196,20 @@ def train_model(
         target_model.load_state_dict(model.state_dict())
 
         if epoch % 50 == 0:
-            epoch_plot_dir = f"{exp_dir}/epoch_{epoch}"
-            os.makedirs(epoch_plot_dir, exist_ok=True)
-
-            create_training_plots(
-                model=model,
-                env=env,
-                train_loss_hist=train_loss_hist,
-                lr_hist=lr_hist,
-                exp_dir=epoch_plot_dir,
-            )
+            # epoch_plot_dir = f"{exp_dir}/epoch_{epoch}"
+            # os.makedirs(epoch_plot_dir, exist_ok=True)
+            # create_training_plots(
+            #     model=model,
+            #     env=env,
+            #     train_loss_hist=train_loss_hist,
+            #     lr_hist=lr_hist,
+            #     exp_dir=epoch_plot_dir,
+            # )
 
             # save the model
-            torch.save(model.state_dict(), f"{epoch_plot_dir}/feasibility_dqn.pt")
+            torch.save(model.state_dict(), f"{exp_dir}/feasibility_dqn.pt")
 
-        if epoch % nuke_layer_every == 0:
+        if epoch % nuke_layer_every == 0 and epoch > 0:
             print(f"Nuking last FC layer...")
             model.network[-2].reset_parameters()
             target_model.network[-2].reset_parameters()
@@ -225,7 +225,8 @@ def train_model(
 def main():
     # load_rb_dir = "runs/LavaGoalConveyerAcceleration-lava-v0/2024-07-05-09-56-06_veryGood_afterRefactor"
     # load_rb_dir = "runs/LavaGoalConveyerAcceleration-lava-noConveyer-v0/2024-07-05-14-53-05"
-    load_rb_dir = "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34"
+    # load_rb_dir = "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34"
+    load_rb_dir = "runs/SimpleAccEnv-lava-v0/2024-07-07-11-18-06"
     rb_path = f"{load_rb_dir}/replay_buffer.npz"
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
     exp_dir = f"{load_rb_dir}/feasibility_{timestamp}"
@@ -238,12 +239,19 @@ def main():
     # def label_fun(state):
     #     return env.lava_x_range[0] < state[0] < env.lava_x_range[-1] and env.lava_y_range[0] < state[1] < env.lava_y_range[-1]
 
-    # unity env
-    env = None
-    n_obs = 17
+    env = SimpleAccEnv()
+    n_obs = 4
     n_actions = 25
     def label_fun(state):
-        return state[0] > 0.0
+        # return env._in_lava(state)
+        return env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max
+
+    # unity env
+    # env = None
+    # n_obs = 17
+    # n_actions = 25
+    # def label_fun(state):
+    #     return state[0] > 0.0
 
     print("Loading data...")
     data, obs, actions, next_obs, dones = load_data_from_rb(rb_path, n_obs, n_actions)
@@ -255,9 +263,13 @@ def main():
         "optimizer_initial_lr": 0.001,
         "exponential_lr_decay": 0.99,
         "batch_size": 1024,
-        "epochs": 500,
+        "epochs": 100,
         "nuke_layer_every": 1e6,
-        "hidden_activation": torch.nn.ELU
+        "hidden_activation": torch.nn.ReLU,
+        "hidden_dim": 64,
+        "squash_output": False,
+        "criterion": torch.nn.MSELoss
+        # "criterion": torch.nn.L1Loss
     }
 
     # save params as yaml
@@ -265,8 +277,8 @@ def main():
         yaml.dump(params, f)
 
     print("Setting up model...")
-    model = MLP(input_size=n_obs, output_size=n_actions, squash_output=True, hidden_activation=params["hidden_activation"])
-    target_model = MLP(input_size=n_obs, output_size=n_actions, squash_output=True, hidden_activation=params["hidden_activation"])
+    model = MLP(input_size=n_obs, output_size=n_actions, squash_output=params["squash_output"], hidden_activation=params["hidden_activation"], hidden_size=params["hidden_dim"])
+    target_model = MLP(input_size=n_obs, output_size=n_actions, squash_output=params["squash_output"], hidden_activation=params["hidden_activation"], hidden_size=params["hidden_dim"])
     target_model.load_state_dict(model.state_dict())
     optimizer = torch.optim.Adam(model.parameters(), lr=params["optimizer_initial_lr"])
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=params["exponential_lr_decay"])
@@ -278,6 +290,7 @@ def main():
         target_model=target_model,
         optimizer=optimizer,
         scheduler=scheduler,
+        criterion=params["criterion"],
         states=obs,
         actions=actions,
         labels=labels,
