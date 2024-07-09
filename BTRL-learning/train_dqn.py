@@ -50,22 +50,30 @@ def setup_numpy_env(env_id):
     return env, state_dim, action_dim, obs, info, logging_dict
 
 
-def setup_unity_env(unity_scene_dir):
+def setup_unity_env(unity_scene_dir, take_screenshots=False):
     engine = EngineConfigurationChannel()
     engine.set_configuration_parameters(time_scale=2)  # Can speed up simulation between steps with this
     engine.set_configuration_parameters(quality_level=0)
     engine.set_configuration_parameters(width=1000, height=1000)
     print("Creating unity env (instance started?)...")
-    env = UnityEnvironment(
-        # file_name=f"envs/unity_builds/{unity_scene_dir}/myBuild-MORL-BT.x86_64",  # comment out to connect to unity editor instance
-        no_graphics=False,  # Can disable graphics if needed
-        # base_port=10001,  # for starting multiple envs
-        side_channels=[engine])
+    if take_screenshots:
+        env = UnityEnvironment(
+            # file_name=f"envs/unity_builds/{unity_scene_dir}/myBuild-MORL-BT.x86_64",
+            # comment out to connect to unity editor instance
+            no_graphics=False,  # Can disable graphics if needed
+            # base_port=10001,  # for starting multiple envs
+            side_channels=[engine])
+    else:
+        env = UnityEnvironment(
+            file_name=f"envs/unity_builds/{unity_scene_dir}/myBuild-MORL-BT.x86_64",  # comment out to connect to unity editor instance
+            no_graphics=False,  # Can disable graphics if needed
+            # base_port=10001,  # for starting multiple envs
+            side_channels=[engine])
     print("Unity env ready")
 
     action_dim = 25
-    # state_dim = 9  # for flat env with pos, acc, goal
-    state_dim = 17  # for flat env with pos, acc, goal, trigger, button
+    state_dim = 9  # for flat env with pos, acc, goal
+    # state_dim = 17  # for flat env with pos, acc, goal, trigger, button
     env.action_space = gym.spaces.Discrete(action_dim)
     env.observation_space = gym.spaces.Box(
         low=np.array([-np.inf] * state_dim),
@@ -182,7 +190,7 @@ def env_interaction_unity_env(
             reset_action = 0 if params["unity_max_ep_len"] > logging_dict["ep_len"][i] else 1
 
             if params["unity_take_screenshots"]:
-                if -2 < obs[i][0] < 2:
+                if -2 < obs[i][2] < 2:
                     screenshot_action = 1
                     os.makedirs(f"{exp_dir}/imgs/Q", exist_ok=True)
                     plot_unity_q_vals(
@@ -343,7 +351,7 @@ def main():
     if params["which_env"] == "numpy":
         env, state_dim, action_dim, obs, info, logging_dict = setup_numpy_env(params["env_id"])
     elif params["which_env"] == "unity":
-        env, state_dim, action_dim, logging_dict = setup_unity_env(params["env_id"])
+        env, state_dim, action_dim, logging_dict = setup_unity_env(params["env_id"], take_screenshots=params["unity_take_screenshots"])
     else:
         raise ValueError(f"which_env must be 'numpy' or 'unity' but got '{params['which_env']}'")
 
