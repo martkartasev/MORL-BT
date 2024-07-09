@@ -10,9 +10,9 @@ import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 
-from mlagents_envs.base_env import ActionTuple
-from mlagents_envs.environment import UnityEnvironment
-from mlagents_envs.side_channel.engine_configuration_channel import EngineConfigurationChannel
+# from mlagents_envs.base_env import ActionTuple
+# from mlagents_envs.environment import UnityEnvironment
+# from mlagents_envs.side_channel.engine_configuration_channel import EngineConfigurationChannel
 
 import envs
 from envs.unity_misc import rewards_flat_acc_env, done_check_flat_acc_env, unity_state_predicate_check, unity_state_predicate_names
@@ -296,31 +296,35 @@ def env_interaction_unity_env(
 
 def main():
     # HYPERPARAMETERS
-    which_env = "unity"  # "unity" or "numpy
+    which_env = "numpy"  # "unity" or "numpy
     params = {
         "which_env": which_env,
         # "env_id": "LavaGoalConveyerAcceleration-lava-v0",
         # "env_id": "LavaGoalConveyerAcceleration-lava-noConveyer-v0",
-        "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
+        # "env_id": "SimpleAccEnv-lava-v0",
+        # "env_id": "SimpleAccEnv-withConveyer-lava-v0",
+        # "env_id": "SimpleAccEnv-goal-v0",
+        "env_id": "SimpleAccEnv-withConveyer-goal-v0",
+        # "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
         "unity_take_screenshots": True,
         "unity_max_ep_len": 1000,
         "unity_task": "fetch_trigger",
-        "total_timesteps": 2_000,
+        "total_timesteps": 50_000,
         "lr": 0.0005,
         "buffer_size": 1e6,
         "gamma": 0.99,
         "tau": 1,
-        "target_freq": 10_000,
+        "target_freq": 1_000,
         "batch_size": 256,
         "hidden_dim": 64,
-        "hidden_activation": nn.ELU,
+        "hidden_activation": nn.ReLU,
         "start_epsilon": 1.0,
         "end_epsilon": 0.05,
         "exp_fraction": 0.5,
-        "learning_start": 50_000,
+        "learning_start": 10_000,
         "seed": 1,
-        "load_cp_dqn": "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34/q_net.pth",
-        "load_cp_con": "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34/feasibility_2024-07-05-16-24-45_x>0/feasibility_dqn.pt",
+        "load_cp_dqn": "",
+        "load_cp_con": "",
         "con_thresh": 0.25,
     }
 
