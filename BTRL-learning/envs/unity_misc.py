@@ -35,7 +35,13 @@ unity_state_predicate_names = ["on_goal", "on_button", "trigger_on_button", "tri
 def unity_state_predicate_check(agent_obs):
     on_goal = np.linalg.norm(agent_obs[3:6]) < 0.1
     on_button = np.linalg.norm(agent_obs[12:15]) < 0.1
-    trigger_on_button = agent_obs[16]
-    agent_has_trigger = agent_obs[15]
+
+    if 9 < len(agent_obs) < 17:
+        trigger_on_button = agent_obs[16]
+        agent_has_trigger = agent_obs[15]
+    else:
+        trigger_on_button = False
+        agent_has_trigger = False
+
     return np.array([on_goal, on_button, trigger_on_button, agent_has_trigger])
 
