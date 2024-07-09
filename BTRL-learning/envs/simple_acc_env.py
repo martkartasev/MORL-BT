@@ -25,7 +25,8 @@ class SimpleAccEnv(gym.Env):
             lava_x_max=8,
             lava_y_min=3,
             lava_y_max=7,
-            task="lava"
+            task="lava",
+            with_conveyer=False,
     ):
         self.x_min = x_min
         self.x_max = x_max
@@ -36,13 +37,25 @@ class SimpleAccEnv(gym.Env):
         self.max_velocity = max_velocity
         self.dt = dt
         self.max_ep_len = max_ep_len
-        self.lava_x_min = lava_x_min
-        self.lava_x_max = lava_x_max
-        self.lava_y_min = lava_y_min
-        self.lava_y_max = lava_y_max
+        self.with_conveyer = with_conveyer
+        self.conveyer_x_min = 2
+        self.conveyer_x_max = 6
+        self.conveyer_y_min = 3
+        self.conveyer_y_max = 7
+        if self.with_conveyer:
+            self.lava_x_min = 6
+            self.lava_x_max = lava_x_max
+            self.lava_y_min = lava_y_min
+            self.lava_y_max = lava_y_max
+        else:
+            self.lava_x_min = lava_x_min
+            self.lava_x_max = lava_x_max
+            self.lava_y_min = lava_y_min
+            self.lava_y_max = lava_y_max
         self.task = task
 
-        assert task in ["lava", "goal"]
+
+        assert task in ["lava", "goal", "on_conveyer"]
 
         self.eval_states = [
             np.array([5.0, 5.0, 0.0, 0.0]),  # in lava
@@ -72,7 +85,7 @@ class SimpleAccEnv(gym.Env):
             ])
         )
 
-        self.state_predicate_names = ["in_lava", "at_goal"]
+        self.state_predicate_names = ["in_lava", "at_goal", "on_conveyer"]
 
         # episode variables, need to be reset
         self.x = None
@@ -87,11 +100,14 @@ class SimpleAccEnv(gym.Env):
     def _in_lava(self):
         return self.lava_x_min <= self.x <= self.lava_x_max and self.lava_y_min <= self.y <= self.lava_y_max
 
+    def _on_conveyer(self):
+        return self.conveyer_x_min <= self.x <= self.conveyer_x_max and self.conveyer_y_min <= self.y <= self.conveyer_y_max
+
     def _at_goal(self):
         return np.linalg.norm([5 - self.x, 9 - self.y]) < 0.5
 
     def check_state_predicates(self):
-        predicates = [self._in_lava(), self._at_goal()]
+        predicates = [self._in_lava(), self._at_goal(), self._on_conveyer()]
         assert len(predicates) == len(self.state_predicate_names)
         return predicates
 
@@ -118,6 +134,8 @@ class SimpleAccEnv(gym.Env):
 
         agent_in_lava = self._in_lava()
         agent_at_goal = self._at_goal()
+        agent_on_conveyer = self._on_conveyer()
+
         if self.task == "lava":
             reward = -10 if agent_in_lava else 0
         elif self.task == "goal":
@@ -131,6 +149,10 @@ class SimpleAccEnv(gym.Env):
         self.vel_x += acc[0] * self.dt
         self.vel_y += acc[1] * self.dt
 
+        if agent_on_conveyer and self.with_conveyer:
+            self.vel_x = 2.0
+            self.vel_y = 0.0
+
         # clamp velocity
         self.vel_x = np.clip(self.vel_x, -self.max_velocity, self.max_velocity)
         self.vel_y = np.clip(self.vel_y, -self.max_velocity, self.max_velocity)
@@ -141,7 +163,7 @@ class SimpleAccEnv(gym.Env):
 
         # clamp position
         self.x = np.clip(self.x, self.x_min, self.x_max)
-
+        self.y = np.clip(self.y, self.y_min, self.y_max)
 
         new_obs = self._get_obs()
         done = False
@@ -158,7 +180,7 @@ class SimpleAccEnv(gym.Env):
 
 def plot_trajectories(env, n=3, fixed_action=None, reset_options={}):
     # plot lava rectangle
-    rect = plt.Rectangle(
+    lava_rect = plt.Rectangle(
         (env.lava_x_min, env.lava_y_min),
         env.lava_x_max - env.lava_x_min,
         env.lava_y_max - env.lava_y_min,
@@ -166,7 +188,18 @@ def plot_trajectories(env, n=3, fixed_action=None, reset_options={}):
         color='orange',
         alpha=0.5
     )
-    plt.gca().add_patch(rect)
+    plt.gca().add_patch(lava_rect)
+
+    if env.with_conveyer:
+        conveyer_rect = plt.Rectangle(
+            (env.conveyer_x_min, env.conveyer_y_min),
+            env.conveyer_x_max - env.conveyer_x_min,
+            env.conveyer_y_max - env.conveyer_y_min,
+            fill=True,
+            color='gray',
+            alpha=0.5
+        )
+        plt.gca().add_patch(conveyer_rect)
 
     for _ in range(n):
         obs, _ = env.reset(options=reset_options)
@@ -207,7 +240,7 @@ def plot_action_acceleration():
 
 
 if __name__ == "__main__":
-    env = SimpleAccEnv()
+    env = SimpleAccEnv(with_conveyer=False)
 
     # plot accelerations
     # plot_action_acceleration()
@@ -217,14 +250,14 @@ if __name__ == "__main__":
         env,
         n=10,
         # fixed_action=18,
-        fixed_action=10,
-        # fixed_action=None,
+        # fixed_action=10,
+        fixed_action=None,
         # reset_options={},
-        reset_options={
-            "x": 5,
-            "y": 2.0,
-            "vel_x": 0,
-            "vel_y": 2
-        }
+        # reset_options={
+        #     "x": 5,
+        #     "y": 2.0,
+        #     "vel_x": 0,
+        #     "vel_y": 2
+        # }
     )
 

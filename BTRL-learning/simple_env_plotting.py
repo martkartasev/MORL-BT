@@ -115,8 +115,9 @@ def plot_rollouts(
         con_thresh=0.25,
         n_rollouts=1,
         con_squash_output=True,
+        with_conveyer=False
 ):
-    env = SimpleAccEnv()
+    env = SimpleAccEnv(with_conveyer=with_conveyer)
 
     task_params = yaml.load(open(f"{task_dqn_dir}/params.yaml", "r"), Loader=yaml.FullLoader)
     task_dqn = MLP(
@@ -168,6 +169,16 @@ def plot_rollouts(
             alpha=0.5
         )
         plt.gca().add_patch(rect)
+        if with_conveyer:
+            conveyer_rect = plt.Rectangle(
+                (env.conveyer_x_min, env.conveyer_y_min),
+                env.conveyer_x_max - env.conveyer_x_min,
+                env.conveyer_y_max - env.conveyer_y_min,
+                fill=True,
+                color='gray',
+                alpha=0.5
+            )
+            plt.gca().add_patch(conveyer_rect)
 
         reset_options = {
             "y": 1
@@ -221,6 +232,16 @@ def plot_rollouts(
                 alpha=0.5
             )
             q_val_axs[2].add_patch(rect)
+            if with_conveyer:
+                conveyer_rect = plt.Rectangle(
+                    (env.conveyer_x_min, env.conveyer_y_min),
+                    env.conveyer_x_max - env.conveyer_x_min,
+                    env.conveyer_y_max - env.conveyer_y_min,
+                    fill=True,
+                    color='gray',
+                    alpha=0.5
+                )
+                q_val_axs[2].add_patch(conveyer_rect)
             q_val_axs[2].quiver(obs[0], obs[1], obs[2], obs[3], color="r")  # current state
             plt.plot(np.array(trajectory)[:, 0], np.array(trajectory)[:, 1], 'o-', c="r", alpha=0.5)
             q_val_axs[2].set_xlim(env.x_min - 0.1, env.x_max + 0.1)
@@ -251,31 +272,21 @@ def plot_rollouts(
 
 
 if __name__ == "__main__":
-    # plot_cp(
-    #     # cp_dir=r"runs\SimpleAccEnv-lava-v0\2024-07-07-11-18-06",
-    #     cp_dir=r"runs\SimpleAccEnv-goal-v0\2024-07-07-15-37-13",
-    # )
     plot_cp(
-        # cp_dir=r"runs/SimpleAccEnv-lava-v0\2024-07-07-11-18-06\feasibility_2024-07-07-15-11-01",
-        # squash_output=True,
-        # cp_dir=r"runs\SimpleAccEnv-lava-v0\2024-07-07-11-18-06\feasibility_2024-07-08-15-30-34",
-        # cp_dir=r"runs\SimpleAccEnv-lava-v0\2024-07-07-11-18-06\feasibility_2024-07-08-15-42-25",
-        # squash_output=False,
-        # cp_dir=r"runs\SimpleAccEnv-lava-v0\2024-07-07-11-18-06\feasibility_2024-07-08-10-04-46",
-        # squash_output=False,
-        # cp_dir=r"runs\SimpleAccEnv-lava-v0\2024-07-07-11-18-06\feasibility_2024-07-08-10-16-10_MSE_noSquash_32batch_noLRDecay",
-        # squash_output=False,
-        # cp_dir=r"runs\SimpleAccEnv-lava-v0\2024-07-07-11-18-06\feasibility_2024-07-08-10-28-33_MSE_squashOutput_256batch",
-        # squash_output=True,
-        cp_dir=r"runs\SimpleAccEnv-lava-v0\2024-07-07-11-18-06\feasibility_2024-07-08-11-32-39_MSELoss_noSquash_1024batch_targetNet_099discount",
+        cp_dir=r"runs\SimpleAccEnv-withConveyer-goal-v0/2024-07-08-18-09-39",
+    )
+    plot_cp(
+        cp_dir=r"runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-08-17-45-38/feasibility_2024-07-08-18-04-25",
         squash_output=False,
     )
 
     plot_rollouts(
-        task_dqn_dir=r"runs\SimpleAccEnv-goal-v0\2024-07-07-15-37-13",
-        con_dqn_dir=r"runs\SimpleAccEnv-lava-v0\2024-07-07-11-18-06\feasibility_2024-07-08-11-32-39_MSELoss_noSquash_1024batch_targetNet_099discount",
+        task_dqn_dir=r"runs\SimpleAccEnv-withConveyer-goal-v0/2024-07-08-18-09-39",
+        con_dqn_dir=r"runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-08-17-45-38/feasibility_2024-07-08-18-04-25",
+        # con_dqn_dir=r"",
         con_thresh=0.1,
         con_squash_output=False,
-        n_rollouts=10
+        n_rollouts=10,
+        with_conveyer=True
     )
 

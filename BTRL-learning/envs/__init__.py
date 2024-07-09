@@ -50,3 +50,18 @@ gym.envs.register(
     reward_threshold=0,
     kwargs={"task": "goal"},
 )
+gym.envs.register(
+    id="SimpleAccEnv-withConveyer-lava-v0",
+    entry_point="envs:SimpleAccEnv",
+    max_episode_steps=50,
+    reward_threshold=0,
+    kwargs={"task": "lava", "with_conveyer": True},
+)
+
+gym.envs.register(
+    id="SimpleAccEnv-withConveyer-goal-v0",
+    entry_point="envs:SimpleAccEnv",
+    max_episode_steps=50,
+    reward_threshold=0,
+    kwargs={"task": "goal", "with_conveyer": True},
+)

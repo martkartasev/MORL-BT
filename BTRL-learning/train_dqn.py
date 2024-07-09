@@ -294,7 +294,9 @@ def main():
         # "env_id": "LavaGoalConveyerAcceleration-lava-v0",
         # "env_id": "LavaGoalConveyerAcceleration-lava-noConveyer-v0",
         # "env_id": "SimpleAccEnv-lava-v0",
-        "env_id": "SimpleAccEnv-goal-v0",
+        # "env_id": "SimpleAccEnv-withConveyer-lava-v0",
+        # "env_id": "SimpleAccEnv-goal-v0",
+        "env_id": "SimpleAccEnv-withConveyer-goal-v0",
         # "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
         "unity_take_screenshots": True,
         "unity_max_ep_len": 1000,

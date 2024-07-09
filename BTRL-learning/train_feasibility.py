@@ -226,7 +226,8 @@ def main():
     # load_rb_dir = "runs/LavaGoalConveyerAcceleration-lava-v0/2024-07-05-09-56-06_veryGood_afterRefactor"
     # load_rb_dir = "runs/LavaGoalConveyerAcceleration-lava-noConveyer-v0/2024-07-05-14-53-05"
     # load_rb_dir = "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34"
-    load_rb_dir = "runs/SimpleAccEnv-lava-v0/2024-07-07-11-18-06"
+    # load_rb_dir = "runs/SimpleAccEnv-lava-v0/2024-07-07-11-18-06"
+    load_rb_dir = "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-08-17-45-38"
     rb_path = f"{load_rb_dir}/replay_buffer.npz"
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
     exp_dir = f"{load_rb_dir}/feasibility_{timestamp}"
@@ -239,7 +240,7 @@ def main():
     # def label_fun(state):
     #     return env.lava_x_range[0] < state[0] < env.lava_x_range[-1] and env.lava_y_range[0] < state[1] < env.lava_y_range[-1]
 
-    env = SimpleAccEnv()
+    env = SimpleAccEnv(with_conveyer=True)
     n_obs = 4
     n_actions = 25
     def label_fun(state):
