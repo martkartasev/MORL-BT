@@ -27,8 +27,8 @@ def plot_q_state(q_values, state, env, cp_dir):
     plt.close()
 
 
-def plot_cp(cp_dir="", squash_output=False):
-    env = SimpleAccEnv()
+def plot_cp(cp_dir="", squash_output=False, with_conveyer=False):
+    env = SimpleAccEnv(with_conveyer=with_conveyer)
 
     # plot eval states
     lava_rect = plt.Rectangle(
@@ -39,6 +39,18 @@ def plot_cp(cp_dir="", squash_output=False):
         color='orange',
         alpha=0.5
     )
+
+    if with_conveyer:
+        conveyer_rect = plt.Rectangle(
+            (env.conveyer_x_min, env.conveyer_y_min),
+            env.conveyer_x_max - env.conveyer_x_min,
+            env.conveyer_y_max - env.conveyer_y_min,
+            fill=True,
+            color='gray',
+            alpha=0.5
+        )
+        plt.gca().add_patch(conveyer_rect)
+
     plt.gca().add_patch(lava_rect)
     for state in env.eval_states:
         obs = state
@@ -274,10 +286,12 @@ def plot_rollouts(
 if __name__ == "__main__":
     plot_cp(
         cp_dir=r"runs\SimpleAccEnv-withConveyer-goal-v0/2024-07-08-18-09-39",
+        with_conveyer=True,
     )
     plot_cp(
         cp_dir=r"runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-08-17-45-38/feasibility_2024-07-08-18-04-25",
         squash_output=False,
+        with_conveyer=True,
     )
 
     plot_rollouts(
@@ -286,7 +300,7 @@ if __name__ == "__main__":
         # con_dqn_dir=r"",
         con_thresh=0.1,
         con_squash_output=False,
-        n_rollouts=10,
+        n_rollouts=0,
         with_conveyer=True
     )
 
