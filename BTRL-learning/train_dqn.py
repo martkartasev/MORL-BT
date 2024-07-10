@@ -10,9 +10,9 @@ import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 
-# from mlagents_envs.base_env import ActionTuple
-# from mlagents_envs.environment import UnityEnvironment
-# from mlagents_envs.side_channel.engine_configuration_channel import EngineConfigurationChannel
+from mlagents_envs.base_env import ActionTuple
+from mlagents_envs.environment import UnityEnvironment
+from mlagents_envs.side_channel.engine_configuration_channel import EngineConfigurationChannel
 
 import envs
 from envs.unity_misc import rewards_flat_acc_env, done_check_flat_acc_env, unity_state_predicate_check, unity_state_predicate_names
@@ -72,8 +72,8 @@ def setup_unity_env(unity_scene_dir, take_screenshots=False):
     print("Unity env ready")
 
     action_dim = 25
-    state_dim = 9  # for flat env with pos, acc, goal
-    # state_dim = 17  # for flat env with pos, acc, goal, trigger, button
+    # state_dim = 9  # for flat env with pos, acc, goal
+    state_dim = 17  # for flat env with pos, acc, goal, trigger, button
     env.action_space = gym.spaces.Discrete(action_dim)
     env.observation_space = gym.spaces.Box(
         low=np.array([-np.inf] * state_dim),
@@ -190,7 +190,8 @@ def env_interaction_unity_env(
             reset_action = 0 if params["unity_max_ep_len"] > logging_dict["ep_len"][i] else 1
 
             if params["unity_take_screenshots"]:
-                if -2 < obs[i][2] < 2:
+                if -3 < obs[i][0] < 3:
+                # if True:
                     screenshot_action = 1
                     os.makedirs(f"{exp_dir}/imgs/Q", exist_ok=True)
                     plot_unity_q_vals(
@@ -209,7 +210,8 @@ def env_interaction_unity_env(
                             save_path=f"{exp_dir}/imgs/ACC/{global_step}_reachabilityQ.png",
                             title=f"feasibility Q values, xzy={obs[i][0:3]}",
                             vmin=0,
-                            vmax=1
+                            vmax=1,
+                            con_thresh=dqn.con_thresh,
                         )
 
             unity_actions[i] = [rl_action, reset_action, screenshot_action]
@@ -296,7 +298,8 @@ def env_interaction_unity_env(
 
 def main():
     # HYPERPARAMETERS
-    which_env = "numpy"  # "unity" or "numpy
+    # which_env = "numpy"  # "unity" or "numpy
+    which_env = "unity"  # "unity" or "numpy
     params = {
         "which_env": which_env,
         # "env_id": "LavaGoalConveyerAcceleration-lava-v0",
@@ -304,17 +307,19 @@ def main():
         # "env_id": "SimpleAccEnv-lava-v0",
         # "env_id": "SimpleAccEnv-withConveyer-lava-v0",
         # "env_id": "SimpleAccEnv-goal-v0",
-        "env_id": "SimpleAccEnv-withConveyer-goal-v0",
-        # "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
+        # "env_id": "SimpleAccEnv-withConveyer-goal-v0",
+        "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
+        # "env_id": "flat-acc",  # name of the folder containing the unity scene binaries
         "unity_take_screenshots": True,
         "unity_max_ep_len": 1000,
         "unity_task": "fetch_trigger",
-        "total_timesteps": 50_000,
+        # "unity_task": "reach_goal",
+        "total_timesteps": 250_000,
         "lr": 0.0005,
         "buffer_size": 1e6,
         "gamma": 0.99,
         "tau": 1,
-        "target_freq": 1_000,
+        "target_freq": 10_000,
         "batch_size": 256,
         "hidden_dim": 64,
         "hidden_activation": nn.ReLU,
@@ -323,9 +328,14 @@ def main():
         "exp_fraction": 0.5,
         "learning_start": 10_000,
         "seed": 1,
-        "load_cp_dqn": "",
-        "load_cp_con": "",
-        "con_thresh": 0.25,
+        # "load_cp_dqn": "",
+        "load_cp_dqn": "runs/flat-acc-button_fetch_trigger/2024-07-09-20-42-07_trainAgain/q_net.pth",
+        # "load_cp_con": "",
+        # "load_cp_con": "runs/flat-acc_reach_goal/2024-07-05-19-37-30/feasibility_2024-07-09-15-36-06/feasibility_dqn.pt",
+        # "load_cp_dqn": "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34_train/q_net.pth",
+        # "load_cp_con": "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34_train/feasibility_2024-07-09-20-01-54_newFeasibilityTrain_batch256_x>0/feasibility_dqn.pt",
+        "load_cp_con": "runs/flat-acc-button_fetch_trigger/2024-07-09-20-42-07_trainAgain/feasibility_2024-07-10-00-40-28/feasibility_dqn.pt",
+        "con_thresh": 0.1,
     }
 
     # DIR FOR LOGGING

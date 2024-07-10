@@ -227,7 +227,9 @@ def main():
     # load_rb_dir = "runs/LavaGoalConveyerAcceleration-lava-noConveyer-v0/2024-07-05-14-53-05"
     # load_rb_dir = "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34"
     # load_rb_dir = "runs/SimpleAccEnv-lava-v0/2024-07-07-11-18-06"
-    load_rb_dir = "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-08-17-45-38"
+    # load_rb_dir = "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-08-17-45-38"
+    # load_rb_dir = "runs/flat-acc_reach_goal/2024-07-05-19-37-30"
+    load_rb_dir = "runs/flat-acc-button_fetch_trigger/2024-07-09-20-42-07_trainAgain"
     rb_path = f"{load_rb_dir}/replay_buffer.npz"
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
     exp_dir = f"{load_rb_dir}/feasibility_{timestamp}"
@@ -240,19 +242,20 @@ def main():
     # def label_fun(state):
     #     return env.lava_x_range[0] < state[0] < env.lava_x_range[-1] and env.lava_y_range[0] < state[1] < env.lava_y_range[-1]
 
-    env = SimpleAccEnv(with_conveyer=True)
-    n_obs = 4
-    n_actions = 25
-    def label_fun(state):
-        # return env._in_lava(state)
-        return env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max
-
-    # unity env
-    # env = None
-    # n_obs = 17
+    # env = SimpleAccEnv(with_conveyer=True)
+    # n_obs = 4
     # n_actions = 25
     # def label_fun(state):
-    #     return state[0] > 0.0
+    #     # return env._in_lava(state)
+    #     return env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max
+
+    # unity env
+    env = None
+    # n_obs = 9
+    n_obs = 17
+    n_actions = 25
+    def label_fun(state):
+        return state[0] > 0.0
 
     print("Loading data...")
     data, obs, actions, next_obs, dones = load_data_from_rb(rb_path, n_obs, n_actions)
@@ -263,7 +266,7 @@ def main():
     params = {
         "optimizer_initial_lr": 0.001,
         "exponential_lr_decay": 0.99,
-        "batch_size": 1024,
+        "batch_size": 256,
         "epochs": 100,
         "nuke_layer_every": 1e6,
         "hidden_activation": torch.nn.ReLU,

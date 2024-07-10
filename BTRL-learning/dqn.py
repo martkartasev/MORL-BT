@@ -34,7 +34,7 @@ class DQN:
 
         if con_model_load_cp:
             # TODO, correct non hard coded hidden size
-            self.con_model = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_size=32, hidden_activation=self.hidden_activation)
+            self.con_model = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_size=self.hidden_dim, hidden_activation=self.hidden_activation)
             self.con_model.load_state_dict(torch.load(con_model_load_cp))
             self.con_model.to(self.device)
 

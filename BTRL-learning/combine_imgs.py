@@ -3,8 +3,8 @@ import os
 from PIL import Image
 
 unity_screenshot_dir = "/home/finn/repos/MORL-BT/Assets/Screenshots"
-runs_dir = "/home/finn/repos/MORL-BT/BTRL-learning/runs"
-exp_name = "/flat-acc-button_fetch_trigger/2024-07-05-16-45-29"
+runs_dir = "/home/finn/repos/MORL-BT/BTRL-learning/runs/"
+exp_name = "flat-acc-button_fetch_trigger/2024-07-10-15-36-00_view_TrainedAgainModel_widerPlotRange"
 q_img_dir = runs_dir + exp_name + "/imgs/Q"
 acc_img_dir = runs_dir + exp_name + "/imgs/ACC"
 
