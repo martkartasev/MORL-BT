@@ -172,7 +172,7 @@ class EnvActuatorGrid5x5:
         plt.show()
 
 
-def plot_unity_q_vals(state, dqn, device, save_path="", title="", vmin=None, vmax=None):
+def plot_unity_q_vals(state, dqn, device, save_path="", title="", vmin=None, vmax=None, con_thresh=None):
     q_vals = dqn(torch.Tensor(state).to(device).unsqueeze(0)).detach().cpu().numpy().flatten()
     actuator = EnvActuatorGrid5x5()
     for action in range(q_vals.shape[0]):
@@ -180,12 +180,23 @@ def plot_unity_q_vals(state, dqn, device, save_path="", title="", vmin=None, vma
         plt.scatter(
             acceleration[0],
             acceleration[2],
-            s=100,
+            s=800,
             c=q_vals[action],
             cmap='viridis',
             vmin=min(q_vals) if vmin is None else vmin,
             vmax=max(q_vals) if vmax is None else vmax,
         )
+        if con_thresh is not None:
+            allowed = q_vals[action] < con_thresh
+            if not allowed:
+                plt.scatter(
+                    acceleration[0],
+                    acceleration[2],
+                    s=200,
+                    c="red",
+                    marker="x",
+                )
+
         plt.text(acceleration[0], acceleration[2] + 0.05, str(action), fontsize=6, ha='center', va='center')
 
     # plt.title(f"Button: [{button_relative_position[0]:.3f}, {button_relative_position[2]:.3f}] , Trigger: [{trigger_relative_position[0]:.3f}, {trigger_relative_position[2]:.3f}]")
