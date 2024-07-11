@@ -73,6 +73,15 @@ class DQN:
             # double dqn
             double_q_values = self.q_net(next_state_batch)
             target_q_values = self.q_target_net(next_state_batch)
+
+            if self.con_model is not None:
+                con_pred = self.con_model(next_state_batch)
+                # con_mask_forbidden = con_pred > self.con_thresh
+                best_con_action_value = con_pred.min(dim=1).values
+                con_mask_forbidden = con_pred > best_con_action_value.unsqueeze(1) + self.con_thresh
+
+                double_q_values[con_mask_forbidden] = -torch.inf
+
             target_max = target_q_values.gather(1, torch.argmax(double_q_values, dim=1, keepdim=True)).squeeze()
 
             # ensemble dqn
@@ -106,7 +115,9 @@ class DQN:
 
         if self.con_model is not None:
             con_pred = self.con_model(state)
-            con_mask_forbidden = con_pred > self.con_thresh
+            # con_mask_forbidden = con_pred > self.con_thresh
+            best_con_action_value = con_pred.min().item()
+            con_mask_forbidden = con_pred > best_con_action_value + self.con_thresh
         else:
             con_mask_forbidden = torch.zeros_like(q_values).bool()
 

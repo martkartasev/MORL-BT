@@ -217,12 +217,14 @@ def plot_rollouts(
 
             if con_dqn_dir:
                 con_q_vals = con_dqn(torch.from_numpy(obs).float()).detach().cpu().numpy()
-                forbidden_mask = con_q_vals > con_thresh
+                # forbidden_mask = con_q_vals > con_thresh
+                best_con_action_value = con_q_vals.min()
+                forbidden_mask = con_q_vals > best_con_action_value + con_thresh
 
                 # plot con q vals
                 for a in range(env.action_space.n):
                     acc = action_to_acc(a)
-                    point = q_val_axs[1].scatter(acc[0], acc[1], s=800, c=con_q_vals[a], vmin=0, vmax=1)
+                    point = q_val_axs[1].scatter(acc[0], acc[1], s=800, c=con_q_vals[a], vmin=con_q_vals.min(), vmax=con_q_vals.max())
                     if forbidden_mask[a]:
                         q_val_axs[1].scatter(acc[0], acc[1], s=200, c="r", marker="x")
 
