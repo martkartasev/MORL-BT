@@ -2,21 +2,28 @@ import torch.nn as nn
 
 
 class MLP(nn.Module):
-    def __init__(self, input_size, output_size, hidden_size=32, squash_output=False, hidden_activation=nn.ELU):
+    def __init__(self, input_size, output_size, hidden_arch=(16, 16, 16, 16), hidden_activation=nn.ELU, **kwargs):
         super().__init__()
-        self.network = nn.Sequential(
-            nn.Linear(input_size, hidden_size),
-            hidden_activation(),
-            nn.Linear(hidden_size, hidden_size),
-            hidden_activation(),
-            nn.Linear(hidden_size, hidden_size),
-            hidden_activation(),
-            # nn.Tanh(),  # Q-function sometimes looks nicer with this
-            nn.Linear(hidden_size, output_size),
+
+        self.network = nn.Sequential()
+        self.network.add_module(
+            "input",
+            nn.Linear(input_size, hidden_arch[0])
         )
 
-        if squash_output:
-            self.network = self.network.append(nn.Sigmoid())
+        for i in range(1, len(hidden_arch)):
+            self.network.add_module(
+                f"hidden_{i}",
+                nn.Sequential(
+                    nn.Linear(hidden_arch[i-1], hidden_arch[i]),
+                    hidden_activation()
+                )
+            )
+
+        self.network.add_module(
+            "output",
+            nn.Linear(hidden_arch[-1], output_size)
+        )
 
         print(self.network)
 

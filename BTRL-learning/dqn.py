@@ -12,7 +12,7 @@ class DQN:
             self,
             action_dim,
             state_dim,
-            hidden_dim,
+            hidden_arch,
             device,
             hidden_activation=nn.ELU,
             lr=1e-3,
@@ -23,7 +23,7 @@ class DQN:
     ):
         self.action_dim = action_dim
         self.state_dim = state_dim
-        self.hidden_dim = hidden_dim
+        self.hidden_arch = hidden_arch
         self.hidden_activation = hidden_activation
         self.device = device
         self.lr = lr
@@ -34,16 +34,16 @@ class DQN:
 
         if con_model_load_cp:
             # TODO, correct non hard coded hidden size
-            self.con_model = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_size=self.hidden_dim, hidden_activation=self.hidden_activation)
+            self.con_model = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.hidden_arch)
             self.con_model.load_state_dict(torch.load(con_model_load_cp))
             self.con_model.to(self.device)
 
-        self.q_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_size=self.hidden_dim, hidden_activation=self.hidden_activation)
+        self.q_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.hidden_arch)
 
         if self.load_cp:
             self.q_net.load_state_dict(torch.load(self.load_cp))
 
-        self.q_target_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_size=self.hidden_dim, hidden_activation=self.hidden_activation)
+        self.q_target_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.hidden_arch)
         self.q_target_net.load_state_dict(self.q_net.state_dict())
 
         for model in [self.q_net, self.q_target_net]:

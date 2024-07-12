@@ -229,7 +229,9 @@ def main():
     # load_rb_dir = "runs/SimpleAccEnv-lava-v0/2024-07-07-11-18-06"
     # load_rb_dir = "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-08-17-45-38"
     # load_rb_dir = "runs/flat-acc_reach_goal/2024-07-05-19-37-30"
-    load_rb_dir = "runs/flat-acc-button_fetch_trigger/2024-07-09-20-42-07_trainAgain"
+    # load_rb_dir = "runs/flat-acc-button_fetch_trigger/2024-07-09-20-42-07_trainAgain"
+    # load_rb_dir = "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-11-20-12-40_250k"
+    load_rb_dir = "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-11-11-06-24_250k"
     rb_path = f"{load_rb_dir}/replay_buffer.npz"
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
     exp_dir = f"{load_rb_dir}/feasibility_{timestamp}"
@@ -266,12 +268,11 @@ def main():
     params = {
         "optimizer_initial_lr": 0.001,
         "exponential_lr_decay": 0.99,
-        "batch_size": 256,
-        "epochs": 100,
+        "batch_size": 2048,
+        "epochs": 500,
         "nuke_layer_every": 1e6,
         "hidden_activation": torch.nn.ReLU,
-        "hidden_dim": 64,
-        "squash_output": False,
+        "hidden_arch": [32, 32, 16, 16],
         "criterion": torch.nn.MSELoss
         # "criterion": torch.nn.L1Loss
     }
@@ -281,8 +282,8 @@ def main():
         yaml.dump(params, f)
 
     print("Setting up model...")
-    model = MLP(input_size=n_obs, output_size=n_actions, squash_output=params["squash_output"], hidden_activation=params["hidden_activation"], hidden_size=params["hidden_dim"])
-    target_model = MLP(input_size=n_obs, output_size=n_actions, squash_output=params["squash_output"], hidden_activation=params["hidden_activation"], hidden_size=params["hidden_dim"])
+    model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["hidden_arch"])
+    target_model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["hidden_arch"])
     target_model.load_state_dict(model.state_dict())
     optimizer = torch.optim.Adam(model.parameters(), lr=params["optimizer_initial_lr"])
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=params["exponential_lr_decay"])
