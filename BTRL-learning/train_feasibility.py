@@ -242,20 +242,20 @@ def main():
     # def label_fun(state):
     #     return env.lava_x_range[0] < state[0] < env.lava_x_range[-1] and env.lava_y_range[0] < state[1] < env.lava_y_range[-1]
 
-    # env = SimpleAccEnv(with_conveyer=True)
-    # n_obs = 4
-    # n_actions = 25
-    # def label_fun(state):
-    #     # return env._in_lava(state)
-    #     return env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max
-
-    # unity env
-    env = None
-    # n_obs = 9
-    n_obs = 17
+    env = SimpleAccEnv(with_conveyer=True)
+    n_obs = 4
     n_actions = 25
     def label_fun(state):
-        return state[0] > 0.0
+        # return env._in_lava(state)
+        return env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max
+
+    # unity env
+    # env = None
+    # # n_obs = 9
+    # n_obs = 17
+    # n_actions = 25
+    # def label_fun(state):
+    #     return state[0] > 0.0
 
     print("Loading data...")
     data, obs, actions, next_obs, dones = load_data_from_rb(rb_path, n_obs, n_actions)
