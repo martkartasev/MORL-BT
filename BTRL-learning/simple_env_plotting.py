@@ -1,5 +1,3 @@
-import os
-
 import yaml
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,7 +5,8 @@ from envs.simple_acc_env import SimpleAccEnv, action_to_acc
 from dqn import DQN
 from networks import MLP
 import torch
-
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE" # Flag from https://stackoverflow.com/questions/20554074/sklearn-omp-error-15-initializing-libiomp5md-dll-but-found-mk2iomp5md-dll-a
 
 def plot_q_state(q_values, state, env, cp_dir):
     for a in range(env.action_space.n):
