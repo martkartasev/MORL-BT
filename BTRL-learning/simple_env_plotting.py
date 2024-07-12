@@ -193,7 +193,8 @@ def plot_rollouts(
             plt.gca().add_patch(conveyer_rect)
 
         reset_options = {
-            "y": 1
+            "y": 1,
+            "x": 5 + np.random.uniform(-4, 4),
         }
         obs, _ = env.reset(options=reset_options)
         # obs, _ = env.reset(options={})
@@ -205,7 +206,6 @@ def plot_rollouts(
             print(obs)
             q_val_fig, q_val_axs = plt.subplots(1, 3, figsize=(15, 5))
 
-            q_val_fig.suptitle(f"State: {obs}")
             task_q_vals = task_dqn(torch.from_numpy(obs).float()).detach().cpu().numpy()
 
             # plot task q vals
@@ -256,6 +256,10 @@ def plot_rollouts(
                     alpha=0.5
                 )
                 q_val_axs[2].add_patch(conveyer_rect)
+
+            action = np.argmax(task_q_vals)
+            q_val_fig.suptitle(f"State: {obs}, action: {action}, acc: {action_to_acc(action)}")
+
             q_val_axs[2].quiver(obs[0], obs[1], obs[2], obs[3], color="r")  # current state
             plt.plot(np.array(trajectory)[:, 0], np.array(trajectory)[:, 1], 'o-', c="r", alpha=0.5)
             q_val_axs[2].set_xlim(env.x_min - 0.1, env.x_max + 0.1)
@@ -264,8 +268,6 @@ def plot_rollouts(
 
             plt.savefig(f"{rollout_dir}/q_vals{ep_len}.png")
             plt.close()
-
-            action = np.argmax(task_q_vals)
 
             obs, reward, done, trunc, _ = env.step(action)
             ep_reward += reward
