@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 
-
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE" # Flag from https://stackoverflow.com/questions/20554074/sklearn-omp-error-15-initializing-libiomp5md-dll-but-found-mk2iomp5md-dll-a
 def plot_value_2D(
         dqn,
         env,
