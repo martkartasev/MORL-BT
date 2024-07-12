@@ -10,9 +10,9 @@ import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 
-from mlagents_envs.base_env import ActionTuple
-from mlagents_envs.environment import UnityEnvironment
-from mlagents_envs.side_channel.engine_configuration_channel import EngineConfigurationChannel
+# from mlagents_envs.base_env import ActionTuple
+# from mlagents_envs.environment import UnityEnvironment
+# from mlagents_envs.side_channel.engine_configuration_channel import EngineConfigurationChannel
 
 import envs
 from envs.unity_misc import rewards_flat_acc_env, done_check_flat_acc_env, unity_state_predicate_check, unity_state_predicate_names
@@ -298,23 +298,23 @@ def env_interaction_unity_env(
 
 def main():
     # HYPERPARAMETERS
-    # which_env = "numpy"  # "unity" or "numpy
-    which_env = "unity"  # "unity" or "numpy
+    which_env = "numpy"  # "unity" or "numpy
+    # which_env = "unity"  # "unity" or "numpy
     params = {
         "which_env": which_env,
         # "env_id": "LavaGoalConveyerAcceleration-lava-v0",
         # "env_id": "LavaGoalConveyerAcceleration-lava-noConveyer-v0",
         # "env_id": "SimpleAccEnv-lava-v0",
-        # "env_id": "SimpleAccEnv-withConveyer-lava-v0",
+        "env_id": "SimpleAccEnv-withConveyer-lava-v0",
         # "env_id": "SimpleAccEnv-goal-v0",
         # "env_id": "SimpleAccEnv-withConveyer-goal-v0",
-        "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
+        # "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
         # "env_id": "flat-acc",  # name of the folder containing the unity scene binaries
         "unity_take_screenshots": True,
         "unity_max_ep_len": 1000,
         "unity_task": "fetch_trigger",
         # "unity_task": "reach_goal",
-        "total_timesteps": 250_000,
+        "total_timesteps": 1_000_000,
         "lr": 0.0005,
         "buffer_size": 1e6,
         "gamma": 0.99,
@@ -328,13 +328,14 @@ def main():
         "exp_fraction": 0.5,
         "learning_start": 10_000,
         "seed": 1,
-        # "load_cp_dqn": "",
-        "load_cp_dqn": "runs/flat-acc-button_fetch_trigger/2024-07-09-20-42-07_trainAgain/q_net.pth",
-        # "load_cp_con": "",
+        "load_cp_dqn": "",
+        # "load_cp_dqn": "runs/flat-acc-button_fetch_trigger/2024-07-09-20-42-07_trainAgain/q_net.pth",
+        "load_cp_con": "",
         # "load_cp_con": "runs/flat-acc_reach_goal/2024-07-05-19-37-30/feasibility_2024-07-09-15-36-06/feasibility_dqn.pt",
         # "load_cp_dqn": "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34_train/q_net.pth",
         # "load_cp_con": "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34_train/feasibility_2024-07-09-20-01-54_newFeasibilityTrain_batch256_x>0/feasibility_dqn.pt",
-        "load_cp_con": "runs/flat-acc-button_fetch_trigger/2024-07-09-20-42-07_trainAgain/feasibility_2024-07-10-00-40-28/feasibility_dqn.pt",
+        # "load_cp_con": "runs/flat-acc-button_fetch_trigger/2024-07-09-20-42-07_trainAgain/feasibility_2024-07-10-00-40-28/feasibility_dqn.pt",
+        # "load_cp_con": r"runs\SimpleAccEnv-withConveyer-lava-v0\2024-07-08-17-45-38\feasibility_2024-07-08-18-04-25\feasibility_dqn.pt",
         "con_thresh": 0.1,
     }
 
