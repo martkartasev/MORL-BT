@@ -19,7 +19,8 @@ class DQN:
             gamma=0.99,
             load_cp="",
             con_model_load_cp="",
-            con_thresh=0.1
+            con_thresh=0.1,
+            model_name="q",
     ):
         self.action_dim = action_dim
         self.state_dim = state_dim
@@ -31,6 +32,7 @@ class DQN:
         self.load_cp = load_cp
         self.con_model = None
         self.con_thresh = con_thresh
+        self.model_name = model_name
 
         if con_model_load_cp:
             # TODO, correct non hard coded hidden size
@@ -52,11 +54,11 @@ class DQN:
         self.optimizer = optim.Adam(self.q_net.parameters(), lr=self.lr)
 
     def save_model(self, save_dir):
-        torch.save(self.q_net.state_dict(), f"{save_dir}/q_net.pth")
-        torch.save(self.q_target_net.state_dict(), f"{save_dir}/q_target_net.pth")
+        torch.save(self.q_net.state_dict(), f"{save_dir}/{self.model_name}_net.pth")
+        torch.save(self.q_target_net.state_dict(), f"{save_dir}/{self.model_name}_target_net.pth")
 
         if self.con_model is not None:
-            torch.save(self.con_model.state_dict(), f"{save_dir}/con_model.pth")
+            torch.save(self.con_model.state_dict(), f"{save_dir}/{self.model_name}_con_model.pth")
 
     def update(
             self,
