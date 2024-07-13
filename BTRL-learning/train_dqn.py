@@ -526,7 +526,7 @@ def main():
 
     if params["which_env"] == "numpy":
         create_plots_numpy_env(
-            network=learn_dqn.q_net,
+            dqn=learn_dqn,
             env=env,
             device=device,
             save_dir=f"{exp_dir}"
