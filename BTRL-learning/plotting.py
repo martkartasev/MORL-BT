@@ -104,7 +104,7 @@ def create_plots_numpy_env(
         env,
         device,
         save_dir,
-        n_rollouts=0
+        n_rollouts=10
 ):
 
     # plot value function with different velocities
@@ -115,19 +115,20 @@ def create_plots_numpy_env(
         np.array([0.0, 2.0]),
         np.array([0.0, -2.0]),
     ]:
-        value_function = "min"
-        plot_value_2D(
-            dqn=dqn.q_net,
-            velocity=vel,
-            value_function=value_function,
-            env=env,
-            x_lim=env.x_range,
-            x_steps=env.x_range[-1] + 1,
-            y_lim=env.y_range,
-            y_steps=env.y_range[-1] + 1,
-            device=device,
-            save_path=f"{save_dir}/vf-{value_function}_vel{vel}.png"
-        )
+        for value_function in ["max", "mean", "min"]:
+            # value_function = "min"
+            plot_value_2D(
+                dqn=dqn.q_net,
+                velocity=vel,
+                value_function=value_function,
+                env=env,
+                x_lim=env.x_range,
+                x_steps=env.x_range[-1] + 1,
+                y_lim=env.y_range,
+                y_steps=env.y_range[-1] + 1,
+                device=device,
+                save_path=f"{save_dir}/vf-{value_function}_vel{vel}.png"
+            )
 
     # plot Q-function in particular states
     for eval_state in env.eval_states:
