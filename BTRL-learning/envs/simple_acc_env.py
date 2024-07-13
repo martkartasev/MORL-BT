@@ -54,8 +54,7 @@ class SimpleAccEnv(gym.Env):
             self.lava_y_max = lava_y_max
         self.task = task
 
-
-        assert task in ["lava", "goal", "on_conveyer"]
+        assert task in ["lava", "goal"]
 
         self.eval_states = [
             np.array([5.0, 5.0, 0.0, 0.0]),  # in lava
@@ -113,18 +112,25 @@ class SimpleAccEnv(gym.Env):
 
     def reset(self, seed=None, options={}):
 
+        self.x = np.random.uniform(self.x_min, self.x_max)
+        self.y = np.random.uniform(self.y_min, self.y_max)
+        self.vel_x = np.random.uniform(-self.max_velocity, self.max_velocity)
+        self.vel_y = np.random.uniform(-self.max_velocity, self.max_velocity)
+
+        # ---
         # when training without a BT, the feasibility constrained goal-reach DQN must not be initialized in the
         # infeasible region, i.e. in lava or on conveyer, since it would learn to go to those states, which are closer
         # to the goal...
-        in_lava = True
-        on_conveyer = True
-        while (in_lava or on_conveyer):
-            self.x = np.random.uniform(self.x_min, self.x_max)
-            self.y = np.random.uniform(self.y_min, self.y_max)
-            self.vel_x = np.random.uniform(-self.max_velocity, self.max_velocity)
-            self.vel_y = np.random.uniform(-self.max_velocity, self.max_velocity)
-            in_lava = self._in_lava()
-            on_conveyer = self._on_conveyer()
+        # ---
+        # in_lava = True
+        # on_conveyer = True
+        # while (in_lava or on_conveyer):
+        #     self.x = np.random.uniform(self.x_min, self.x_max)
+        #     self.y = np.random.uniform(self.y_min, self.y_max)
+        #     self.vel_x = np.random.uniform(-self.max_velocity, self.max_velocity)
+        #     self.vel_y = np.random.uniform(-self.max_velocity, self.max_velocity)
+        #     in_lava = self._in_lava()
+        #     on_conveyer = self._on_conveyer()
 
         self.ep_len = 0
 
