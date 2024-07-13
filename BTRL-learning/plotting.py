@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
+from envs.simple_acc_env import action_to_acc
 
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE" # Flag from https://stackoverflow.com/questions/20554074/sklearn-omp-error-15-initializing-libiomp5md-dll-but-found-mk2iomp5md-dll-a
@@ -25,12 +26,15 @@ def plot_value_2D(
     X, Y = np.meshgrid(x, y)
     agent_pos = np.array([X.flatten(), Y.flatten()]).T
 
-    goal_pos = torch.tensor([[env.goal_x, env.goal_y]])
-    goal_pos = goal_pos.repeat(agent_pos.shape[0], 1)
-
-    agent_vel = torch.tensor([velocity])
+    agent_vel = torch.from_numpy(velocity).unsqueeze(0).to(device)
     agent_vel = agent_vel.repeat(agent_pos.shape[0], 1)
-    q_inp = np.concatenate([agent_pos, agent_vel, goal_pos], axis=1)
+
+    if env.observation_space.shape[0] == 6:
+        goal_pos = torch.tensor([[env.goal_x, env.goal_y]])
+        goal_pos = goal_pos.repeat(agent_pos.shape[0], 1)
+        q_inp = np.concatenate([agent_pos, agent_vel, goal_pos], axis=1)
+    else:
+        q_inp = np.concatenate([agent_pos, agent_vel], axis=1)
 
     q_inp = torch.Tensor(q_inp).to(device)
     q_values = dqn(q_inp)
@@ -121,18 +125,31 @@ def create_plots_numpy_env(
             y_lim=env.y_range,
             y_steps=env.y_range[-1] + 1,
             device=device,
-            save_path=f"{save_dir}/vf:{value_function}_velocity:{vel}.png"
+            save_path=f"{save_dir}/vf-{value_function}_vel{vel}.png"
         )
 
     # plot Q-function in particular states
     for eval_state in env.eval_states:
-        plot_discrete_actions(
-            dqn=network,
-            state=eval_state,
-            action_map=env.action_map,
-            device=device,
-            save_path=f"{save_dir}/qf_state:{eval_state}.png",
-        )
+        # plot_discrete_actions(
+        #     dqn=network,
+        #     state=eval_state,
+        #     action_map=env.action_map,
+        #     device=device,
+        #     save_path=f"{save_dir}/qf_state:{eval_state}.png",
+        # )
+        q_values = network(torch.Tensor(eval_state).to(device).unsqueeze(0)).detach().cpu().numpy().flatten()
+        for a in range(env.action_space.n):
+            acc = action_to_acc(a)
+            plt.scatter(acc[0], acc[1], c=q_values[a], s=800, cmap="plasma", vmin=q_values.min(), vmax=q_values.max())
+            plt.text(acc[0], acc[1], f"{a}, {acc}", fontsize=8, ha='center', va='center')
+
+        plt.xlim(-3, 3)
+        plt.ylim(-3, 3)
+        plt.title(f"State: {eval_state}")
+        plt.colorbar()
+        plt.savefig(f"{save_dir}/eval_state_{eval_state}.png")
+        plt.show()
+        plt.close()
 
 
 class EnvActuatorGrid5x5:

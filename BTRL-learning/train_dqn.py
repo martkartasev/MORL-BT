@@ -21,7 +21,8 @@ from dqn import DQN
 from plotting import create_plots_numpy_env, plot_unity_q_vals
 
 
-def setup_numpy_env(env_id):
+def setup_numpy_env(params, device, exp_dir):
+    env_id = params["env_id"]
     env = gym.make(env_id)
     state_dim = env.observation_space.shape[0]
     action_dim = env.action_space.n
@@ -47,7 +48,43 @@ def setup_numpy_env(env_id):
         "ep_state_predicate_hist": ep_state_predicate_hist
     }
 
-    return env, state_dim, action_dim, obs, info, logging_dict
+    avoid_lava_dqn = DQN(
+        action_dim=action_dim,
+        state_dim=state_dim,
+        hidden_arch=params["hidden_arch"],
+        hidden_activation=params["hidden_activation"],
+        device=device,
+        lr=params["lr"],
+        gamma=params["gamma"],
+        load_cp=params["numpy_env_lava_dqn_cp"],
+        con_model_load_cp="",  # highest prio, no constraint...
+        con_thresh=np.inf,  # value does not matter without constraint...
+        model_name="avoid_lava",
+    )
+
+    reach_goal_dqn = DQN(
+        action_dim=action_dim,
+        state_dim=state_dim,
+        hidden_arch=params["hidden_arch"],
+        hidden_activation=params["hidden_activation"],
+        device=device,
+        lr=params["lr"],
+        gamma=params["gamma"],
+        load_cp=params["numpy_env_goal_dqn_cp"],
+        con_model_load_cp=params["numpy_env_lava_feasibility_dqn_cp"],
+        con_thresh=params["numpy_env_feasibility_thresh"],
+        model_name="reach_goal",
+    )
+
+    if "lava" in env_id:
+        dqns = [avoid_lava_dqn]
+    elif "goal" in env_id:
+        avoid_lava_dqn.save_model(exp_dir)
+        dqns = [avoid_lava_dqn, reach_goal_dqn]
+    else:
+        raise ValueError(f"Unknown env-id '{env_id}', not sure which DQNs to use...")
+
+    return env, state_dim, action_dim, obs, info, logging_dict, dqns
 
 
 def setup_unity_env(unity_scene_dir, take_screenshots=False):
@@ -70,6 +107,9 @@ def setup_unity_env(unity_scene_dir, take_screenshots=False):
             # base_port=10001,  # for starting multiple envs
             side_channels=[engine])
     print("Unity env ready")
+
+    dqns = []
+    raise NotImplementedError("Unity env DQN setup for BT not implemented yet...")
 
     action_dim = 25
     # state_dim = 9  # for flat env with pos, acc, goal
@@ -110,11 +150,11 @@ def setup_unity_env(unity_scene_dir, take_screenshots=False):
         "ep_state_predicate_hist": ep_state_predicate_hist
     }
 
-    return env, state_dim, action_dim, logging_dict
+    return env, state_dim, action_dim, logging_dict, dqns
 
 
 def env_interaction_numpy_env(
-        dqn,
+        dqns,
         obs,
         epsilon,
         env,
@@ -124,15 +164,31 @@ def env_interaction_numpy_env(
         params,
         logging_dict
 ):
-    action = dqn.act(obs, epsilon)
+
+    # BT is just if-else, and only active if we are training the goal reach DQN
+    if len(dqns) == 2:
+        agent_x = obs[0]
+        agent_y = obs[1]
+        if env.conveyer_x_min < agent_x < env.lava_x_max and env.conveyer_y_min < agent_y < env.lava_y_max:
+            print("Agent in lava or on conveyer, using avoid DQN")
+            dqn_idx = 0
+        else:
+            dqn_idx = 1
+    else:
+        dqn_idx = 0
+
+    action = dqns[dqn_idx].act(obs, epsilon)
     next_obs, reward, done, trunc, info = env.step(action)
-    replay_buffer.add(
-        obs=obs,
-        action=action,
-        reward=reward,
-        next_obs=next_obs,
-        done=done,
-        infos=info)
+
+    if dqn_idx == len(dqns) - 1:
+        # only add transition to the replay buffer when the DQN we are currently learning is used...
+        replay_buffer.add(
+            obs=obs,
+            action=action,
+            reward=reward,
+            next_obs=next_obs,
+            done=done,
+            infos=info)
 
     obs = next_obs
     logging_dict["ep_len"] += 1
@@ -165,7 +221,7 @@ def env_interaction_numpy_env(
 
 
 def env_interaction_unity_env(
-        dqn,
+        dqns,
         epsilon,
         env,
         device,
@@ -176,6 +232,8 @@ def env_interaction_unity_env(
         params,
         logging_dict
 ):
+    raise NotImplementedError("Unity env interaction for BT with mutiple DQNs not implemented yet...")
+
     (decision_steps, terminal_steps) = env.get_steps("BridgeEnv?team=0")
     obs = decision_steps.obs[0]  # Strange structure, but this is how you get the observations array
     nr_agents = len(decision_steps)  # this many agents need to take an action
@@ -314,7 +372,7 @@ def main():
         "unity_max_ep_len": 1000,
         "unity_task": "fetch_trigger",
         # "unity_task": "reach_goal",
-        "total_timesteps": 100_000,
+        "total_timesteps": 1_000,
         "lr": 0.0005,
         "buffer_size": 1e6,
         "gamma": 0.99,
@@ -328,15 +386,11 @@ def main():
         "exp_fraction": 0.5,
         "learning_start": 10_000,
         "seed": 1,
-        "load_cp_dqn": "",
-        # "load_cp_dqn": "runs/flat-acc-button_fetch_trigger/2024-07-09-20-42-07_trainAgain/q_net.pth",
-        # "load_cp_con": "",
-        # "load_cp_con": "runs/flat-acc_reach_goal/2024-07-05-19-37-30/feasibility_2024-07-09-15-36-06/feasibility_dqn.pt",
-        # "load_cp_dqn": "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34_train/q_net.pth",
-        # "load_cp_con": "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34_train/feasibility_2024-07-09-20-01-54_newFeasibilityTrain_batch256_x>0/feasibility_dqn.pt",
-        # "load_cp_con": "runs/flat-acc-button_fetch_trigger/2024-07-09-20-42-07_trainAgain/feasibility_2024-07-10-00-40-28/feasibility_dqn.pt",
-        "load_cp_con": r"runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-11-11-06-24_250k/feasibility_2024-07-12-12-18-19_hiddenArch-32-16_hardTarget\feasibility_dqn.pt",
-        "con_thresh": 0.1,
+        "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-13-11-08-28_netArch/avoid_lava_net.pth",
+        # "numpy_env_lava_feasibility_dqn_cp": "",
+        "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-11-11-06-24_250k/feasibility_2024-07-12-12-18-19_hiddenArch-32-16_hardTarget/feasibility_dqn.pt",
+        "numpy_env_feasibility_thresh": 0.1,
+        "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-13-11-45-59_BT_withCon/reach_goal_net.pth",
     }
 
     # DIR FOR LOGGING
@@ -364,26 +418,15 @@ def main():
 
     # ENVIRONMENT SETUP
     if params["which_env"] == "numpy":
-        env, state_dim, action_dim, obs, info, logging_dict = setup_numpy_env(params["env_id"])
+        env, state_dim, action_dim, obs, info, logging_dict, dqns = setup_numpy_env(params=params, device=device, exp_dir=exp_dir)
     elif params["which_env"] == "unity":
-        env, state_dim, action_dim, logging_dict = setup_unity_env(params["env_id"], take_screenshots=params["unity_take_screenshots"])
+        env, state_dim, action_dim, logging_dict, dqns = setup_unity_env(params["env_id"], take_screenshots=params["unity_take_screenshots"])
     else:
         raise ValueError(f"which_env must be 'numpy' or 'unity' but got '{params['which_env']}'")
 
-    # MODEL
-    dqn = DQN(
-        action_dim=action_dim,
-        state_dim=state_dim,
-        hidden_arch=params["hidden_arch"],
-        hidden_activation=params["hidden_activation"],
-        device=device,
-        lr=params["lr"],
-        gamma=params["gamma"],
-        load_cp=params["load_cp_dqn"],
-        con_model_load_cp=params["load_cp_con"],
-        con_thresh=params["con_thresh"],
-    )
+    learn_dqn = dqns[-1]  # we always only learn the last DQN, all other DQNs in list must be trained already
 
+    # REPLAY BUFFER
     replay_buffer = ReplayBuffer(
         buffer_size=int(params["buffer_size"]),
         observation_space=env.observation_space,
@@ -394,16 +437,16 @@ def main():
     # TRAINING
     epsilon_vals = np.linspace(params["start_epsilon"], params["end_epsilon"], int(params["exp_fraction"] * params["total_timesteps"]))
     for global_step in range(params["total_timesteps"]):
-        if params["load_cp_dqn"]:
-            epsilon = epsilon_vals[-1]
-        else:
-            epsilon = epsilon_vals[min(global_step, len(epsilon_vals) - 1)]
+        # if params["load_cp_dqn"]:
+        #     epsilon = epsilon_vals[-1]
+        # else:
+        epsilon = epsilon_vals[min(global_step, len(epsilon_vals) - 1)]
         writer.add_scalar("epsilon", epsilon, global_step)
 
         # one-step interaction with the environment
         if params["which_env"] == "numpy":
             obs = env_interaction_numpy_env(
-                dqn=dqn,
+                dqns=dqns,
                 obs=obs,
                 epsilon=epsilon,
                 env=env,
@@ -415,7 +458,7 @@ def main():
             )
         elif params["which_env"] == "unity":
             obs = env_interaction_unity_env(
-                dqn=dqn,
+                dqns=dqns,
                 epsilon=epsilon,
                 env=env,
                 device=device,
@@ -431,7 +474,7 @@ def main():
 
         if global_step > params["learning_start"]:
             batch = replay_buffer.sample(params["batch_size"])
-            loss, avg_q = dqn.update(
+            loss, avg_q = learn_dqn.update(
                 state_batch=batch.observations,
                 action_batch=batch.actions,
                 reward_batch=batch.rewards,
@@ -444,15 +487,15 @@ def main():
             logging_dict["avg_q_hist"].append(avg_q)
 
             if global_step % params["target_freq"] == 0:
-                dqn.target_update(params["tau"])
+                learn_dqn.target_update(params["tau"])
 
         if global_step % 10_000 == 0:
             print(f"Step {global_step} / {params['total_timesteps']}, saving model and buffer...")
-            dqn.save_model(exp_dir)
+            learn_dqn.save_model(exp_dir)
             replay_buffer.save(f"{exp_dir}/replay_buffer.npz")
 
     # SAVE MODEL AND DATA
-    dqn.save_model(exp_dir)
+    learn_dqn.save_model(exp_dir)
     replay_buffer.save(f"{exp_dir}/replay_buffer.npz")
 
     # PLOT TRAINING CURVES
@@ -483,7 +526,7 @@ def main():
 
     if params["which_env"] == "numpy":
         create_plots_numpy_env(
-            network=dqn.q_net,
+            network=learn_dqn.q_net,
             env=env,
             device=device,
             save_dir=f"{exp_dir}"
