@@ -112,10 +112,19 @@ class SimpleAccEnv(gym.Env):
         return predicates
 
     def reset(self, seed=None, options={}):
-        self.x = np.random.uniform(self.x_min, self.x_max)
-        self.y = np.random.uniform(self.y_min, self.y_max)
-        self.vel_x = np.random.uniform(-self.max_velocity, self.max_velocity)
-        self.vel_y = np.random.uniform(-self.max_velocity, self.max_velocity)
+
+        # when training without a BT, the feasibility constrained goal-reach DQN must not be initialized in the
+        # infeasible region, i.e. in lava or on conveyer, since it would learn to go to those states, which are closer
+        # to the goal...
+        in_lava = True
+        on_conveyer = True
+        while (in_lava or on_conveyer):
+            self.x = np.random.uniform(self.x_min, self.x_max)
+            self.y = np.random.uniform(self.y_min, self.y_max)
+            self.vel_x = np.random.uniform(-self.max_velocity, self.max_velocity)
+            self.vel_y = np.random.uniform(-self.max_velocity, self.max_velocity)
+            in_lava = self._in_lava()
+            on_conveyer = self._on_conveyer()
 
         self.ep_len = 0
 
@@ -139,7 +148,7 @@ class SimpleAccEnv(gym.Env):
         if self.task == "lava":
             reward = -10 if agent_in_lava else 0
         elif self.task == "goal":
-            reward = -10 * np.linalg.norm([5 - self.x, 9 - self.y])
+            reward = -1 * np.linalg.norm([5 - self.x, 9 - self.y])
         else:
             raise NotImplementedError(f"Task {self.task} not imlpemented")
 
