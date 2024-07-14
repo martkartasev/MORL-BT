@@ -21,6 +21,7 @@ class DQN:
             con_model_load_cp="",
             con_thresh=0.1,
             model_name="q",
+            con_model_arch=(32, 32, 16, 16),
     ):
         self.action_dim = action_dim
         self.state_dim = state_dim
@@ -33,10 +34,10 @@ class DQN:
         self.con_model = None
         self.con_thresh = con_thresh
         self.model_name = model_name
+        self.con_model_arch = con_model_arch
 
         if con_model_load_cp:
-            # TODO, correct non hard coded hidden size
-            self.con_model = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.hidden_arch)
+            self.con_model = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.con_model_arch)
             self.con_model.load_state_dict(torch.load(con_model_load_cp))
             self.con_model.to(self.device)
 
@@ -101,6 +102,7 @@ class DQN:
 
         self.optimizer.zero_grad()
         loss.backward()
+        # torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), 1.0)
         self.optimizer.step()
 
         return loss.item(), pred.mean().item()
