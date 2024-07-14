@@ -51,7 +51,7 @@ def setup_numpy_env(params, device, exp_dir):
     avoid_lava_dqn = DQN(
         action_dim=action_dim,
         state_dim=state_dim,
-        hidden_arch=params["hidden_arch"],
+        hidden_arch=params["numpy_env_lava_dqn_arch"],
         hidden_activation=params["hidden_activation"],
         device=device,
         lr=params["lr"],
@@ -65,13 +65,14 @@ def setup_numpy_env(params, device, exp_dir):
     reach_goal_dqn = DQN(
         action_dim=action_dim,
         state_dim=state_dim,
-        hidden_arch=params["hidden_arch"],
+        hidden_arch=params["numpy_env_goal_dqn_arch"],
         hidden_activation=params["hidden_activation"],
         device=device,
         lr=params["lr"],
         gamma=params["gamma"],
         load_cp=params["numpy_env_goal_dqn_cp"],
         con_model_load_cp=params["numpy_env_lava_feasibility_dqn_cp"],
+        con_model_arch=params["numpy_env_lava_feasibility_dqn_arch"],
         con_thresh=params["numpy_env_feasibility_thresh"],
         model_name="reach_goal",
     )
@@ -169,7 +170,8 @@ def env_interaction_numpy_env(
     if len(dqns) == 2:
         agent_x = obs[0]
         agent_y = obs[1]
-        if env.conveyer_x_min < agent_x < env.lava_x_max and env.conveyer_y_min < agent_y < env.lava_y_max:
+        # if env.conveyer_x_min < agent_x < env.lava_x_max and env.conveyer_y_min < agent_y < env.lava_y_max:
+        if env.lava_x_min < agent_x < env.lava_x_max and env.lava_y_min < agent_y < env.lava_y_max:
             print("Agent in lava or on conveyer, using avoid DQN")
             dqn_idx = 0
         else:
@@ -372,14 +374,13 @@ def main():
         "unity_max_ep_len": 1000,
         "unity_task": "fetch_trigger",
         # "unity_task": "reach_goal",
-        "total_timesteps": 1_000,
+        "total_timesteps": 100_000,
         "lr": 0.0005,
         "buffer_size": 1e6,
         "gamma": 0.99,
-        "tau": 1,
-        "target_freq": 1_000,
-        "batch_size": 2048,
-        "hidden_arch": [32, 32, 16, 16],
+        "tau": 0.005,
+        "target_freq": 1,
+        "batch_size": 256,
         "hidden_activation": nn.ReLU,
         "start_epsilon": 1.0,
         "end_epsilon": 0.05,
@@ -387,10 +388,16 @@ def main():
         "learning_start": 10_000,
         "seed": 1,
         "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-13-11-08-28_netArch/avoid_lava_net.pth",
+        "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
         # "numpy_env_lava_feasibility_dqn_cp": "",
         "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-11-11-06-24_250k/feasibility_2024-07-12-12-18-19_hiddenArch-32-16_hardTarget/feasibility_dqn.pt",
+        "numpy_env_lava_feasibility_dqn_arch": [32, 32, 16, 16],
         "numpy_env_feasibility_thresh": 0.1,
-        "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-13-11-45-59_BT_withCon/reach_goal_net.pth",
+        "numpy_env_goal_dqn_cp": "",
+        # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-13-11-45-59_BT_withCon/reach_goal_net.pth",
+        # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-13-12-46-08_BT_noCon/reach_goal_net.pth",
+        # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-13-16-53-55_BT_withCon_batch256_clipGrad1_hiddenArch256/reach_goal_net.pth",
+        "numpy_env_goal_dqn_arch": [256, 256],
     }
 
     # DIR FOR LOGGING
