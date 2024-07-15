@@ -64,7 +64,7 @@ def label_data(all_obs, label_fun):
     return labels
 
 
-def create_training_plots(model, env, exp_dir, train_loss_hist=None, lr_hist=None):
+def create_training_plots(model, env, exp_dir, train_loss_hist=None, lr_hist=None, pred_mean_hist=None):
     if train_loss_hist is not None:
         plt.plot(train_loss_hist, label="train_loss")
         plt.ylabel("TD Loss")
@@ -79,6 +79,14 @@ def create_training_plots(model, env, exp_dir, train_loss_hist=None, lr_hist=Non
         plt.xlabel("Epochs")
         plt.legend()
         plt.savefig(f"{exp_dir}/feasibility_lr.png")
+        plt.close()
+
+    if pred_mean_hist is not None:
+        plt.plot(pred_mean_hist, label="pred_mean")
+        plt.ylabel("Mean Q-value")
+        plt.xlabel("Updates")
+        plt.legend()
+        plt.savefig(f"{exp_dir}/feasibility_qf_mean.png")
         plt.close()
 
     if env is not None and isinstance(env, LavaGoalConveyerAccelerationEnv):
@@ -128,6 +136,7 @@ def train_model(
         exp_dir,
         epochs=10,
         nuke_layer_every=1e6,
+        gamma=0.99,
         criterion=torch.nn.MSELoss()
 ):
 
@@ -135,10 +144,11 @@ def train_model(
 
     train_loss_hist = []
     lr_hist = []
+    pred_mean_hist = []
     print("Training model...")
 
     batches_per_episode = states.shape[0] // batch_size
-    gamma = 0.99
+    # gamma = 0.99
     for epoch in range(epochs):
         model.train()
         target_model.train()
@@ -171,6 +181,7 @@ def train_model(
             q_values = model(state_batch.float())
             q_values = q_values.gather(dim=1, index=action_batch.to(torch.int64))
             loss = criterion(q_values.float(), td_target.float())
+            pred_mean_hist.append(q_values.mean().item())
 
             optimizer.zero_grad()
             loss.backward()
@@ -181,9 +192,9 @@ def train_model(
             batches_done += 1
 
             # polyak target network update
-            # tau = 0.01
-            # for target_param, param in zip(target_model.parameters(), model.parameters()):
-            #     target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
+            tau = 0.01
+            for target_param, param in zip(target_model.parameters(), model.parameters()):
+                target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
 
             if i % 100 == 0:
                 print(f"Epoch {epoch}, batch {i} / {batches_per_episode}, loss: {np.around(loss.item(), 5)}, avg. q-values: {np.around(q_values.mean().item(), 3)}, lr={np.around(optimizer.param_groups[0]['lr'], 5)}")
@@ -193,7 +204,7 @@ def train_model(
         scheduler.step()
 
         # hard target network update
-        target_model.load_state_dict(model.state_dict())
+        # target_model.load_state_dict(model.state_dict())
 
         if epoch % 50 == 0:
             # epoch_plot_dir = f"{exp_dir}/epoch_{epoch}"
@@ -219,7 +230,7 @@ def train_model(
     print(f"Saving classifier to {exp_dir}/feasibility_dqn.pt")
     torch.save(model.state_dict(), f"{exp_dir}/feasibility_dqn.pt")
 
-    return model, train_loss_hist, lr_hist
+    return model, train_loss_hist, lr_hist, pred_mean_hist
 
 
 def main():
@@ -231,7 +242,8 @@ def main():
     # load_rb_dir = "runs/flat-acc_reach_goal/2024-07-05-19-37-30"
     # load_rb_dir = "runs/flat-acc-button_fetch_trigger/2024-07-09-20-42-07_trainAgain"
     # load_rb_dir = "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-11-20-12-40_250k"
-    load_rb_dir = "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-11-11-06-24_250k"
+    load_rb_dir = "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom"
+    # load_rb_dir = "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-11-11-06-24_250k"
     rb_path = f"{load_rb_dir}/replay_buffer.npz"
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
     exp_dir = f"{load_rb_dir}/feasibility_{timestamp}"
@@ -267,14 +279,15 @@ def main():
 
     params = {
         "optimizer_initial_lr": 0.001,
-        "exponential_lr_decay": 0.99,
+        "exponential_lr_decay": 0.999,
         "batch_size": 2048,
-        "epochs": 500,
+        "epochs": 200,
         "nuke_layer_every": 1e6,
         "hidden_activation": torch.nn.ReLU,
         "hidden_arch": [32, 32, 16, 16],
-        "criterion": torch.nn.MSELoss
-        # "criterion": torch.nn.L1Loss
+        "criterion": torch.nn.MSELoss,
+        # "criterion": torch.nn.L1Loss,
+        "discount_gamma": 1.0
     }
 
     # save params as yaml
@@ -289,7 +302,7 @@ def main():
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=params["exponential_lr_decay"])
 
     # train model
-    model, train_loss_hist, lr_hist = train_model(
+    model, train_loss_hist, lr_hist, pred_mean_hist = train_model(
         env=env,
         model=model,
         target_model=target_model,
@@ -305,6 +318,7 @@ def main():
         exp_dir=exp_dir,
         epochs=params["epochs"],
         nuke_layer_every=params["nuke_layer_every"],
+        gamma=params["discount_gamma"]
     )
 
     create_training_plots(
@@ -313,6 +327,7 @@ def main():
         train_loss_hist=train_loss_hist,
         lr_hist=lr_hist,
         exp_dir=exp_dir,
+        pred_mean_hist=pred_mean_hist,
     )
 
 
