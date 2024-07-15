@@ -282,7 +282,7 @@ def create_plots_numpy_env(
 def plot_multiple_rollouts(
         traj_data,
         ax=None,
-        alpha=0.5,
+        alpha=0.1,
         color="r",
         figsize=(10, 5),
         save_path="",
@@ -296,19 +296,7 @@ def plot_multiple_rollouts(
         ax.set_ylim(0, 10)
 
     for i in range(traj_data.shape[0]):
-        plt.plot(traj_data[i, 0:-2, 0], traj_data[i, 0:-2, 1], alpha=0.5, c=color)
-        # make arrow for the last transitions
-        plt.quiver(
-            traj_data[i, -2, 0],
-            traj_data[i, -2, 1],
-            traj_data[i, -1, 0] - traj_data[i, -2, 0],
-            traj_data[i, -1, 1] - traj_data[i, -2, 1],
-            color=color, alpha=0.5,
-            # make arrow much smaller to look more like the line preceeding it in the trajectory
-            scale=1,
-            scale_units='xy',
-
-        )
+        plt.plot(traj_data[i, :, 0], traj_data[i, :, 1], alpha=alpha, c=color)
 
     if save_path:
         plt.savefig(save_path, bbox_inches="tight")
@@ -463,7 +451,9 @@ if __name__ == "__main__":
     env = SimpleAccEnv(with_conveyer=True)
     plot_simple_acc_env(env, ax=ax, show=False, close=False)
 
-    load_path = r"runs\SimpleAccEnv-withConveyer-lava-v0\2024-07-14-19-08-39_250k_50krandom\feasibility_2024-07-14-21-50-23\rollouts\trajectories.npz"
+    # load_path = r"runs\SimpleAccEnv-withConveyer-lava-v0\2024-07-14-19-08-39_250k_50krandom\feasibility_2024-07-14-21-50-23\rollouts\trajectories.npz"
+    load_path = r"runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-15-11-52-17/trajectories.npz"
     traj_data = np.load(load_path)["trajectories"]
+    # traj_data = np.load(load_path)["trajectory_data"]
     plot_multiple_rollouts(traj_data=traj_data, ax=ax)
 
