@@ -26,7 +26,7 @@ def plot_q_state(q_values, state, env, cp_dir):
     plt.close()
 
 
-def plot_cp(cp_dir="", squash_output=False, with_conveyer=False):
+def plot_cp(cp_dir="", cp_file="", squash_output=False, with_conveyer=False):
     env = SimpleAccEnv(with_conveyer=with_conveyer)
 
     # plot eval states
@@ -74,10 +74,7 @@ def plot_cp(cp_dir="", squash_output=False, with_conveyer=False):
         hidden_arch=params["hidden_arch"],
         hidden_activation=params["hidden_activation"],
     )
-    if "feasibility" in cp_dir:
-        model.load_state_dict(torch.load(f"{cp_dir}/feasibility_dqn.pt"))
-    else:
-        model.load_state_dict(torch.load(f"{cp_dir}/q_net.pth"))
+    model.load_state_dict(torch.load(f"{cp_dir}/{cp_file}"))
 
     # plot value function with different velocities
     for vel in [
@@ -283,20 +280,22 @@ def plot_rollouts(
 
 
 if __name__ == "__main__":
+    # plot_cp(
+    #     cp_dir=r"runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-13-12-46-08_BT_noCon",
+    #     cp_file="reach_goal_net.pth",
+    #     with_conveyer=True,
+    # )
     plot_cp(
-        cp_dir=r"runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-12-14-02-43_hiddenArch-32-16",
-        with_conveyer=True,
-    )
-    plot_cp(
-        cp_dir=r"runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-11-11-06-24_250k/feasibility_2024-07-12-12-18-19_hiddenArch-32-16_hardTarget",
+        cp_dir=r"runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom/feasibility_2024-07-14-21-50-23",
+        cp_file="feasibility_dqn.pt",
         with_conveyer=True,
     )
 
     plot_rollouts(
         task_dqn_dir=r"runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-12-14-02-43_hiddenArch-32-16",
-        con_dqn_dir=r"runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-11-11-06-24_250k/feasibility_2024-07-12-12-18-19_hiddenArch-32-16_hardTarget",
+        con_dqn_dir=r"runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom/feasibility_2024-07-14-21-50-23",
         # con_dqn_dir=r"",
-        con_thresh=0.1,
+        con_thresh=0.05,
         n_rollouts=10,
         with_conveyer=True
     )
