@@ -18,7 +18,7 @@ import envs
 from envs.unity_misc import rewards_flat_acc_env, done_check_flat_acc_env, unity_state_predicate_check, unity_state_predicate_names
 from misc import ReplayBuffer
 from dqn import DQN
-from plotting import create_plots_numpy_env, plot_unity_q_vals
+from plotting import create_plots_numpy_env, plot_unity_q_vals, plot_multiple_rollouts
 
 
 def setup_numpy_env(params, device, exp_dir):
@@ -219,7 +219,7 @@ def env_interaction_numpy_env(
         logging_dict["ep_state_predicates"] = np.zeros(len(env.state_predicate_names))
         logging_dict["episodes_done"] += 1
         
-    return obs
+    return obs, reward, done, trunc, info
 
 
 def env_interaction_unity_env(
@@ -388,7 +388,9 @@ def main():
         "learning_start": 50_000,
         "seed": 1,
         "numpy_env_lava_dqn_cp": "",
-        # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-13-11-08-28_netArch/avoid_lava_net.pth",
+        #"numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-13-11-08-28_netArch/avoid_lava_net.pth",
+        # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom/avoid_lava_net.pth",
+        # "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
         "numpy_env_lava_dqn_arch": [256, 256],
         "numpy_env_lava_feasibility_dqn_cp": "",
         # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-11-11-06-24_250k/feasibility_2024-07-12-12-18-19_hiddenArch-32-16_hardTarget/feasibility_dqn.pt",
@@ -399,6 +401,7 @@ def main():
         # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-13-12-46-08_BT_noCon/reach_goal_net.pth",
         # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-13-16-53-55_BT_withCon_batch256_clipGrad1_hiddenArch256/reach_goal_net.pth",
         "numpy_env_goal_dqn_arch": [256, 256],
+        # "numpy_env_goal_dqn_arch": [32, 32, 16, 16],
     }
 
     # DIR FOR LOGGING
@@ -453,7 +456,7 @@ def main():
 
         # one-step interaction with the environment
         if params["which_env"] == "numpy":
-            obs = env_interaction_numpy_env(
+            obs, _, _, _, _ = env_interaction_numpy_env(
                 dqns=dqns,
                 obs=obs,
                 epsilon=epsilon,
@@ -537,8 +540,69 @@ def main():
             dqn=learn_dqn,
             env=env,
             device=device,
-            save_dir=f"{exp_dir}"
+            save_dir=f"{exp_dir}",
+            plot_eval_states=True,
+            plot_value_function=True,
+            n_rollouts=10
         )
+
+        # PLOT TRAJECTORIES
+        trajectory_data = []
+        rewards = []
+        state_predicates = []
+        for _ in range(100):
+            obs, info = env.reset(options={
+                "x": 5 + np.random.uniform(-1, 1),
+                "y": 1
+            })
+            done, trunc = False, False
+            trajectory = [obs[:2]]
+            episodes_done, ep_len, ep_reward_sum = 0, 0, 0
+            loss_hist = []
+            avg_q_hist = []
+            ep_reward_hist = []
+            ep_len_hist = []
+            ep_state_predicates = np.zeros(len(env.state_predicate_names))
+            ep_state_predicate_hist = []
+
+            eval_logging_dict = {
+                "episodes_done": episodes_done,
+                "ep_len": ep_len,
+                "ep_reward_sum": ep_reward_sum,
+                "ep_state_predicates": ep_state_predicates,
+                "loss_hist": loss_hist,
+                "avg_q_hist": avg_q_hist,
+                "ep_reward_hist": ep_reward_hist,
+                "ep_len_hist": ep_len_hist,
+                "ep_state_predicate_hist": ep_state_predicate_hist
+            }
+
+            while not (done or trunc):
+                new_obs, reward, done, trunc, info = env_interaction_numpy_env(
+                    dqns=dqns,
+                    obs=obs,
+                    epsilon=epsilon,
+                    env=env,
+                    replay_buffer=replay_buffer,
+                    writer=writer,
+                    global_step=global_step,
+                    params=params,
+                    logging_dict=eval_logging_dict
+                )
+
+                trajectory.append(new_obs[:2])
+                obs = new_obs
+
+            trajectory_data.append(np.array(trajectory)[:-1, :])  # remove last obs, since it is new reset obs already...
+            rewards.append(eval_logging_dict["ep_reward_sum"])
+            state_predicates.append(eval_logging_dict["ep_state_predicates"])
+
+        trajectory_data = np.array(trajectory_data)
+        rewards = np.array(rewards)
+        state_predicates = np.array(state_predicates)
+
+    plot_multiple_rollouts(traj_data=trajectory_data, save_path=f"{exp_dir}/trajectories.png")
+    np.savez(f"{exp_dir}/trajectories.npz", trajectories=trajectory_data, rewards=rewards, state_predicates=state_predicates)
 
     env.close()
     writer.close()
