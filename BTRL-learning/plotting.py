@@ -104,54 +104,57 @@ def create_plots_numpy_env(
         env,
         device,
         save_dir,
-        n_rollouts=10
+        n_rollouts=10,
+        plot_value_function=True,
+        plot_eval_states=True,
 ):
+    if plot_value_function:
+        # plot value function with different velocities
+        for vel in [
+            np.array([0.0, 0.0]),
+            np.array([2.0, 0.0]),
+            np.array([-2.0, 0.0]),
+            np.array([0.0, 2.0]),
+            np.array([0.0, -2.0]),
+        ]:
+            for value_function in ["max", "mean", "min"]:
+                # value_function = "min"
+                plot_value_2D(
+                    dqn=dqn.q_net,
+                    velocity=vel,
+                    value_function=value_function,
+                    env=env,
+                    x_lim=env.x_range,
+                    x_steps=env.x_range[-1] + 1,
+                    y_lim=env.y_range,
+                    y_steps=env.y_range[-1] + 1,
+                    device=device,
+                    save_path=f"{save_dir}/vf-{value_function}_vel{vel}.png"
+                )
 
-    # plot value function with different velocities
-    for vel in [
-        np.array([0.0, 0.0]),
-        np.array([2.0, 0.0]),
-        np.array([-2.0, 0.0]),
-        np.array([0.0, 2.0]),
-        np.array([0.0, -2.0]),
-    ]:
-        for value_function in ["max", "mean", "min"]:
-            # value_function = "min"
-            plot_value_2D(
-                dqn=dqn.q_net,
-                velocity=vel,
-                value_function=value_function,
-                env=env,
-                x_lim=env.x_range,
-                x_steps=env.x_range[-1] + 1,
-                y_lim=env.y_range,
-                y_steps=env.y_range[-1] + 1,
-                device=device,
-                save_path=f"{save_dir}/vf-{value_function}_vel{vel}.png"
-            )
+    if plot_eval_states:
+        # plot Q-function in particular states
+        for eval_state in env.eval_states:
+            # plot_discrete_actions(
+            #     dqn=network,
+            #     state=eval_state,
+            #     action_map=env.action_map,
+            #     device=device,
+            #     save_path=f"{save_dir}/qf_state:{eval_state}.png",
+            # )
+            q_values = dqn.q_net(torch.Tensor(eval_state).to(device).unsqueeze(0)).detach().cpu().numpy().flatten()
+            for a in range(env.action_space.n):
+                acc = action_to_acc(a)
+                plt.scatter(acc[0], acc[1], c=q_values[a], s=800, cmap="plasma", vmin=q_values.min(), vmax=q_values.max())
+                plt.text(acc[0], acc[1], f"{a}, {acc}", fontsize=8, ha='center', va='center')
 
-    # plot Q-function in particular states
-    for eval_state in env.eval_states:
-        # plot_discrete_actions(
-        #     dqn=network,
-        #     state=eval_state,
-        #     action_map=env.action_map,
-        #     device=device,
-        #     save_path=f"{save_dir}/qf_state:{eval_state}.png",
-        # )
-        q_values = dqn.q_net(torch.Tensor(eval_state).to(device).unsqueeze(0)).detach().cpu().numpy().flatten()
-        for a in range(env.action_space.n):
-            acc = action_to_acc(a)
-            plt.scatter(acc[0], acc[1], c=q_values[a], s=800, cmap="plasma", vmin=q_values.min(), vmax=q_values.max())
-            plt.text(acc[0], acc[1], f"{a}, {acc}", fontsize=8, ha='center', va='center')
-
-        plt.xlim(-3, 3)
-        plt.ylim(-3, 3)
-        plt.title(f"State: {eval_state}")
-        plt.colorbar()
-        plt.savefig(f"{save_dir}/eval_state_{eval_state}.png")
-        plt.show()
-        plt.close()
+            plt.xlim(-3, 3)
+            plt.ylim(-3, 3)
+            plt.title(f"State: {eval_state}")
+            plt.colorbar()
+            plt.savefig(f"{save_dir}/eval_state_{eval_state}.png")
+            plt.show()
+            plt.close()
 
     # plot rolouts
     for i in range(n_rollouts):
