@@ -50,6 +50,7 @@ gym.envs.register(
     reward_threshold=0,
     kwargs={"task": "goal"},
 )
+
 gym.envs.register(
     id="SimpleAccEnv-withConveyer-lava-v0",
     entry_point="envs:SimpleAccEnv",
@@ -64,4 +65,38 @@ gym.envs.register(
     max_episode_steps=50,
     reward_threshold=0,
     kwargs={"task": "goal", "with_conveyer": True},
+)
+
+gym.envs.register(
+    id="SimpleAccEnv-wide-withConveyer-lava-v0",
+    entry_point="envs:SimpleAccEnv",
+    max_episode_steps=50,
+    reward_threshold=0,
+    kwargs={
+        "task": "lava",
+        "with_conveyer": True,
+        "x_max": 20,
+        "conveyer_x_min": 2,
+        "conveyer_x_max": 10,
+        "lava_x_min":  10,
+        "lava_x_max":  18,
+        "goal_x": 10,
+    },
+)
+
+gym.envs.register(
+    id="SimpleAccEnv-wide-withConveyer-goal-v0",
+    entry_point="envs:SimpleAccEnv",
+    max_episode_steps=50,
+    reward_threshold=0,
+    kwargs={
+        "task": "goal",
+        "with_conveyer": True,
+        "x_max": 20,
+        "conveyer_x_min": 2,
+        "conveyer_x_max": 10,
+        "lava_x_min":  10,
+        "lava_x_max":  18,
+        "goal_x": 10,
+    },
 )

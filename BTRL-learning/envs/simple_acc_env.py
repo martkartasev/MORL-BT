@@ -27,6 +27,10 @@ class SimpleAccEnv(gym.Env):
             lava_y_max=7,
             task="lava",
             with_conveyer=False,
+            conveyer_x_min=2,
+            conveyer_x_max=6,
+            conveyer_y_min=3,
+            conveyer_y_max=7,
             goal_x=5,
             goal_y=9
     ):
@@ -40,12 +44,12 @@ class SimpleAccEnv(gym.Env):
         self.dt = dt
         self.max_ep_len = max_ep_len
         self.with_conveyer = with_conveyer
-        self.conveyer_x_min = 2
-        self.conveyer_x_max = 6
-        self.conveyer_y_min = 3
-        self.conveyer_y_max = 7
+        self.conveyer_x_min = conveyer_x_min
+        self.conveyer_x_max = conveyer_x_max
+        self.conveyer_y_min = conveyer_y_min
+        self.conveyer_y_max = conveyer_y_max
         if self.with_conveyer:
-            self.lava_x_min = 6
+            self.lava_x_min = self.conveyer_x_max
             self.lava_x_max = lava_x_max
             self.lava_y_min = lava_y_min
             self.lava_y_max = lava_y_max
@@ -259,7 +263,14 @@ def plot_action_acceleration():
 
 
 if __name__ == "__main__":
-    env = SimpleAccEnv(with_conveyer=False)
+    env = SimpleAccEnv(
+        with_conveyer=True,
+        x_max=20,
+        conveyer_x_min=2,
+        conveyer_x_max=10,
+        lava_x_min=10,
+        lava_x_max=18,
+    )
 
     # plot accelerations
     # plot_action_acceleration()
