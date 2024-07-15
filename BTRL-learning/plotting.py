@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-from envs.simple_acc_env import action_to_acc
+from envs.simple_acc_env import action_to_acc, SimpleAccEnv
 
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE" # Flag from https://stackoverflow.com/questions/20554074/sklearn-omp-error-15-initializing-libiomp5md-dll-but-found-mk2iomp5md-dll-a
@@ -276,6 +276,101 @@ def create_plots_numpy_env(
         plt.close()
 
 
+def plot_multiple_rollouts(
+        traj_data,
+        ax=None,
+        alpha=0.5,
+        color="r",
+        figsize=(10, 5),
+        save_path="",
+        show=True,
+        close=True
+):
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.set_xlim(0, 10)
+        ax.set_ylim(0, 10)
+
+    for i in range(traj_data.shape[0]):
+        plt.plot(traj_data[i, 0:-2, 0], traj_data[i, 0:-2, 1], alpha=0.5, c=color)
+        # make arrow for the last transitions
+        plt.quiver(
+            traj_data[i, -2, 0],
+            traj_data[i, -2, 1],
+            traj_data[i, -1, 0] - traj_data[i, -2, 0],
+            traj_data[i, -1, 1] - traj_data[i, -2, 1],
+            color=color, alpha=0.5,
+            # make arrow much smaller to look more like the line preceeding it in the trajectory
+            scale=1,
+            scale_units='xy',
+
+        )
+
+    if save_path:
+        plt.savefig(save_path, bbox_inches="tight")
+
+    if show:
+        plt.show()
+
+    if close:
+        plt.close()
+
+
+def plot_simple_acc_env(env, ax=None, show=True, save_path="", close=True):
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    # lava rect
+    lava_rect = plt.Rectangle(
+        (env.lava_x_min, env.lava_y_min),
+        env.lava_x_max - env.lava_x_min,
+        env.lava_y_max - env.lava_y_min,
+        fill=True,
+        color='orange',
+        alpha=0.5
+    )
+    plt.gca().add_patch(lava_rect)
+
+    # conveyer rect
+    conveyer_rect = plt.Rectangle(
+        (env.conveyer_x_min, env.conveyer_y_min),
+        env.conveyer_x_max - env.conveyer_x_min,
+        env.conveyer_y_max - env.conveyer_y_min,
+        fill=True,
+        color='gray',
+        alpha=0.5
+    )
+    plt.gca().add_patch(conveyer_rect)
+
+    # plot some arrows on the conveyer belt, going from left to right
+    for x in np.arange(env.conveyer_x_min + 0.5, env.conveyer_x_max, 0.5):
+        for y in np.arange(env.conveyer_y_min + 0.5, env.conveyer_y_max, 0.5):
+            plt.quiver(x, y, 0.5, 0, color="k", scale=1, scale_units='xy')
+
+    # goal
+    plt.scatter(
+        env.goal_x,
+        env.goal_y,
+        s=400,
+        c='gold',
+        zorder=10,
+        marker='*',
+    )
+
+    ax.set_xlim(env.x_min - 0.1, env.x_max + 0.1)
+    ax.set_ylim(env.y_min - 0.1, env.y_max + 0.1)
+
+    if save_path:
+        plt.savefig(save_path, bbox_inches="tight")
+
+    if show:
+        plt.show()
+
+    if close:
+        plt.close()
+
+
 class EnvActuatorGrid5x5:
     def __init__(self):
         self.num_actions = 25
@@ -357,6 +452,15 @@ def plot_unity_q_vals(state, dqn, device, save_path="", title="", vmin=None, vma
 
 
 if __name__ == "__main__":
-    env_actuator = EnvActuatorGrid5x5()
-    env_actuator.plot_action_acceleration_mapping()
+    # env_actuator = EnvActuatorGrid5x5()
+    # env_actuator.plot_action_acceleration_mapping()
+
+    # load traj data
+    fig, ax = plt.subplots()
+    env = SimpleAccEnv(with_conveyer=True)
+    plot_simple_acc_env(env, ax=ax, show=False, close=False)
+
+    load_path = r"runs\SimpleAccEnv-withConveyer-lava-v0\2024-07-14-19-08-39_250k_50krandom\feasibility_2024-07-14-21-50-23\rollouts\trajectories.npz"
+    traj_data = np.load(load_path)["trajectories"]
+    plot_multiple_rollouts(traj_data=traj_data, ax=ax)
 
