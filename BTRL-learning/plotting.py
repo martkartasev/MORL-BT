@@ -24,7 +24,7 @@ def plot_value_2D(
     x = np.linspace(int(x_lim[0]), int(x_lim[1]), int(x_steps * resolution))
     y = np.linspace(int(y_lim[1]), int(y_lim[0]), int(y_steps * resolution))
     X, Y = np.meshgrid(x, y)
-    agent_pos = np.array([X.flatten(), Y.flatten()]).T
+    agent_pos = torch.from_numpy(np.array([X.flatten(), Y.flatten()]).T).to(device)
 
     agent_vel = torch.from_numpy(velocity).unsqueeze(0).to(device)
     agent_vel = agent_vel.repeat(agent_pos.shape[0], 1)
@@ -34,9 +34,9 @@ def plot_value_2D(
         goal_pos = goal_pos.repeat(agent_pos.shape[0], 1)
         q_inp = np.concatenate([agent_pos, agent_vel, goal_pos], axis=1)
     else:
-        q_inp = np.concatenate([agent_pos, agent_vel], axis=1)
+        q_inp = torch.concatenate([agent_pos, agent_vel], dim=1)
 
-    q_inp = torch.Tensor(q_inp).to(device)
+    q_inp = torch.Tensor(q_inp).to(device).float()
     q_values = dqn(q_inp)
 
     if value_function == "max":
@@ -100,7 +100,7 @@ def plot_discrete_actions(dqn, state, device, action_map, save_path=""):
 
 
 def create_plots_numpy_env(
-        dqn,
+        dqns,
         env,
         device,
         save_dir,
@@ -108,6 +108,7 @@ def create_plots_numpy_env(
         plot_value_function=True,
         plot_eval_states=True,
 ):
+    dqn = dqns[-1]  # plot currently learning dqn
     if plot_value_function:
         # plot value function with different velocities
         for vel in [
@@ -157,6 +158,7 @@ def create_plots_numpy_env(
             plt.close()
 
     # plot rolouts
+    # TODO, action collection is incorrect, not accounting for BT...
     for i in range(n_rollouts):
         print(f"lotting Rollout {i}")
 
@@ -196,37 +198,49 @@ def create_plots_numpy_env(
         done, trunc = False, False
         while not (done or trunc):
             print(obs)
-            q_val_fig, q_val_axs = plt.subplots(1, 3, figsize=(15, 5))
+            q_val_fig, q_val_axs = plt.subplots(1, 4, figsize=(20, 5))
 
-            task_q_vals = dqn.q_net(torch.from_numpy(obs).float()).detach().cpu().numpy()
+            lava_q_vals = dqns[0].q_net(torch.from_numpy(obs).float().to(device)).detach().cpu().numpy()
+            action = np.argmax(lava_q_vals)
 
-            # plot task q vals
+            # plot lava q vals
             for a in range(env.action_space.n):
                 acc = action_to_acc(a)
-                point = q_val_axs[0].scatter(acc[0], acc[1], s=800, c=task_q_vals[a], vmin=task_q_vals.min(), vmax=task_q_vals.max())
-            q_val_axs[0].set_title("Task Q-vals")
+                point = q_val_axs[0].scatter(acc[0], acc[1], s=800, c=lava_q_vals[a], vmin=lava_q_vals.min(), vmax=lava_q_vals.max())
+            q_val_axs[0].set_title("Lava Q-vals")
             plt.colorbar(point, ax=q_val_axs[0])
 
-            if dqn.con_model is not None:
-                con_q_vals = dqn.con_model(torch.from_numpy(obs).float()).detach().cpu().numpy()
-                # forbidden_mask = con_q_vals > con_thresh
-                best_con_action_value = con_q_vals.min()
-                forbidden_mask = con_q_vals > best_con_action_value + dqn.con_thresh
-
-                # plot con q vals
+            if len(dqns) > 1:
+                goal_q_vals = dqns[1].q_net(torch.from_numpy(obs).float().to(device)).detach().cpu().numpy()
+                # plot goal q vals
                 for a in range(env.action_space.n):
                     acc = action_to_acc(a)
-                    point = q_val_axs[1].scatter(acc[0], acc[1], s=800, c=con_q_vals[a], vmin=con_q_vals.min(), vmax=con_q_vals.max())
-                    if forbidden_mask[a]:
-                        q_val_axs[1].scatter(acc[0], acc[1], s=200, c="r", marker="x")
+                    point = q_val_axs[2].scatter(acc[0], acc[1], s=800, c=goal_q_vals[a], vmin=goal_q_vals.min(), vmax=goal_q_vals.max())
+                q_val_axs[2].set_title("Goal Q-vals")
+                plt.colorbar(point, ax=q_val_axs[2])
 
-                q_val_axs[1].set_title("Feasibility Q-vals")
-                plt.colorbar(point, ax=q_val_axs[1])
+                if dqns[1].con_model is not None:
+                    con_q_vals = dqns[1].con_model(torch.from_numpy(obs).float()).detach().cpu().numpy()
+                    # forbidden_mask = con_q_vals > con_thresh
+                    best_con_action_value = con_q_vals.min()
+                    forbidden_mask = con_q_vals > best_con_action_value + dqn.con_thresh
 
-                if not False in forbidden_mask:
-                    print(f"ALL ACTIONS ARE FORBIDDEN IN STATE {obs}!")
+                    # plot con q vals
+                    for a in range(env.action_space.n):
+                        acc = action_to_acc(a)
+                        point = q_val_axs[1].scatter(acc[0], acc[1], s=800, c=con_q_vals[a], vmin=con_q_vals.min(), vmax=con_q_vals.max())
+                        if forbidden_mask[a]:
+                            q_val_axs[1].scatter(acc[0], acc[1], s=200, c="r", marker="x")
 
-                task_q_vals[forbidden_mask] -= np.inf
+                    q_val_axs[1].set_title("Feasibility Q-vals")
+                    plt.colorbar(point, ax=q_val_axs[1])
+
+                    if not False in forbidden_mask:
+                        print(f"ALL ACTIONS ARE FORBIDDEN IN STATE {obs}!")
+
+                    goal_q_vals[forbidden_mask] -= np.inf
+
+                action = np.argmax(goal_q_vals)
 
             # plot env
             rect = plt.Rectangle(
@@ -237,7 +251,7 @@ def create_plots_numpy_env(
                 color='orange',
                 alpha=0.5
             )
-            q_val_axs[2].add_patch(rect)
+            q_val_axs[3].add_patch(rect)
             if env.with_conveyer:
                 conveyer_rect = plt.Rectangle(
                     (env.conveyer_x_min, env.conveyer_y_min),
@@ -247,16 +261,15 @@ def create_plots_numpy_env(
                     color='gray',
                     alpha=0.5
                 )
-                q_val_axs[2].add_patch(conveyer_rect)
+                q_val_axs[3].add_patch(conveyer_rect)
 
-            action = np.argmax(task_q_vals)
             q_val_fig.suptitle(f"State: {obs}, action: {action}, acc: {action_to_acc(action)}")
 
-            q_val_axs[2].quiver(obs[0], obs[1], obs[2], obs[3], color="r")  # current state
-            plt.plot(np.array(trajectory)[:, 0], np.array(trajectory)[:, 1], 'o-', c="r", alpha=0.5)
-            q_val_axs[2].set_xlim(env.x_min - 0.1, env.x_max + 0.1)
-            q_val_axs[2].set_ylim(env.y_min - 0.1, env.y_max + 0.1)
-            q_val_axs[2].set_title("Env")
+            q_val_axs[3].quiver(obs[0], obs[1], obs[2], obs[3], color="r")  # current state
+            q_val_axs[3].plot(np.array(trajectory)[:, 0], np.array(trajectory)[:, 1], 'o-', c="r", alpha=0.5)
+            q_val_axs[3].set_xlim(env.x_min - 0.1, env.x_max + 0.1)
+            q_val_axs[3].set_ylim(env.y_min - 0.1, env.y_max + 0.1)
+            q_val_axs[3].set_title("Env")
 
             plt.savefig(f"{rollout_dir}/q_vals{ep_len}.png")
             plt.close()
@@ -287,13 +300,15 @@ def plot_multiple_rollouts(
         figsize=(10, 5),
         save_path="",
         show=True,
-        close=True
+        close=True,
+        xlim=(0, 10),
+        ylim=(0, 10)
 ):
 
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
-        ax.set_xlim(0, 10)
-        ax.set_ylim(0, 10)
+        ax.set_xlim(xlim[0], xlim[1])
+        ax.set_ylim(ylim[0], ylim[1])
 
     for i in range(traj_data.shape[0]):
         plt.plot(traj_data[i, :, 0], traj_data[i, :, 1], alpha=alpha, c=color)

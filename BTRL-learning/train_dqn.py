@@ -365,9 +365,11 @@ def main():
         # "env_id": "LavaGoalConveyerAcceleration-lava-v0",
         # "env_id": "LavaGoalConveyerAcceleration-lava-noConveyer-v0",
         # "env_id": "SimpleAccEnv-lava-v0",
-        "env_id": "SimpleAccEnv-withConveyer-lava-v0",
+        # "env_id": "SimpleAccEnv-withConveyer-lava-v0",
+        # "env_id": "SimpleAccEnv-wide-withConveyer-lava-v0",
         # "env_id": "SimpleAccEnv-goal-v0",
         # "env_id": "SimpleAccEnv-withConveyer-goal-v0",
+        "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
         # "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
         # "env_id": "flat-acc",  # name of the folder containing the unity scene binaries
         "unity_take_screenshots": True,
@@ -387,8 +389,8 @@ def main():
         "exp_fraction": 0.5,
         "learning_start": 50_000,
         "seed": 1,
-        "numpy_env_lava_dqn_cp": "",
-        #"numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-13-11-08-28_netArch/avoid_lava_net.pth",
+        # "numpy_env_lava_dqn_cp": "",
+        "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-15-20-32-25/avoid_lava_net.pth",
         # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom/avoid_lava_net.pth",
         # "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
         "numpy_env_lava_dqn_arch": [256, 256],
@@ -537,7 +539,7 @@ def main():
 
     if params["which_env"] == "numpy":
         create_plots_numpy_env(
-            dqn=learn_dqn,
+            dqns=dqns,
             env=env,
             device=device,
             save_dir=f"{exp_dir}",
@@ -552,7 +554,7 @@ def main():
         state_predicates = []
         for _ in range(100):
             obs, info = env.reset(options={
-                "x": 5 + np.random.uniform(-1, 1),
+                "x": env.x_max / 2 + np.random.uniform(-1, 1),
                 "y": 1
             })
             done, trunc = False, False
@@ -601,7 +603,12 @@ def main():
         rewards = np.array(rewards)
         state_predicates = np.array(state_predicates)
 
-    plot_multiple_rollouts(traj_data=trajectory_data, save_path=f"{exp_dir}/trajectories.png")
+    plot_multiple_rollouts(
+        traj_data=trajectory_data,
+        save_path=f"{exp_dir}/trajectories.png",
+        xlim=[env.x_min - 0.1, env.x_max + 0.1],
+        ylim=[env.y_min - 0.1, env.y_max + 0.1]
+    )
     np.savez(f"{exp_dir}/trajectories.npz", trajectories=trajectory_data, rewards=rewards, state_predicates=state_predicates)
 
     env.close()
