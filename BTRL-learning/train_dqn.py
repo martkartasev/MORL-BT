@@ -16,6 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 import envs
 from envs.unity_misc import rewards_flat_acc_env, done_check_flat_acc_env, unity_state_predicate_check, unity_state_predicate_names
+from envs.simple_acc_env import action_to_acc
 from misc import ReplayBuffer
 from dqn import DQN
 from plotting import create_plots_numpy_env, plot_unity_q_vals, plot_multiple_rollouts
@@ -163,7 +164,9 @@ def env_interaction_numpy_env(
         writer,
         global_step,
         params,
-        logging_dict
+        logging_dict,
+        with_plot=False,
+        save_plot_path=""
 ):
 
     # BT is just if-else, and only active if we are training the goal reach DQN
@@ -181,6 +184,57 @@ def env_interaction_numpy_env(
 
     action = dqns[dqn_idx].act(obs, epsilon)
     next_obs, reward, done, trunc, info = env.step(action)
+
+    if with_plot:
+        with torch.no_grad():
+            state_fig, state_axs = plt.subplots(nrows=1, ncols=4, figsize=(20, 5))
+            lava_q_vals = dqns[0].q_net(torch.tensor(obs).float()).detach().numpy()
+            goal_q_vals = None
+            feasibility_q_vals = None
+            if len(dqns) > 1:
+                goal_q_vals = dqns[1].q_net(torch.tensor(obs).float()).detach().numpy()
+                if dqns[1].con_model is not None:
+                    feasibility_q_vals = dqns[1].con_model(torch.tensor(obs).float()).detach().numpy()
+
+            # plot q_vals
+            for ax_idx, q_vals, title in zip([0, 1, 2], [lava_q_vals, goal_q_vals, feasibility_q_vals], ["Lava", "Goal", "Feasibility"]):
+                if q_vals is not None:
+                    for a in range(env.action_space.n):
+                        acc = action_to_acc(a)
+                        point = state_axs[ax_idx].scatter(acc[0], acc[1], s=800, c=q_vals[a], vmin=q_vals.min(), vmax=q_vals.max())
+                    plt.colorbar(point, ax=state_axs[ax_idx])
+
+            state_axs[0].set_title(f"Lava Q values ({'active' if dqn_idx == 0 else 'inactive'})")
+            state_axs[1].set_title(f"Goal Q values ({'active' if dqn_idx == 1 else 'inactive'})")
+            state_axs[2].set_title("Feasibility Q values")
+
+            # plot env
+            lava_rect = plt.Rectangle(
+                (env.lava_x_min, env.lava_y_min),
+                env.lava_x_max - env.lava_x_min,
+                env.lava_y_max - env.lava_y_min,
+                color="orange",
+                alpha=1
+            )
+            state_axs[3].add_patch(lava_rect)
+            conveyer_rect = plt.Rectangle(
+                (env.conveyer_x_min, env.conveyer_y_min),
+                env.conveyer_x_max - env.conveyer_x_min,
+                env.conveyer_y_max - env.conveyer_y_min,
+                color="gray",
+                alpha=1
+            )
+            state_axs[3].add_patch(conveyer_rect)
+            state_axs[3].quiver(obs[0], obs[1], obs[2], obs[3], color="r")  # current state
+            state_axs[3].set_xlim(env.x_min - 0.1, env.x_max + 0.1)
+            state_axs[3].set_ylim(env.y_min - 0.1, env.y_max + 0.1)
+
+            if save_plot_path:
+                if not os.path.exists(os.path.dirname(save_plot_path)):
+                    os.makedirs(os.path.dirname(save_plot_path))
+                plt.savefig(save_plot_path)
+
+            plt.close()
 
     if dqn_idx == len(dqns) - 1:
         # only add transition to the replay buffer when the DQN we are currently learning is used...
@@ -376,7 +430,7 @@ def main():
         "unity_max_ep_len": 1000,
         "unity_task": "fetch_trigger",
         # "unity_task": "reach_goal",
-        "total_timesteps": 250_000,
+        "total_timesteps": 25_000,
         "lr": 0.0005,
         "buffer_size": 1e6,
         "gamma": 0.99,
@@ -390,8 +444,8 @@ def main():
         "learning_start": 50_000,
         "seed": 1,
         # "numpy_env_lava_dqn_cp": "",
-        "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-15-20-32-25/avoid_lava_net.pth",
-        # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom/avoid_lava_net.pth",
+        # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-15-20-32-25/avoid_lava_net.pth",
+        "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom/avoid_lava_net.pth",
         # "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
         "numpy_env_lava_dqn_arch": [256, 256],
         "numpy_env_lava_feasibility_dqn_cp": "",
@@ -552,7 +606,7 @@ def main():
         trajectory_data = []
         rewards = []
         state_predicates = []
-        for _ in range(100):
+        for j in range(100):
             obs, info = env.reset(options={
                 "x": env.x_max / 2 + np.random.uniform(-1, 1),
                 "y": 1
@@ -589,7 +643,9 @@ def main():
                     writer=writer,
                     global_step=global_step,
                     params=params,
-                    logging_dict=eval_logging_dict
+                    logging_dict=eval_logging_dict,
+                    with_plot=True if j == 0 else False,
+                    save_plot_path=f"{exp_dir}/bt_rollouts/{j}/{eval_logging_dict['ep_len']}.png"
                 )
 
                 trajectory.append(new_obs[:2])

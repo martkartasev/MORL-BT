@@ -158,91 +158,14 @@ def create_plots_numpy_env(
             plt.close()
 
     # plot rolouts
-    # TODO, action collection is incorrect, not accounting for BT...
-    for i in range(n_rollouts):
-        print(f"lotting Rollout {i}")
+    if False:
+        for i in range(n_rollouts):
+            print(f"lotting Rollout {i}")
 
-        rollout_base_dir = f"{save_dir}/rollouts"
-        rollout_dir = f"{rollout_base_dir}/{i}"
-        os.makedirs(rollout_dir, exist_ok=True)
+            rollout_base_dir = f"{save_dir}/rollouts"
+            rollout_dir = f"{rollout_base_dir}/{i}"
+            os.makedirs(rollout_dir, exist_ok=True)
 
-        rect = plt.Rectangle(
-            (env.lava_x_min, env.lava_y_min),
-            env.lava_x_max - env.lava_x_min,
-            env.lava_y_max - env.lava_y_min,
-            fill=True,
-            color='orange',
-            alpha=0.5
-        )
-        plt.gca().add_patch(rect)
-        if env.with_conveyer:
-            conveyer_rect = plt.Rectangle(
-                (env.conveyer_x_min, env.conveyer_y_min),
-                env.conveyer_x_max - env.conveyer_x_min,
-                env.conveyer_y_max - env.conveyer_y_min,
-                fill=True,
-                color='gray',
-                alpha=0.5
-            )
-            plt.gca().add_patch(conveyer_rect)
-
-        reset_options = {
-            "y": 1,
-            "x": 5 + np.random.uniform(-1, 1),
-        }
-        obs, _ = env.reset(options=reset_options)
-        # obs, _ = env.reset(options={})
-        trajectory = [obs[:2]]
-        ep_reward = 0
-        ep_len = 0
-        done, trunc = False, False
-        while not (done or trunc):
-            print(obs)
-            q_val_fig, q_val_axs = plt.subplots(1, 4, figsize=(20, 5))
-
-            lava_q_vals = dqns[0].q_net(torch.from_numpy(obs).float().to(device)).detach().cpu().numpy()
-            action = np.argmax(lava_q_vals)
-
-            # plot lava q vals
-            for a in range(env.action_space.n):
-                acc = action_to_acc(a)
-                point = q_val_axs[0].scatter(acc[0], acc[1], s=800, c=lava_q_vals[a], vmin=lava_q_vals.min(), vmax=lava_q_vals.max())
-            q_val_axs[0].set_title("Lava Q-vals")
-            plt.colorbar(point, ax=q_val_axs[0])
-
-            if len(dqns) > 1:
-                goal_q_vals = dqns[1].q_net(torch.from_numpy(obs).float().to(device)).detach().cpu().numpy()
-                # plot goal q vals
-                for a in range(env.action_space.n):
-                    acc = action_to_acc(a)
-                    point = q_val_axs[2].scatter(acc[0], acc[1], s=800, c=goal_q_vals[a], vmin=goal_q_vals.min(), vmax=goal_q_vals.max())
-                q_val_axs[2].set_title("Goal Q-vals")
-                plt.colorbar(point, ax=q_val_axs[2])
-
-                if dqns[1].con_model is not None:
-                    con_q_vals = dqns[1].con_model(torch.from_numpy(obs).float()).detach().cpu().numpy()
-                    # forbidden_mask = con_q_vals > con_thresh
-                    best_con_action_value = con_q_vals.min()
-                    forbidden_mask = con_q_vals > best_con_action_value + dqn.con_thresh
-
-                    # plot con q vals
-                    for a in range(env.action_space.n):
-                        acc = action_to_acc(a)
-                        point = q_val_axs[1].scatter(acc[0], acc[1], s=800, c=con_q_vals[a], vmin=con_q_vals.min(), vmax=con_q_vals.max())
-                        if forbidden_mask[a]:
-                            q_val_axs[1].scatter(acc[0], acc[1], s=200, c="r", marker="x")
-
-                    q_val_axs[1].set_title("Feasibility Q-vals")
-                    plt.colorbar(point, ax=q_val_axs[1])
-
-                    if not False in forbidden_mask:
-                        print(f"ALL ACTIONS ARE FORBIDDEN IN STATE {obs}!")
-
-                    goal_q_vals[forbidden_mask] -= np.inf
-
-                action = np.argmax(goal_q_vals)
-
-            # plot env
             rect = plt.Rectangle(
                 (env.lava_x_min, env.lava_y_min),
                 env.lava_x_max - env.lava_x_min,
@@ -251,7 +174,7 @@ def create_plots_numpy_env(
                 color='orange',
                 alpha=0.5
             )
-            q_val_axs[3].add_patch(rect)
+            plt.gca().add_patch(rect)
             if env.with_conveyer:
                 conveyer_rect = plt.Rectangle(
                     (env.conveyer_x_min, env.conveyer_y_min),
@@ -261,35 +184,112 @@ def create_plots_numpy_env(
                     color='gray',
                     alpha=0.5
                 )
-                q_val_axs[3].add_patch(conveyer_rect)
+                plt.gca().add_patch(conveyer_rect)
 
-            q_val_fig.suptitle(f"State: {obs}, action: {action}, acc: {action_to_acc(action)}")
+            reset_options = {
+                "y": 1,
+                "x": 5 + np.random.uniform(-1, 1),
+            }
+            obs, _ = env.reset(options=reset_options)
+            # obs, _ = env.reset(options={})
+            trajectory = [obs[:2]]
+            ep_reward = 0
+            ep_len = 0
+            done, trunc = False, False
+            while not (done or trunc):
+                print(obs)
+                q_val_fig, q_val_axs = plt.subplots(1, 4, figsize=(20, 5))
 
-            q_val_axs[3].quiver(obs[0], obs[1], obs[2], obs[3], color="r")  # current state
-            q_val_axs[3].plot(np.array(trajectory)[:, 0], np.array(trajectory)[:, 1], 'o-', c="r", alpha=0.5)
-            q_val_axs[3].set_xlim(env.x_min - 0.1, env.x_max + 0.1)
-            q_val_axs[3].set_ylim(env.y_min - 0.1, env.y_max + 0.1)
-            q_val_axs[3].set_title("Env")
+                lava_q_vals = dqns[0].q_net(torch.from_numpy(obs).float().to(device)).detach().cpu().numpy()
+                action = np.argmax(lava_q_vals)
 
-            plt.savefig(f"{rollout_dir}/q_vals{ep_len}.png")
+                # plot lava q vals
+                for a in range(env.action_space.n):
+                    acc = action_to_acc(a)
+                    point = q_val_axs[0].scatter(acc[0], acc[1], s=800, c=lava_q_vals[a], vmin=lava_q_vals.min(), vmax=lava_q_vals.max())
+                q_val_axs[0].set_title("Lava Q-vals")
+                plt.colorbar(point, ax=q_val_axs[0])
+
+                if len(dqns) > 1:
+                    goal_q_vals = dqns[1].q_net(torch.from_numpy(obs).float().to(device)).detach().cpu().numpy()
+                    # plot goal q vals
+                    for a in range(env.action_space.n):
+                        acc = action_to_acc(a)
+                        point = q_val_axs[2].scatter(acc[0], acc[1], s=800, c=goal_q_vals[a], vmin=goal_q_vals.min(), vmax=goal_q_vals.max())
+                    q_val_axs[2].set_title("Goal Q-vals")
+                    plt.colorbar(point, ax=q_val_axs[2])
+
+                    if dqns[1].con_model is not None:
+                        con_q_vals = dqns[1].con_model(torch.from_numpy(obs).float()).detach().cpu().numpy()
+                        # forbidden_mask = con_q_vals > con_thresh
+                        best_con_action_value = con_q_vals.min()
+                        forbidden_mask = con_q_vals > best_con_action_value + dqn.con_thresh
+
+                        # plot con q vals
+                        for a in range(env.action_space.n):
+                            acc = action_to_acc(a)
+                            point = q_val_axs[1].scatter(acc[0], acc[1], s=800, c=con_q_vals[a], vmin=con_q_vals.min(), vmax=con_q_vals.max())
+                            if forbidden_mask[a]:
+                                q_val_axs[1].scatter(acc[0], acc[1], s=200, c="r", marker="x")
+
+                        q_val_axs[1].set_title("Feasibility Q-vals")
+                        plt.colorbar(point, ax=q_val_axs[1])
+
+                        if not False in forbidden_mask:
+                            print(f"ALL ACTIONS ARE FORBIDDEN IN STATE {obs}!")
+
+                        goal_q_vals[forbidden_mask] -= np.inf
+
+                    action = np.argmax(goal_q_vals)
+
+                # plot env
+                rect = plt.Rectangle(
+                    (env.lava_x_min, env.lava_y_min),
+                    env.lava_x_max - env.lava_x_min,
+                    env.lava_y_max - env.lava_y_min,
+                    fill=True,
+                    color='orange',
+                    alpha=0.5
+                )
+                q_val_axs[3].add_patch(rect)
+                if env.with_conveyer:
+                    conveyer_rect = plt.Rectangle(
+                        (env.conveyer_x_min, env.conveyer_y_min),
+                        env.conveyer_x_max - env.conveyer_x_min,
+                        env.conveyer_y_max - env.conveyer_y_min,
+                        fill=True,
+                        color='gray',
+                        alpha=0.5
+                    )
+                    q_val_axs[3].add_patch(conveyer_rect)
+
+                q_val_fig.suptitle(f"State: {obs}, action: {action}, acc: {action_to_acc(action)}")
+
+                q_val_axs[3].quiver(obs[0], obs[1], obs[2], obs[3], color="r")  # current state
+                q_val_axs[3].plot(np.array(trajectory)[:, 0], np.array(trajectory)[:, 1], 'o-', c="r", alpha=0.5)
+                q_val_axs[3].set_xlim(env.x_min - 0.1, env.x_max + 0.1)
+                q_val_axs[3].set_ylim(env.y_min - 0.1, env.y_max + 0.1)
+                q_val_axs[3].set_title("Env")
+
+                plt.savefig(f"{rollout_dir}/q_vals{ep_len}.png")
+                plt.close()
+
+                obs, reward, done, trunc, _ = env.step(action)
+                ep_reward += reward
+                ep_len += 1
+
+                trajectory.append(obs[:2])
+                if done:
+                    break
+
+            trajectory = np.array(trajectory)
+            plt.plot(trajectory[:, 0], trajectory[:, 1], 'o-')
+
+            plt.xlim(env.x_min - 0.1, env.x_max + 0.1)
+            plt.ylim(env.y_min - 0.1, env.y_max + 0.1)
+            plt.savefig(f"{rollout_dir}/trajectory.png")
+            plt.show()
             plt.close()
-
-            obs, reward, done, trunc, _ = env.step(action)
-            ep_reward += reward
-            ep_len += 1
-
-            trajectory.append(obs[:2])
-            if done:
-                break
-
-        trajectory = np.array(trajectory)
-        plt.plot(trajectory[:, 0], trajectory[:, 1], 'o-')
-
-        plt.xlim(env.x_min - 0.1, env.x_max + 0.1)
-        plt.ylim(env.y_min - 0.1, env.y_max + 0.1)
-        plt.savefig(f"{rollout_dir}/trajectory.png")
-        plt.show()
-        plt.close()
 
 
 def plot_multiple_rollouts(
