@@ -27,6 +27,8 @@ class SimpleAccEnv(gym.Env):
             lava_y_max=7,
             task="lava",
             with_conveyer=False,
+            goal_x=5,
+            goal_y=9
     ):
         self.x_min = x_min
         self.x_max = x_max
@@ -53,8 +55,10 @@ class SimpleAccEnv(gym.Env):
             self.lava_y_min = lava_y_min
             self.lava_y_max = lava_y_max
         self.task = task
-
         assert task in ["lava", "goal"]
+
+        self.goal_x = goal_x
+        self.goal_y = goal_y
 
         self.eval_states = [
             np.array([5.0, 5.0, 0.0, 0.0]),  # in lava
@@ -103,7 +107,7 @@ class SimpleAccEnv(gym.Env):
         return self.conveyer_x_min <= self.x <= self.conveyer_x_max and self.conveyer_y_min <= self.y <= self.conveyer_y_max
 
     def _at_goal(self):
-        return np.linalg.norm([5 - self.x, 9 - self.y]) < 0.5
+        return np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y]) < 0.5
 
     def check_state_predicates(self):
         predicates = [self._in_lava(), self._at_goal(), self._on_conveyer()]
@@ -154,7 +158,7 @@ class SimpleAccEnv(gym.Env):
         if self.task == "lava":
             reward = -10 if agent_in_lava else 0
         elif self.task == "goal":
-            reward = -1 * np.linalg.norm([5 - self.x, 9 - self.y])
+            reward = -1 * np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y])
         else:
             raise NotImplementedError(f"Task {self.task} not imlpemented")
 
