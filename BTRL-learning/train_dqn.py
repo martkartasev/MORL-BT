@@ -165,8 +165,9 @@ def env_interaction_numpy_env(
         global_step,
         params,
         logging_dict,
+        device,
         with_plot=False,
-        save_plot_path=""
+        save_plot_path="",
 ):
 
     # BT is just if-else, and only active if we are training the goal reach DQN
@@ -188,13 +189,13 @@ def env_interaction_numpy_env(
     if with_plot:
         with torch.no_grad():
             state_fig, state_axs = plt.subplots(nrows=1, ncols=4, figsize=(20, 5))
-            lava_q_vals = dqns[0].q_net(torch.tensor(obs).float()).detach().numpy()
+            lava_q_vals = dqns[0].q_net(torch.tensor(obs).float().to(device)).detach().cpu().numpy()
             goal_q_vals = None
             feasibility_q_vals = None
             if len(dqns) > 1:
-                goal_q_vals = dqns[1].q_net(torch.tensor(obs).float()).detach().numpy()
+                goal_q_vals = dqns[1].q_net(torch.tensor(obs).float().to(device)).detach().cpu().numpy()
                 if dqns[1].con_model is not None:
-                    feasibility_q_vals = dqns[1].con_model(torch.tensor(obs).float()).detach().numpy()
+                    feasibility_q_vals = dqns[1].con_model(torch.tensor(obs).float().to(device)).detach().cpu().numpy()
 
             # plot q_vals
             for ax_idx, q_vals, title in zip([0, 1, 2], [lava_q_vals, goal_q_vals, feasibility_q_vals], ["Lava", "Goal", "Feasibility"]):
@@ -204,8 +205,8 @@ def env_interaction_numpy_env(
                         point = state_axs[ax_idx].scatter(acc[0], acc[1], s=800, c=q_vals[a], vmin=q_vals.min(), vmax=q_vals.max())
                     plt.colorbar(point, ax=state_axs[ax_idx])
 
-            state_axs[0].set_title(f"Lava Q values ({'active' if dqn_idx == 0 else 'inactive'})")
-            state_axs[1].set_title(f"Goal Q values ({'active' if dqn_idx == 1 else 'inactive'})")
+            state_axs[0].set_title(f"Lava Q values ({'active' if dqn_idx == 0 else ''})")
+            state_axs[1].set_title(f"Goal Q values ({'active' if dqn_idx == 1 else ''})")
             state_axs[2].set_title("Feasibility Q values")
 
             # plot env
@@ -228,6 +229,7 @@ def env_interaction_numpy_env(
             state_axs[3].quiver(obs[0], obs[1], obs[2], obs[3], color="r")  # current state
             state_axs[3].set_xlim(env.x_min - 0.1, env.x_max + 0.1)
             state_axs[3].set_ylim(env.y_min - 0.1, env.y_max + 0.1)
+            state_axs[3].set_title(f"Env: {obs}")
 
             if save_plot_path:
                 if not os.path.exists(os.path.dirname(save_plot_path)):
@@ -434,9 +436,9 @@ def main():
         "lr": 0.0005,
         "buffer_size": 1e6,
         "gamma": 0.99,
-        "tau": 0.005,
+        "tau": 0.001,
         "target_freq": 1,
-        "batch_size": 256,
+        "batch_size": 2048,
         "hidden_activation": nn.ReLU,
         "start_epsilon": 1.0,
         "end_epsilon": 0.05,
@@ -502,12 +504,12 @@ def main():
     )
 
     # TRAINING
-    epsilon_vals = np.linspace(params["start_epsilon"], params["end_epsilon"], int(params["exp_fraction"] * params["total_timesteps"]))
+    epsilon_vals = np.linspace(params["start_epsilon"], params["end_epsilon"], int(params["exp_fraction"] * params["total_timesteps"] - params["learning_start"]))
     for global_step in range(params["total_timesteps"]):
-        # if params["load_cp_dqn"]:
-        #     epsilon = epsilon_vals[-1]
-        # else:
-        epsilon = epsilon_vals[min(global_step, len(epsilon_vals) - 1)]
+        if global_step > params["learning_start"]:
+            epsilon = epsilon_vals[min(global_step, len(epsilon_vals) - 1)]
+        else:
+            epsilon = params["start_epsilon"]
         writer.add_scalar("epsilon", epsilon, global_step)
 
         # one-step interaction with the environment
@@ -521,7 +523,8 @@ def main():
                 writer=writer,
                 global_step=global_step,
                 params=params,
-                logging_dict=logging_dict
+                logging_dict=logging_dict,
+                device=device,
             )
         elif params["which_env"] == "unity":
             obs = env_interaction_unity_env(
@@ -644,8 +647,9 @@ def main():
                     global_step=global_step,
                     params=params,
                     logging_dict=eval_logging_dict,
-                    with_plot=True if j == 0 else False,
-                    save_plot_path=f"{exp_dir}/bt_rollouts/{j}/{eval_logging_dict['ep_len']}.png"
+                    with_plot=True if j < 3 else False,
+                    save_plot_path=f"{exp_dir}/bt_rollouts/{j}/{eval_logging_dict['ep_len']}.png",
+                    device=device
                 )
 
                 trajectory.append(new_obs[:2])
