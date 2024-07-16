@@ -277,10 +277,24 @@ if __name__ == "__main__":
         conveyer_x_max=10,
         lava_x_min=10,
         lava_x_max=18,
+        goal_x=10,
     )
 
     # plot accelerations
     # plot_action_acceleration()
+
+    # plot reward function
+    xs = np.linspace(env.x_min, env.x_max, 100)
+    ys = np.linspace(env.y_min, env.y_max, 100)
+    Z = np.zeros([100, 100])
+    for i, x in enumerate(xs):
+        for j, y in enumerate(ys):
+            Z[i, j] = -1 * np.linalg.norm([env.goal_x - x, env.goal_y - y])
+
+    plt.imshow(Z.T, extent=[env.x_min, env.x_max, env.y_min, env.y_max], origin='lower', cmap='viridis')
+    plt.colorbar()
+    plt.show()
+    plt.close()
 
     # run a few episodes and plot resulting trajectories
     plot_trajectories(
