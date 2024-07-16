@@ -242,8 +242,9 @@ def main():
     # load_rb_dir = "runs/flat-acc_reach_goal/2024-07-05-19-37-30"
     # load_rb_dir = "runs/flat-acc-button_fetch_trigger/2024-07-09-20-42-07_trainAgain"
     # load_rb_dir = "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-11-20-12-40_250k"
-    load_rb_dir = "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom"
+    # load_rb_dir = "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom"
     # load_rb_dir = "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-11-11-06-24_250k"
+    load_rb_dir = "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good"
     rb_path = f"{load_rb_dir}/replay_buffer.npz"
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
     exp_dir = f"{load_rb_dir}/feasibility_{timestamp}"
@@ -256,7 +257,16 @@ def main():
     # def label_fun(state):
     #     return env.lava_x_range[0] < state[0] < env.lava_x_range[-1] and env.lava_y_range[0] < state[1] < env.lava_y_range[-1]
 
-    env = SimpleAccEnv(with_conveyer=True)
+    env = SimpleAccEnv(
+        with_conveyer=True,
+        x_max=20,
+        conveyer_x_min=2,
+        conveyer_x_max=10,
+        lava_x_min=10,
+        lava_x_max=18,
+        goal_x=10,
+    )
+    
     n_obs = 4
     n_actions = 25
     def label_fun(state):
@@ -280,8 +290,8 @@ def main():
     params = {
         "optimizer_initial_lr": 0.001,
         "exponential_lr_decay": 0.999,
-        "batch_size": 2048,
-        "epochs": 200,
+        "batch_size": 256,
+        "epochs": 1000,
         "nuke_layer_every": 1e6,
         "hidden_activation": torch.nn.ReLU,
         "hidden_arch": [32, 32, 16, 16],
