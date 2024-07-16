@@ -160,7 +160,8 @@ class SimpleAccEnv(gym.Env):
         agent_on_conveyer = self._on_conveyer()
 
         if self.task == "lava":
-            reward = -10 if agent_in_lava else 0
+            # reward = -10 if agent_in_lava else 0
+            reward = -1 if agent_in_lava else 0
         elif self.task == "goal":
             reward = -1 * np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y])
         else:
@@ -177,8 +178,14 @@ class SimpleAccEnv(gym.Env):
             self.vel_y = 0.0
 
         # clamp velocity
-        self.vel_x = np.clip(self.vel_x, -self.max_velocity, self.max_velocity)
-        self.vel_y = np.clip(self.vel_y, -self.max_velocity, self.max_velocity)
+        if agent_in_lava:
+            # agent is slower in lava
+            lava_max_vel = 0.5
+            self.vel_x = np.clip(self.vel_x, -lava_max_vel, lava_max_vel)
+            self.vel_y = np.clip(self.vel_y, -lava_max_vel, lava_max_vel)
+        else:
+            self.vel_x = np.clip(self.vel_x, -self.max_velocity, self.max_velocity)
+            self.vel_y = np.clip(self.vel_y, -self.max_velocity, self.max_velocity)
 
         # update position
         self.x += self.vel_x * self.dt
