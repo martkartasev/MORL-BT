@@ -432,7 +432,8 @@ def main():
         "unity_max_ep_len": 1000,
         "unity_task": "fetch_trigger",
         # "unity_task": "reach_goal",
-        "total_timesteps": 25_000,
+        "no_train_only_plot": True,
+        "total_timesteps": 500_000,
         "lr": 0.0005,
         "buffer_size": 1e6,
         "gamma": 0.99,
@@ -446,20 +447,16 @@ def main():
         "learning_start": 50_000,
         "seed": 1,
         # "numpy_env_lava_dqn_cp": "",
-        # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-15-20-32-25/avoid_lava_net.pth",
-        "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom/avoid_lava_net.pth",
-        # "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
-        "numpy_env_lava_dqn_arch": [256, 256],
+        "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/avoid_lava_net.pth",
+        "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
         "numpy_env_lava_feasibility_dqn_cp": "",
-        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-11-11-06-24_250k/feasibility_2024-07-12-12-18-19_hiddenArch-32-16_hardTarget/feasibility_dqn.pt",
+        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/feasibility_dqn.pt",
         "numpy_env_lava_feasibility_dqn_arch": [32, 32, 16, 16],
         "numpy_env_feasibility_thresh": 0.1,
-        "numpy_env_goal_dqn_cp": "",
-        # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-13-11-45-59_BT_withCon/reach_goal_net.pth",
-        # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-13-12-46-08_BT_noCon/reach_goal_net.pth",
-        # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-13-16-53-55_BT_withCon_batch256_clipGrad1_hiddenArch256/reach_goal_net.pth",
+        # "numpy_env_goal_dqn_cp": "",
+        "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-18-26-38_slowLava_trainedWithCon/reach_goal_net.pth",
+        # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-16-27-29_slowLava_trainedWithoutCon/reach_goal_net.pth",
         "numpy_env_goal_dqn_arch": [256, 256],
-        # "numpy_env_goal_dqn_arch": [32, 32, 16, 16],
     }
 
     # DIR FOR LOGGING
@@ -506,6 +503,10 @@ def main():
     # TRAINING
     epsilon_vals = np.linspace(params["start_epsilon"], params["end_epsilon"], int(params["exp_fraction"] * params["total_timesteps"] - params["learning_start"]))
     for global_step in range(params["total_timesteps"]):
+        if params["no_train_only_plot"]:
+            # we are only creating plots and collecting trajectory data...
+            continue
+
         if global_step > params["learning_start"]:
             epsilon = epsilon_vals[min(global_step, len(epsilon_vals) - 1)]
         else:
@@ -569,30 +570,31 @@ def main():
     replay_buffer.save(f"{exp_dir}/replay_buffer.npz")
 
     # PLOT TRAINING CURVES
-    titles = ["Loss Q", "Avg Q", "Episode Reward", "Episode Length"]
-    graphs = [
-        logging_dict["loss_hist"],
-        logging_dict["avg_q_hist"],
-        logging_dict["ep_reward_hist"],
-        logging_dict["ep_len_hist"],
-        ]
-    for y_data, title in zip(graphs, titles):
-        plt.plot(y_data)
-        plt.title(title)
-        plt.savefig(f"{exp_dir}/{title}.png")
-        plt.close()
+    if not params["no_train_only_plot"]:
+        titles = ["Loss Q", "Avg Q", "Episode Reward", "Episode Length"]
+        graphs = [
+            logging_dict["loss_hist"],
+            logging_dict["avg_q_hist"],
+            logging_dict["ep_reward_hist"],
+            logging_dict["ep_len_hist"],
+            ]
+        for y_data, title in zip(graphs, titles):
+            plt.plot(y_data)
+            plt.title(title)
+            plt.savefig(f"{exp_dir}/{title}.png")
+            plt.close()
 
-    state_predicate_occurances = np.asarray(logging_dict["ep_state_predicate_hist"])
-    colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple", "tab:brown", "tab:pink", "tab:gray", "tab:olive", "tab:cyan"]
-    for i, state_predicate in enumerate(env.state_predicate_names):
-        y_data = state_predicate_occurances[:, i]
-        # apply some smoothing
-        y_data_smoothed = np.convolve(y_data, np.ones(10) / 10, mode="same")
-        plt.plot(y_data_smoothed, label=state_predicate, color=colors[i])
-        plt.plot(y_data, alpha=0.1, color=colors[i])
-        plt.title(f"{state_predicate} Occurances")
-        plt.savefig(f"{exp_dir}/state_predicate_{state_predicate}.png")
-        plt.close()
+        state_predicate_occurances = np.asarray(logging_dict["ep_state_predicate_hist"])
+        colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple", "tab:brown", "tab:pink", "tab:gray", "tab:olive", "tab:cyan"]
+        for i, state_predicate in enumerate(env.state_predicate_names):
+            y_data = state_predicate_occurances[:, i]
+            # apply some smoothing
+            y_data_smoothed = np.convolve(y_data, np.ones(10) / 10, mode="same")
+            plt.plot(y_data_smoothed, label=state_predicate, color=colors[i])
+            plt.plot(y_data, alpha=0.1, color=colors[i])
+            plt.title(f"{state_predicate} Occurances")
+            plt.savefig(f"{exp_dir}/state_predicate_{state_predicate}.png")
+            plt.close()
 
     if params["which_env"] == "numpy":
         create_plots_numpy_env(
@@ -640,7 +642,7 @@ def main():
                 new_obs, reward, done, trunc, info = env_interaction_numpy_env(
                     dqns=dqns,
                     obs=obs,
-                    epsilon=epsilon,
+                    epsilon=params["end_epsilon"],
                     env=env,
                     replay_buffer=replay_buffer,
                     writer=writer,
@@ -656,8 +658,8 @@ def main():
                 obs = new_obs
 
             trajectory_data.append(np.array(trajectory)[:-1, :])  # remove last obs, since it is new reset obs already...
-            rewards.append(eval_logging_dict["ep_reward_sum"])
-            state_predicates.append(eval_logging_dict["ep_state_predicates"])
+            rewards.append(eval_logging_dict["ep_reward_hist"][-1])
+            state_predicates.append(eval_logging_dict["ep_state_predicate_hist"][-1])
 
         trajectory_data = np.array(trajectory_data)
         rewards = np.array(rewards)
@@ -669,7 +671,13 @@ def main():
         xlim=[env.x_min - 0.1, env.x_max + 0.1],
         ylim=[env.y_min - 0.1, env.y_max + 0.1]
     )
-    np.savez(f"{exp_dir}/trajectories.npz", trajectories=trajectory_data, rewards=rewards, state_predicates=state_predicates)
+    np.savez(
+        f"{exp_dir}/trajectories.npz",
+        trajectories=trajectory_data,
+        rewards=rewards,
+        state_predicates=state_predicates,
+        state_predicate_names=env.state_predicate_names
+    )
 
     env.close()
     writer.close()
