@@ -302,7 +302,10 @@ def plot_multiple_rollouts(
         show=True,
         close=True,
         xlim=(0, 10),
-        ylim=(0, 10)
+        ylim=(0, 10),
+        ls="-",
+        label="",
+        legend=False
 ):
 
     if ax is None:
@@ -311,7 +314,10 @@ def plot_multiple_rollouts(
         ax.set_ylim(ylim[0], ylim[1])
 
     for i in range(traj_data.shape[0]):
-        plt.plot(traj_data[i, :, 0], traj_data[i, :, 1], alpha=alpha, c=color)
+        ax.plot(traj_data[i, :, 0], traj_data[i, :, 1], alpha=alpha, c=color, ls=ls, label=label if i == 0 else None)
+
+    if legend:
+        ax.legend()
 
     if save_path:
         plt.savefig(save_path, bbox_inches="tight")
@@ -350,8 +356,8 @@ def plot_simple_acc_env(env, ax=None, show=True, save_path="", close=True):
     plt.gca().add_patch(conveyer_rect)
 
     # plot some arrows on the conveyer belt, going from left to right
-    for x in np.arange(env.conveyer_x_min + 0.5, env.conveyer_x_max, 0.5):
-        for y in np.arange(env.conveyer_y_min + 0.5, env.conveyer_y_max, 0.5):
+    for x in np.arange(start=env.conveyer_x_min + 0.5, stop=env.conveyer_x_max, step=1):
+        for y in np.arange(start=env.conveyer_y_min + 0.5, stop=env.conveyer_y_max, step=1):
             plt.quiver(x, y, 0.5, 0, color="k", scale=1, scale_units='xy')
 
     # goal
@@ -463,12 +469,36 @@ if __name__ == "__main__":
 
     # load traj data
     fig, ax = plt.subplots()
-    env = SimpleAccEnv(with_conveyer=True)
+    env = SimpleAccEnv(
+        with_conveyer=True,
+        x_max=20,
+        conveyer_x_min=2,
+        conveyer_x_max=10,
+        lava_x_min=10,
+        lava_x_max=18,
+        goal_x=10,
+    )
     plot_simple_acc_env(env, ax=ax, show=False, close=False)
 
-    # load_path = r"runs\SimpleAccEnv-withConveyer-lava-v0\2024-07-14-19-08-39_250k_50krandom\feasibility_2024-07-14-21-50-23\rollouts\trajectories.npz"
-    load_path = r"runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-15-11-52-17/trajectories.npz"
-    traj_data = np.load(load_path)["trajectories"]
-    # traj_data = np.load(load_path)["trajectory_data"]
-    plot_multiple_rollouts(traj_data=traj_data, ax=ax)
+    load_path = r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-18-26-38_slowLava_trainedWithCon/trajectories.npz"
+    traj_data_con = np.load(load_path)["trajectories"]
+    rewards_con = np.load(load_path)["rewards"]
+    plot_multiple_rollouts(traj_data=traj_data_con, ax=ax, color="green", show=False, close=False, ls=":", alpha=0.25, label="Ours")
+    
+    load_path = r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-16-27-29_slowLava_trainedWithoutCon/trajectories.npz"
+    traj_data_noCon = np.load(load_path)["trajectories"]
+    rewards_noCon = np.load(load_path)["rewards"]
+    plot_multiple_rollouts(traj_data=traj_data_noCon, ax=ax, color="red", ls="--", alpha=0.25, label="Baseline", legend=True)
+
+    # plot mean reward for con and noCon as barplot, with 1 std error bar
+    # mean_reward_con = rewards_con.mean()
+    # std_reward_con = rewards_con.std()
+    # mean_reward_noCon = rewards_noCon.mean()
+    # std_reward_noCon = rewards_noCon.std()
+    # plt.bar(["Con", "NoCon"], [mean_reward_con, mean_reward_noCon], yerr=[std_reward_con, std_reward_noCon], capsize=5)
+    # plt.ylabel("Mean reward")
+    # plt.title("Mean reward with 1 std error bar")
+    # plt.show()
+    # plt.close()
+
 
