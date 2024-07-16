@@ -26,8 +26,7 @@ def plot_q_state(q_values, state, env, cp_dir):
     plt.close()
 
 
-def plot_cp(cp_dir="", cp_file="", squash_output=False, with_conveyer=False):
-    env = SimpleAccEnv(with_conveyer=with_conveyer)
+def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False):
 
     # plot eval states
     lava_rect = plt.Rectangle(
@@ -117,22 +116,21 @@ def plot_cp(cp_dir="", cp_file="", squash_output=False, with_conveyer=False):
 
 
 def plot_rollouts(
+        env,
         task_dqn_dir="",
         con_dqn_dir="",
         con_thresh=0.25,
         n_rollouts=1,
         with_conveyer=False
 ):
-    env = SimpleAccEnv(with_conveyer=with_conveyer)
-
     task_params = yaml.load(open(f"{task_dqn_dir}/params.yaml", "r"), Loader=yaml.FullLoader)
     task_dqn = MLP(
         input_size=env.observation_space.shape[0],
         output_size=env.action_space.n,
-        hidden_arch=task_params["hidden_arch"],
+        hidden_arch=task_params["numpy_env_goal_dqn_arch"],
         hidden_activation=task_params["hidden_activation"],
     )
-    task_dqn.load_state_dict(torch.load(f"{task_dqn_dir}/q_net.pth"))
+    task_dqn.load_state_dict(torch.load(f"{task_dqn_dir}/reach_goal_net.pth"))
 
     if con_dqn_dir:
         con_params = yaml.load(open(f"{con_dqn_dir}/params.yaml", "r"), Loader=yaml.FullLoader)
@@ -280,20 +278,33 @@ def plot_rollouts(
 
 
 if __name__ == "__main__":
+    env = SimpleAccEnv(
+        with_conveyer=True,
+        x_max=20,
+        conveyer_x_min=2,
+        conveyer_x_max=10,
+        lava_x_min=10,
+        lava_x_max=18,
+        goal_x=10,
+    )
     # plot_cp(
+    #     env=env,
     #     cp_dir=r"runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-13-12-46-08_BT_noCon",
     #     cp_file="reach_goal_net.pth",
     #     with_conveyer=True,
     # )
     plot_cp(
-        cp_dir=r"runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom/feasibility_2024-07-14-21-50-23",
+        env=env,
+        # cp_dir=r"runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom/feasibility_2024-07-14-21-50-23",
+        cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18",
         cp_file="feasibility_dqn.pt",
         with_conveyer=True,
     )
 
     plot_rollouts(
-        task_dqn_dir=r"runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-12-14-02-43_hiddenArch-32-16",
-        con_dqn_dir=r"runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom/feasibility_2024-07-14-21-50-23",
+        env=env,
+        task_dqn_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-15-21-11-39",
+        con_dqn_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18",
         # con_dqn_dir=r"",
         con_thresh=0.05,
         n_rollouts=10,
