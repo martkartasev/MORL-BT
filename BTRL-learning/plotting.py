@@ -467,11 +467,11 @@ def plot_unity_q_vals(state, dqn, device, save_path="", title="", vmin=None, vma
     plt.close()
 
 
-if __name__ == "__main__":
-    # env_actuator = EnvActuatorGrid5x5()
-    # env_actuator.plot_action_acceleration_mapping()
-
-    # load traj data
+def plot_bt_comp(
+        no_con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-20-18-00_slowLava_trainedWithoutCon_len100/",
+        con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-20-38-15_slowLava_trainedWithCon_len100/",
+):
+    # plot env
     fig, ax = plt.subplots(figsize=(10, 5))
     env = SimpleAccEnv(
         with_conveyer=True,
@@ -484,19 +484,18 @@ if __name__ == "__main__":
     )
     plot_simple_acc_env(env, ax=ax, show=False, close=False)
 
-    load_path = r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-20-38-15_slowLava_trainedWithCon_len100/trajectories.npz"
-    data_con = np.load(load_path)
+    # load and plot con data
+    data_con = np.load(con_load_dir + "trajectories.npz")
     rewards_con = data_con["rewards"]
     predicates_con = data_con["state_predicates"]
     predicate_names_con = data_con["state_predicate_names"]
-    # stack reward and predicates into one array
     rewards_con = rewards_con.reshape(-1, 1)
     rollout_data_con = np.hstack([rewards_con, predicates_con])
 
     plot_multiple_rollouts(traj_data=data_con["trajectories"], ax=ax, color="green", show=False, close=False, ls=":", alpha=0.25, label="Ours")
 
-    load_path = r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-20-18-00_slowLava_trainedWithoutCon_len100/trajectories.npz"
-    data_noCon = np.load(load_path)
+    # load and plot no_con data
+    data_noCon = np.load(no_con_load_dir + "trajectories.npz")
     rewards_noCon = data_noCon["rewards"]
     predicates_noCon = data_noCon["state_predicates"]
     predicate_names_noCon = data_noCon["state_predicate_names"]
@@ -548,3 +547,33 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.show()
+
+    # plot eval rewards
+    eval_data_con = np.load(con_load_dir + "logging_data.npz")
+    eval_rewards_con = eval_data_con["eval_reward_hist"]
+    eval_predicates_con = eval_data_con["eval_state_predicate_hist"]
+    # eval_ep_times_con = eval_data_con["eval_episodes_times"]
+
+    eval_data_noCon = np.load(no_con_load_dir + "logging_data.npz")
+    eval_rewards_noCon = eval_data_noCon["eval_reward_hist"]
+    eval_predicates_noCon = eval_data_noCon["eval_state_predicate_hist"]
+    # eval_ep_times_noCon = eval_data_noCon["eval_episodes_times"]
+
+    fig, ax = plt.subplots()
+    ax.plot(eval_rewards_con, label="Ours")
+    ax.plot(eval_rewards_noCon, label="Baseline")
+    ax.set_xlabel("Episodes")
+    ax.set_ylabel("Reward")
+    ax.legend()
+    plt.show()
+
+
+if __name__ == "__main__":
+    # env_actuator = EnvActuatorGrid5x5()
+    # env_actuator.plot_action_acceleration_mapping()
+
+    plot_bt_comp(
+        con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-17-18-00-57_withLogging_withCon/",
+        no_con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-17-18-06-44_withLogging_withoutCon/",
+    )
+
