@@ -472,7 +472,7 @@ if __name__ == "__main__":
     # env_actuator.plot_action_acceleration_mapping()
 
     # load traj data
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(10, 5))
     env = SimpleAccEnv(
         with_conveyer=True,
         x_max=20,
@@ -510,6 +510,9 @@ if __name__ == "__main__":
     rewards_noCon = rewards_noCon.reshape(-1, 1)
     rollout_data_noCon = np.hstack([rewards_noCon, predicates_noCon])
 
+    # set matplotlib font size
+    plt.rcParams.update({'font.size': 15})
+
     plot_multiple_rollouts(
         traj_data=data_noCon["trajectories"],
         ax=ax,
@@ -520,6 +523,9 @@ if __name__ == "__main__":
         legend=True,
         save_path=f"runs/2D-lava-con-noCon-rollouts.png"
     )
+
+    # reset font size
+    plt.rcParams.update({'font.size': 12})
 
     # make bar plot with bar for reward and each of the three predicates.
     # plot the values for the con and no_con models, side by side with bar width 0.4
