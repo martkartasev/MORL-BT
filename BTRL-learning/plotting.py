@@ -317,7 +317,7 @@ def plot_multiple_rollouts(
         ax.plot(traj_data[i, :, 0], traj_data[i, :, 1], alpha=alpha, c=color, ls=ls, label=label if i == 0 else None)
 
     if legend:
-        ax.legend()
+        ax.legend(loc="lower right")
 
     if save_path:
         plt.savefig(save_path, bbox_inches="tight")
@@ -364,17 +364,21 @@ def plot_simple_acc_env(env, ax=None, show=True, save_path="", close=True):
     plt.scatter(
         env.goal_x,
         env.goal_y,
-        s=400,
+        s=200,
         c='gold',
         zorder=10,
         marker='*',
+        label="Goal"
     )
 
     ax.set_xlim(env.x_min - 0.1, env.x_max + 0.1)
     ax.set_ylim(env.y_min - 0.1, env.y_max + 0.1)
 
+    ax.set_xticks([], [])
+    ax.set_yticks([], [])
+
     if save_path:
-        plt.savefig(save_path, bbox_inches="tight")
+        plt.savefig(save_path, bbox_inches="tight", pad_inches=0.1)
 
     if show:
         plt.show()
@@ -480,25 +484,61 @@ if __name__ == "__main__":
     )
     plot_simple_acc_env(env, ax=ax, show=False, close=False)
 
-    load_path = r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-18-26-38_slowLava_trainedWithCon/trajectories.npz"
-    traj_data_con = np.load(load_path)["trajectories"]
-    rewards_con = np.load(load_path)["rewards"]
-    plot_multiple_rollouts(traj_data=traj_data_con, ax=ax, color="green", show=False, close=False, ls=":", alpha=0.25, label="Ours")
-    
-    load_path = r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-16-27-29_slowLava_trainedWithoutCon/trajectories.npz"
-    traj_data_noCon = np.load(load_path)["trajectories"]
-    rewards_noCon = np.load(load_path)["rewards"]
-    plot_multiple_rollouts(traj_data=traj_data_noCon, ax=ax, color="red", ls="--", alpha=0.25, label="Baseline", legend=True)
+    load_path = r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-20-38-15_slowLava_trainedWithCon_len100/trajectories.npz"
+    data_con = np.load(load_path)
+    rewards_con = data_con["rewards"]
+    predicates_con = data_con["state_predicates"]
+    predicate_names_con = data_con["state_predicate_names"]
+    # stack reward and predicates into one array
+    rewards_con = rewards_con.reshape(-1, 1)
+    rollout_data_con = np.hstack([rewards_con, predicates_con])
 
-    # plot mean reward for con and noCon as barplot, with 1 std error bar
-    # mean_reward_con = rewards_con.mean()
-    # std_reward_con = rewards_con.std()
-    # mean_reward_noCon = rewards_noCon.mean()
-    # std_reward_noCon = rewards_noCon.std()
-    # plt.bar(["Con", "NoCon"], [mean_reward_con, mean_reward_noCon], yerr=[std_reward_con, std_reward_noCon], capsize=5)
-    # plt.ylabel("Mean reward")
-    # plt.title("Mean reward with 1 std error bar")
-    # plt.show()
-    # plt.close()
+    plot_multiple_rollouts(traj_data=data_con["trajectories"], ax=ax, color="green", show=False, close=False, ls=":", alpha=0.25, label="Ours")
 
+    load_path = r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-20-18-00_slowLava_trainedWithoutCon_len100/trajectories.npz"
+    data_noCon = np.load(load_path)
+    rewards_noCon = data_noCon["rewards"]
+    predicates_noCon = data_noCon["state_predicates"]
+    predicate_names_noCon = data_noCon["state_predicate_names"]
 
+    assert np.all(predicate_names_con == predicate_names_noCon), "Predicate names do not match!"
+    predicate_names_format = []
+    for name in predicate_names_con:
+        predicate_names_format.append(name.replace("_", " ").capitalize())
+
+    # stack reward and predicates into one array
+    rewards_noCon = rewards_noCon.reshape(-1, 1)
+    rollout_data_noCon = np.hstack([rewards_noCon, predicates_noCon])
+
+    plot_multiple_rollouts(
+        traj_data=data_noCon["trajectories"],
+        ax=ax,
+        color="red",
+        ls="--",
+        alpha=0.25,
+        label="Baseline",
+        legend=True,
+        save_path=f"runs/2D-lava-con-noCon-rollouts.png"
+    )
+
+    # make bar plot with bar for reward and each of the three predicates.
+    # plot the values for the con and no_con models, side by side with bar width 0.4
+    fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(10, 5))
+    ylabel = ["Reward", *predicate_names_format]
+    for bar_idx in range(rollout_data_con.shape[1] - 1):  # we dont care about on conveyer...
+        # compute mean and std
+        mean_con = np.mean(rollout_data_con[:, bar_idx])
+        mean_noCon = np.mean(rollout_data_noCon[:, bar_idx])
+        std_con = np.std(rollout_data_con[:, bar_idx])
+        std_noCon = np.std(rollout_data_noCon[:, bar_idx])
+
+        # plot bar
+        bar_width = 0.8
+        axs[bar_idx].bar(0, mean_con, yerr=std_con, capsize=5, color="green", width=bar_width)
+        axs[bar_idx].bar(1, mean_noCon, yerr=std_noCon, capsize=5, color="red", width=bar_width)
+        axs[bar_idx].set_ylabel(ylabel[bar_idx])
+        axs[bar_idx].set_xticks([0, 1])
+        axs[bar_idx].set_xticklabels(["Ours", "Baseline"])
+
+    plt.tight_layout()
+    plt.show()
