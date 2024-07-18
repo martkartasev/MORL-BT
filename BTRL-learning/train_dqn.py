@@ -508,7 +508,7 @@ def main():
 
     # TRAINING
     epsilon_vals = np.linspace(params["start_epsilon"], params["end_epsilon"], int(params["exp_fraction"] * params["total_timesteps"] - params["learning_start"]))
-    episodes_since_eval = 50
+    episodes_since_eval = 5
     for global_step in range(params["total_timesteps"]):
         if params["no_train_only_plot"]:
             # we are only creating plots and collecting trajectory data...
