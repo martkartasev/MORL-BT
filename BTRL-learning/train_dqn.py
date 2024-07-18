@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import random
 import gymnasium as gym
 import time
+import argparse
 
 import torch
 import torch.nn as nn
@@ -412,7 +413,7 @@ def env_interaction_unity_env(
         pass
 
 
-def main():
+def main(args):
     # HYPERPARAMETERS
     which_env = "numpy"  # "unity" or "numpy
     # which_env = "unity"  # "unity" or "numpy
@@ -433,7 +434,7 @@ def main():
         "unity_task": "fetch_trigger",
         # "unity_task": "reach_goal",
         "no_train_only_plot": False,
-        "total_timesteps": 500_000,
+        "total_timesteps": args.total_steps,
         "lr": 0.0005,
         "buffer_size": 1e6,
         "gamma": 0.99,
@@ -466,6 +467,7 @@ def main():
 
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
     exp_dir += f"/{timestamp}"
+    exp_dir += f"_{args.exp_name}"
 
     os.makedirs(exp_dir, exist_ok=True)
     writer = SummaryWriter(f"{exp_dir}")
@@ -684,4 +686,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-t", "--total_steps", type=int, default=500_000, help="Total number of training steps")
+    parser.add_argument("-e", "--exp_name", type=str, default="", help="Additional string to append to the experiment directory")
+    args = parser.parse_args()
+    print(args)
+
+    main(args)
