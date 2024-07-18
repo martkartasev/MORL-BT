@@ -552,19 +552,43 @@ def plot_bt_comp(
     eval_data_con = np.load(con_load_dir + "logging_data.npz")
     eval_rewards_con = eval_data_con["eval_reward_hist"]
     eval_predicates_con = eval_data_con["eval_state_predicate_hist"]
-    # eval_ep_times_con = eval_data_con["eval_episodes_times"]
+    eval_ep_times_con = eval_data_con["eval_ep_times"]
+    train_rewards_con = eval_data_con["train_reward_hist"][eval_ep_times_con -1]
 
     eval_data_noCon = np.load(no_con_load_dir + "logging_data.npz")
     eval_rewards_noCon = eval_data_noCon["eval_reward_hist"]
     eval_predicates_noCon = eval_data_noCon["eval_state_predicate_hist"]
-    # eval_ep_times_noCon = eval_data_noCon["eval_episodes_times"]
+    eval_ep_times_noCon = eval_data_noCon["eval_ep_times"]
+    train_rewards_noCon = eval_data_noCon["train_reward_hist"][eval_ep_times_noCon -1]
 
-    fig, ax = plt.subplots()
-    ax.plot(eval_rewards_con, label="Ours")
-    ax.plot(eval_rewards_noCon, label="Baseline")
-    ax.set_xlabel("Episodes")
-    ax.set_ylabel("Reward")
-    ax.legend()
+    # smoothing function
+    # TODO, dont smooth final results, make avg +- std of multple instead...
+    def smooth(y, box_pts=10):
+        box = np.ones(box_pts) / box_pts
+        y_smooth = np.convolve(y, box, mode='valid')
+        return y_smooth
+    fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(10, 5))
+    axs[0].plot(smooth(eval_rewards_con), label="Ours", color="green")
+    # axs[0].plot(train_rewards_con, label="Ours train", color="green", ls="--")
+    axs[0].plot(smooth(eval_rewards_noCon), label="Baseline", color="red")
+    # axs[0].plot(train_rewards_noCon, label="Baseline train", color="red", ls="--")
+    axs[0].set_ylabel("Reward")
+    axs[0].set_xlabel("Episode")
+    axs[0].legend()
+
+    axs[1].plot(smooth(eval_predicates_con[:, 0]), label="Ours", color="green")
+    axs[1].plot(smooth(eval_predicates_noCon[:, 0]), label="Baseline", color="red")
+    axs[1].set_ylabel(predicate_names_format[0])
+    axs[1].set_xlabel("Episode")
+    axs[1].legend()
+
+    axs[2].plot(smooth(eval_predicates_con[:, 1]), label="Ours", color="green")
+    axs[2].plot(smooth(eval_predicates_noCon[:, 1]), label="Baseline", color="red")
+    axs[2].set_ylabel(predicate_names_format[1])
+    axs[2].set_xlabel("Episode")
+    axs[2].legend()
+
+    plt.tight_layout()
     plt.show()
 
 
@@ -573,7 +597,9 @@ if __name__ == "__main__":
     # env_actuator.plot_action_acceleration_mapping()
 
     plot_bt_comp(
-        con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-17-18-00-57_withLogging_withCon/",
-        no_con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-17-18-06-44_withLogging_withoutCon/",
+        # con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-17-18-00-57_withLogging_withCon/",
+        # no_con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-17-18-06-44_withLogging_withoutCon/",
+        con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-02-49-02_withLogging_withCon_moreEvals/",
+        no_con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-02-28-51_withLoggin_withoutCon_moreEvals/",
     )
 
