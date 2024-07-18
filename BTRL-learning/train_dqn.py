@@ -37,6 +37,9 @@ def setup_numpy_env(params, device, exp_dir):
     ep_len_hist = []
     ep_state_predicates = np.zeros(len(env.state_predicate_names))
     ep_state_predicate_hist = []
+    eval_reward_hist = []
+    eval_state_predicate_hist = []
+    eval_episodes_times = []
 
     logging_dict = {
         "episodes_done": episodes_done,
@@ -47,7 +50,10 @@ def setup_numpy_env(params, device, exp_dir):
         "avg_q_hist": avg_q_hist,
         "ep_reward_hist": ep_reward_hist,
         "ep_len_hist": ep_len_hist,
-        "ep_state_predicate_hist": ep_state_predicate_hist
+        "ep_state_predicate_hist": ep_state_predicate_hist,
+        "eval_reward_hist": eval_reward_hist,
+        "eval_state_predicate_hist": eval_state_predicate_hist,
+        "eval_episodes_times": eval_episodes_times,
     }
 
     avoid_lava_dqn = DQN(
@@ -504,6 +510,7 @@ def main(args):
 
     # TRAINING
     epsilon_vals = np.linspace(params["start_epsilon"], params["end_epsilon"], int(params["exp_fraction"] * params["total_timesteps"] - params["learning_start"]))
+    episodes_since_eval = 50
     for global_step in range(params["total_timesteps"]):
         if params["no_train_only_plot"]:
             # we are only creating plots and collecting trajectory data...
@@ -517,7 +524,7 @@ def main(args):
 
         # one-step interaction with the environment
         if params["which_env"] == "numpy":
-            obs, _, _, _, _ = env_interaction_numpy_env(
+            obs, _, done, trunc, _ = env_interaction_numpy_env(
                 dqns=dqns,
                 obs=obs,
                 epsilon=epsilon,
@@ -567,9 +574,66 @@ def main(args):
             learn_dqn.save_model(exp_dir)
             replay_buffer.save(f"{exp_dir}/replay_buffer.npz")
 
+        # include one eval episode every 50 episodes...
+        if global_step > params["learning_start"]:
+            if (done or trunc):
+                episodes_since_eval -= 1
+                if episodes_since_eval <= 0:
+                    with torch.no_grad():
+                        episodes_since_eval = 50
+                        eval_obs, eval_info = env.reset(options={
+                            "x": env.x_max / 2 + np.random.uniform(-4, 4),
+                            "y": 1
+                        })
+                        eval_logging_dict = {
+                            "episodes_done": 0,
+                            "ep_len": 0,
+                            "ep_reward_sum": 0,
+                            "ep_state_predicates": np.zeros(len(env.state_predicate_names)),
+                            "loss_hist": [],
+                            "avg_q_hist": [],
+                            "ep_reward_hist": [],
+                            "ep_len_hist": [],
+                            "ep_state_predicate_hist": []
+                        }
+                        eval_done, eval_trunc = False, False
+                        while not (eval_done or eval_trunc):
+                            eval_obs, eval_reward, eval_done, eval_trunc, _ = env_interaction_numpy_env(
+                                dqns=dqns,
+                                obs=eval_obs,
+                                epsilon=params["end_epsilon"],
+                                env=env,
+                                replay_buffer=replay_buffer,
+                                writer=writer,
+                                global_step=global_step,
+                                params=params,
+                                logging_dict=eval_logging_dict,
+                                device=device,
+                            )
+
+                        # save reward and predicate from eval episodes to main logging dict
+                        logging_dict["eval_reward_hist"].append(eval_logging_dict["ep_reward_hist"][-1])
+                        logging_dict["eval_state_predicate_hist"].append(eval_logging_dict["ep_state_predicate_hist"][-1])
+                        logging_dict["eval_episodes_times"].append(logging_dict["episodes_done"])
+
+                        obs, info = env.reset()  # reset for next regular, non-eval episode...
+
     # SAVE MODEL AND DATA
     learn_dqn.save_model(exp_dir)
     replay_buffer.save(f"{exp_dir}/replay_buffer.npz")
+
+    # save logging data
+    np.savez(
+        f"{exp_dir}/logging_data.npz",
+        loss_hist=logging_dict["loss_hist"],
+        avg_q_hist=logging_dict["avg_q_hist"],
+        train_reward_hist=logging_dict["ep_reward_hist"],
+        train_len_hist=logging_dict["ep_len_hist"],
+        train_state_predicate_hist=logging_dict["ep_state_predicate_hist"],
+        eval_reward_hist=logging_dict["eval_reward_hist"],
+        eval_state_predicate_hist=logging_dict["eval_state_predicate_hist"],
+        eval_ep_times=logging_dict["eval_episodes_times"],
+    )
 
     # PLOT TRAINING CURVES
     if not params["no_train_only_plot"]:
@@ -667,19 +731,19 @@ def main(args):
         rewards = np.array(rewards)
         state_predicates = np.array(state_predicates)
 
-    plot_multiple_rollouts(
-        traj_data=trajectory_data,
-        save_path=f"{exp_dir}/trajectories.png",
-        xlim=[env.x_min - 0.1, env.x_max + 0.1],
-        ylim=[env.y_min - 0.1, env.y_max + 0.1]
-    )
-    np.savez(
-        f"{exp_dir}/trajectories.npz",
-        trajectories=trajectory_data,
-        rewards=rewards,
-        state_predicates=state_predicates,
-        state_predicate_names=env.state_predicate_names
-    )
+        plot_multiple_rollouts(
+            traj_data=trajectory_data,
+            save_path=f"{exp_dir}/trajectories.png",
+            xlim=[env.x_min - 0.1, env.x_max + 0.1],
+            ylim=[env.y_min - 0.1, env.y_max + 0.1]
+        )
+        np.savez(
+            f"{exp_dir}/trajectories.npz",
+            trajectories=trajectory_data,
+            rewards=rewards,
+            state_predicates=state_predicates,
+            state_predicate_names=env.state_predicate_names
+        )
 
     env.close()
     writer.close()
