@@ -154,7 +154,7 @@ def create_plots_numpy_env(
             plt.title(f"State: {eval_state}")
             plt.colorbar()
             plt.savefig(f"{save_dir}/eval_state_{eval_state}.png")
-            plt.show()
+            # plt.show()
             plt.close()
 
     # plot rolouts
@@ -343,8 +343,16 @@ def plot_simple_acc_env(env, ax=None, show=True, save_path="", close=True):
         alpha=0.5
     )
     plt.gca().add_patch(lava_rect)
+    # add text to lava rect
+    plt.text(
+        env.lava_x_min + (env.lava_x_max - env.lava_x_min) / 2,
+        env.lava_y_min + (env.lava_y_max - env.lava_y_min) / 2,
+        "Unsafe region",
+        fontsize=15,
+        horizontalalignment='center',
+        verticalalignment='center',
+    )
 
-    # conveyer rect
     conveyer_rect = plt.Rectangle(
         (env.conveyer_x_min, env.conveyer_y_min),
         env.conveyer_x_max - env.conveyer_x_min,
@@ -354,11 +362,26 @@ def plot_simple_acc_env(env, ax=None, show=True, save_path="", close=True):
         alpha=0.5
     )
     plt.gca().add_patch(conveyer_rect)
+    plt.text(
+        env.conveyer_x_min + (env.conveyer_x_max - env.conveyer_x_min) / 2,
+        env.conveyer_y_min + (env.conveyer_y_max - env.conveyer_y_min) / 2,
+        "Treadmill",
+        fontsize=15,
+        horizontalalignment='center',
+        verticalalignment='center',
+        )
 
     # plot some arrows on the conveyer belt, going from left to right
-    for x in np.arange(start=env.conveyer_x_min + 0.5, stop=env.conveyer_x_max, step=1):
-        for y in np.arange(start=env.conveyer_y_min + 0.5, stop=env.conveyer_y_max, step=1):
-            plt.quiver(x, y, 0.5, 0, color="k", scale=1, scale_units='xy')
+    plt.quiver(2.5, 3.5, 1, 0, color="k", scale=0.5, scale_units="xy")
+    plt.quiver(2.5, 5, 1, 0, color="k", scale=0.5, scale_units="xy")
+    plt.quiver(2.5, 6.5, 1, 0, color="k", scale=0.5, scale_units="xy")
+
+    plt.quiver(5., 3.5, 1, 0, color="k", scale=0.5, scale_units="xy")
+    plt.quiver(5., 6.5, 1, 0, color="k", scale=0.5, scale_units="xy")
+
+    plt.quiver(7.5, 3.5, 1, 0, color="k", scale=0.5, scale_units="xy")
+    plt.quiver(7.5, 5, 1, 0, color="k", scale=0.5, scale_units="xy")
+    plt.quiver(7.5, 6.5, 1, 0, color="k", scale=0.5, scale_units="xy")
 
     # goal
     plt.scatter(
