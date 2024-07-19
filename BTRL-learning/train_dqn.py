@@ -452,7 +452,7 @@ def main(args):
         "end_epsilon": 0.05,
         "exp_fraction": 0.5,
         "learning_start": 50_000,
-        "seed": 1,
+        "seed": args.seed,
         # "numpy_env_lava_dqn_cp": "",
         "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/avoid_lava_net.pth",
         "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
@@ -735,7 +735,8 @@ def main(args):
             traj_data=trajectory_data,
             save_path=f"{exp_dir}/trajectories.png",
             xlim=[env.x_min - 0.1, env.x_max + 0.1],
-            ylim=[env.y_min - 0.1, env.y_max + 0.1]
+            ylim=[env.y_min - 0.1, env.y_max + 0.1],
+            show=False
         )
         np.savez(
             f"{exp_dir}/trajectories.npz",
@@ -752,6 +753,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--total_steps", type=int, default=500_000, help="Total number of training steps")
+    parser.add_argument("-s", "--seed", type=int, default=0, help="The random seed for this run")
     parser.add_argument("-e", "--exp_name", type=str, default="", help="Additional string to append to the experiment directory")
     args = parser.parse_args()
     print(args)
