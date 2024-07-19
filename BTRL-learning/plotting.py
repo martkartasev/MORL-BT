@@ -490,10 +490,15 @@ def plot_unity_q_vals(state, dqn, device, save_path="", title="", vmin=None, vma
     plt.close()
 
 
-def plot_bt_comp(
+def plot_bt_comp_rollouts(
         no_con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-20-18-00_slowLava_trainedWithoutCon_len100/",
         con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-20-38-15_slowLava_trainedWithCon_len100/",
 ):
+    """
+    Plot rollouts of different models in 2D numpy env
+    :param no_con_load_dir: The goal-reach DQNs trained in BT but unconstrained
+    :param con_load_dir: The goal-reach DQNs trained in BT with constraints (our method)
+    """
     # plot env
     fig, ax = plt.subplots(figsize=(10, 5))
     env = SimpleAccEnv(
@@ -548,81 +553,133 @@ def plot_bt_comp(
 
     # reset font size
     plt.rcParams.update({'font.size': 12})
+    
+    
+def plot_bt_comp_metrics(
+        no_con_load_dirs=[],
+        con_load_dirs=[],
+        which_data="eval",  # eval or train
+        fontsize=25,
+):
+    """
+    Plot avg. and std. metrics over time of multiple runs for 2D numpy env
+    :param no_con_load_dirs: The directories containing the goal-reach DQNs trained in BT but unconstrained
+    :param con_load_dirs: The directories containing the goal-reach DQNs trained in BT with constraints (our method)
+    """
+    # set fontsize
+    plt.rcParams.update({'font.size': fontsize})
 
-    # make bar plot with bar for reward and each of the three predicates.
-    # plot the values for the con and no_con models, side by side with bar width 0.4
-    fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(10, 5))
-    ylabel = ["Reward", *predicate_names_format]
-    for bar_idx in range(rollout_data_con.shape[1] - 1):  # we dont care about on conveyer...
-        # compute mean and std
-        mean_con = np.mean(rollout_data_con[:, bar_idx])
-        mean_noCon = np.mean(rollout_data_noCon[:, bar_idx])
-        std_con = np.std(rollout_data_con[:, bar_idx])
-        std_noCon = np.std(rollout_data_noCon[:, bar_idx])
+    # setup figure
+    fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(15, 6))
 
-        # plot bar
-        bar_width = 0.8
-        axs[bar_idx].bar(0, mean_con, yerr=std_con, capsize=5, color="green", width=bar_width)
-        axs[bar_idx].bar(1, mean_noCon, yerr=std_noCon, capsize=5, color="red", width=bar_width)
-        axs[bar_idx].set_ylabel(ylabel[bar_idx])
-        axs[bar_idx].set_xticks([0, 1])
-        axs[bar_idx].set_xticklabels(["Ours", "Baseline"])
+    method_colors = ["red", "green"]
+    method_labels = ["Baseline", "Ours"]
+    # iterate over all methods
+    for idx, method_dirs in enumerate([no_con_load_dirs, con_load_dirs]):
+
+        # load data from dirs
+        eval_reward_hists = []
+        train_reward_hists = []
+        eval_predicate_hists = []
+        eval_time_hists = []
+        train_predicate_hists = []
+        predicate_names = []
+
+        # iterate over all repetitions
+        for load_dir in method_dirs:
+            data = np.load(load_dir + "/logging_data.npz")
+            trajectories = np.load(load_dir + "/trajectories.npz")
+            eval_reward_hists.append(data["eval_reward_hist"])
+            train_reward_hists.append(data["train_reward_hist"])
+            eval_predicate_hists.append(data["eval_state_predicate_hist"])
+            eval_time_hists.append(data["eval_ep_times"])
+            train_predicate_hists.append(data["train_state_predicate_hist"])
+            predicate_names = trajectories["state_predicate_names"]
+
+        # convert to np arrays
+        if which_data == "eval":
+            reward_hists = np.array(eval_reward_hists)
+            predicate_hists = np.array(eval_predicate_hists)
+        else:
+            reward_hists = np.array(train_reward_hists)
+            predicate_hists = np.array(train_predicate_hists)
+
+        in_lava = predicate_hists[:, :, 0]
+        at_goal = predicate_hists[:, :, 1]
+
+        # compute mean and std for across repetitions
+        mean_reward = np.mean(reward_hists, axis=0)
+        std_reward = np.std(reward_hists, axis=0)
+        
+        mean_in_lava = np.mean(in_lava, axis=0)
+        std_in_lava = np.std(in_lava, axis=0)
+
+        mean_at_goal = np.mean(at_goal, axis=0)
+        std_at_goal = np.std(at_goal, axis=0)
+
+        # plot metrics
+        axs[0].plot(mean_reward, color=method_colors[idx])
+        axs[0].fill_between(range(len(mean_reward)), mean_reward - std_reward, mean_reward + std_reward, color=method_colors[idx], alpha=0.2)
+        axs[0].set_ylabel("Reward")
+        axs[0].set_xlabel("Eval. episodes")
+        axs[0].set_xlim(0, len(mean_reward) - 1)
+        axs[0].set_xticks(range(0, len(mean_reward), 20))
+
+        axs[1].plot(mean_in_lava, color=method_colors[idx], label=method_labels[idx])
+        axs[1].fill_between(range(len(mean_in_lava)), mean_in_lava - std_in_lava, mean_in_lava + std_in_lava, color=method_colors[idx], alpha=0.2)
+        axs[1].set_ylabel("Steps " + predicate_names[0].replace("_", " "))
+        axs[1].set_xlabel("Eval. episodes")
+        axs[1].legend(loc="upper center", bbox_to_anchor=(0.5, 1.25), ncol=2)
+        axs[1].set_xlim(0, len(mean_in_lava) - 1)
+        axs[1].set_xticks(range(0, len(mean_in_lava), 20))
+
+        axs[2].plot(mean_at_goal, color=method_colors[idx])
+        axs[2].fill_between(range(len(mean_at_goal)), mean_at_goal - std_at_goal, mean_at_goal + std_at_goal, color=method_colors[idx], alpha=0.2)
+        axs[2].set_ylabel("Steps " + predicate_names[1].replace("_", " "))
+        axs[2].set_xlabel("Eval. episodes")
+        axs[2].set_xlim(0, len(mean_at_goal) - 1)
+        axs[2].set_xticks(range(0, len(mean_at_goal), 20))
 
     plt.tight_layout()
+    plt.subplots_adjust(
+        top=0.85,
+        bottom=0.15,
+        left=0.12,
+        right=0.99,
+        wspace=0.35
+    )
+    plt.savefig(f"runs/2D-lava-con-noCon-metrics.png")
     plt.show()
+    plt.close()
 
-    # plot eval rewards
-    eval_data_con = np.load(con_load_dir + "logging_data.npz")
-    eval_rewards_con = eval_data_con["eval_reward_hist"]
-    eval_predicates_con = eval_data_con["eval_state_predicate_hist"]
-    eval_ep_times_con = eval_data_con["eval_ep_times"]
-    train_rewards_con = eval_data_con["train_reward_hist"][eval_ep_times_con -1]
-
-    eval_data_noCon = np.load(no_con_load_dir + "logging_data.npz")
-    eval_rewards_noCon = eval_data_noCon["eval_reward_hist"]
-    eval_predicates_noCon = eval_data_noCon["eval_state_predicate_hist"]
-    eval_ep_times_noCon = eval_data_noCon["eval_ep_times"]
-    train_rewards_noCon = eval_data_noCon["train_reward_hist"][eval_ep_times_noCon -1]
-
-    # smoothing function
-    # TODO, dont smooth final results, make avg +- std of multple instead...
-    def smooth(y, box_pts=10):
-        box = np.ones(box_pts) / box_pts
-        y_smooth = np.convolve(y, box, mode='valid')
-        return y_smooth
-    fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(10, 5))
-    axs[0].plot(smooth(eval_rewards_con), label="Ours", color="green")
-    # axs[0].plot(train_rewards_con, label="Ours train", color="green", ls="--")
-    axs[0].plot(smooth(eval_rewards_noCon), label="Baseline", color="red")
-    # axs[0].plot(train_rewards_noCon, label="Baseline train", color="red", ls="--")
-    axs[0].set_ylabel("Reward")
-    axs[0].set_xlabel("Episode")
-    axs[0].legend()
-
-    axs[1].plot(smooth(eval_predicates_con[:, 0]), label="Ours", color="green")
-    axs[1].plot(smooth(eval_predicates_noCon[:, 0]), label="Baseline", color="red")
-    axs[1].set_ylabel(predicate_names_format[0])
-    axs[1].set_xlabel("Episode")
-    axs[1].legend()
-
-    axs[2].plot(smooth(eval_predicates_con[:, 1]), label="Ours", color="green")
-    axs[2].plot(smooth(eval_predicates_noCon[:, 1]), label="Baseline", color="red")
-    axs[2].set_ylabel(predicate_names_format[1])
-    axs[2].set_xlabel("Episode")
-    axs[2].legend()
-
-    plt.tight_layout()
-    plt.show()
+    # reset fontsize
+    plt.rcParams.update({'font.size': 12})
 
 
 if __name__ == "__main__":
     # env_actuator = EnvActuatorGrid5x5()
     # env_actuator.plot_action_acceleration_mapping()
 
-    plot_bt_comp(
-        # con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-17-18-00-57_withLogging_withCon/",
-        # no_con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-17-18-06-44_withLogging_withoutCon/",
+    plot_bt_comp_rollouts(
         con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-02-49-02_withLogging_withCon_moreEvals/",
         no_con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-02-28-51_withLoggin_withoutCon_moreEvals/",
+    )
+
+    plot_bt_comp_metrics(
+        which_data="train",
+        no_con_load_dirs=[
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-19-40-12_noCon_1",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-19-57-53_noCon_2",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-20-15-36_noCon_3",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-20-33-18_noCon_4",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-20-50-54_noCon_5"
+        ],
+        con_load_dirs=[
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-13-49-57_withCon_1",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-14-10-06_withCon_2",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-14-30-02_withCon_3",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-14-50-05_withCon_4",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-14-50-05_withCon_4"
+        ]
     )
 
