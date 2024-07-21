@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 from envs.simple_acc_env import action_to_acc, SimpleAccEnv
+from networks import MLP
+import yaml
 
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE" # Flag from https://stackoverflow.com/questions/20554074/sklearn-omp-error-15-initializing-libiomp5md-dll-but-found-mk2iomp5md-dll-a
@@ -493,11 +495,17 @@ def plot_unity_q_vals(state, dqn, device, save_path="", title="", vmin=None, vma
 def plot_bt_comp_rollouts(
         no_con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-20-18-00_slowLava_trainedWithoutCon_len100/",
         con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-20-38-15_slowLava_trainedWithCon_len100/",
+        sum_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-19-13-45-26_MORL_sumWeight:0.5_withCon/",
+        fontsize=15,
+        method_names=["BT-DQN", "BT-MORL", "CBTRL (Ours)"],
+        method_colors=["magenta", "yellow", "cyan"],
+        method_ls=["--", ":", "-"],
 ):
     """
     Plot rollouts of different models in 2D numpy env
     :param no_con_load_dir: The goal-reach DQNs trained in BT but unconstrained
     :param con_load_dir: The goal-reach DQNs trained in BT with constraints (our method)
+    :param sum_load_dir: The goal-reach DQN trained in MORL / sum-task fashion
     """
     # plot env
     fig, ax = plt.subplots(figsize=(10, 5))
@@ -512,54 +520,82 @@ def plot_bt_comp_rollouts(
     )
     plot_simple_acc_env(env, ax=ax, show=False, close=False)
 
-    # load and plot con data
-    data_con = np.load(con_load_dir + "trajectories.npz")
-    rewards_con = data_con["rewards"]
-    predicates_con = data_con["state_predicates"]
-    predicate_names_con = data_con["state_predicate_names"]
-    rewards_con = rewards_con.reshape(-1, 1)
-    rollout_data_con = np.hstack([rewards_con, predicates_con])
+    plt.rcParams.update({'font.size': fontsize})
 
-    plot_multiple_rollouts(traj_data=data_con["trajectories"], ax=ax, color="green", show=False, close=False, ls=":", alpha=0.25, label="Ours")
+    for load_idx, load_dir in enumerate([no_con_load_dir, sum_load_dir, con_load_dir]):
+        # load and plot con data
+        data = np.load(load_dir + "/trajectories.npz")
+        plot_multiple_rollouts(
+            traj_data=data["trajectories"],
+            ax=ax,
+            color=method_colors[load_idx],
+            show=False,
+            close=False,
+            ls=method_ls[load_idx],
+            alpha=0.25,
+            label="")
 
-    # load and plot no_con data
-    data_noCon = np.load(no_con_load_dir + "trajectories.npz")
-    rewards_noCon = data_noCon["rewards"]
-    predicates_noCon = data_noCon["state_predicates"]
-    predicate_names_noCon = data_noCon["state_predicate_names"]
+    # create dummy line artists with alpha=1 for legend
+    for idx in range(len(method_names)):
+        plt.plot([-100, -100], [-100, -100], ls=method_ls[idx], c=method_colors[idx], label=method_names[idx])
+    plt.legend(loc="lower right")
 
-    assert np.all(predicate_names_con == predicate_names_noCon), "Predicate names do not match!"
-    predicate_names_format = []
-    for name in predicate_names_con:
-        predicate_names_format.append(name.replace("_", " ").capitalize())
+    plt.savefig("runs/2D-lava-con-noCon-rollouts.png")
+    plt.show()
+    plt.close()
 
-    # stack reward and predicates into one array
-    rewards_noCon = rewards_noCon.reshape(-1, 1)
-    rollout_data_noCon = np.hstack([rewards_noCon, predicates_noCon])
+    # # load and plot con data
+    # data_con = np.load(con_load_dir + "trajectories.npz")
+    # rewards_con = data_con["rewards"]
+    # predicates_con = data_con["state_predicates"]
+    # predicate_names_con = data_con["state_predicate_names"]
+    # rewards_con = rewards_con.reshape(-1, 1)
+    # rollout_data_con = np.hstack([rewards_con, predicates_con])
 
-    # set matplotlib font size
-    plt.rcParams.update({'font.size': 15})
+    # plot_multiple_rollouts(traj_data=data_con["trajectories"], ax=ax, color="green", show=False, close=False, ls=":", alpha=0.25, label="Ours")
 
-    plot_multiple_rollouts(
-        traj_data=data_noCon["trajectories"],
-        ax=ax,
-        color="red",
-        ls="--",
-        alpha=0.25,
-        label="Baseline",
-        legend=True,
-        save_path=f"runs/2D-lava-con-noCon-rollouts.png"
-    )
+    # # load and plot no_con data
+    # data_noCon = np.load(no_con_load_dir + "trajectories.npz")
+    # rewards_noCon = data_noCon["rewards"]
+    # predicates_noCon = data_noCon["state_predicates"]
+    # predicate_names_noCon = data_noCon["state_predicate_names"]
+
+    # assert np.all(predicate_names_con == predicate_names_noCon), "Predicate names do not match!"
+    # predicate_names_format = []
+    # for name in predicate_names_con:
+    #     predicate_names_format.append(name.replace("_", " ").capitalize())
+
+    # # stack reward and predicates into one array
+    # rewards_noCon = rewards_noCon.reshape(-1, 1)
+    # rollout_data_noCon = np.hstack([rewards_noCon, predicates_noCon])
+
+    # # set matplotlib font size
+    # plt.rcParams.update({'font.size': 15})
+
+    # plot_multiple_rollouts(
+    #     traj_data=data_noCon["trajectories"],
+    #     ax=ax,
+    #     color="red",
+    #     ls="--",
+    #     alpha=0.25,
+    #     label="Baseline",
+    #     legend=True,
+    #     save_path=f"runs/2D-lava-con-noCon-rollouts.png"
+    # )
 
     # reset font size
     plt.rcParams.update({'font.size': 12})
-    
-    
+
+
 def plot_bt_comp_metrics(
         no_con_load_dirs=[],
         con_load_dirs=[],
+        sum_load_dir=[],
         which_data="eval",  # eval or train
         fontsize=25,
+        method_names=["BT-DQN", "BT-MORL", "CBTRL (Ours)"],
+        method_colors=["magenta", "yellow", "cyan"],
+        method_ls=["--", ":", "-"],
 ):
     """
     Plot avg. and std. metrics over time of multiple runs for 2D numpy env
@@ -572,10 +608,8 @@ def plot_bt_comp_metrics(
     # setup figure
     fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(15, 6))
 
-    method_colors = ["red", "green"]
-    method_labels = ["Baseline", "Ours"]
     # iterate over all methods
-    for idx, method_dirs in enumerate([no_con_load_dirs, con_load_dirs]):
+    for idx, method_dirs in enumerate([no_con_load_dirs, sum_load_dir, con_load_dirs]):
 
         # load data from dirs
         eval_reward_hists = []
@@ -610,7 +644,7 @@ def plot_bt_comp_metrics(
         # compute mean and std for across repetitions
         mean_reward = np.mean(reward_hists, axis=0)
         std_reward = np.std(reward_hists, axis=0)
-        
+
         mean_in_lava = np.mean(in_lava, axis=0)
         std_in_lava = np.std(in_lava, axis=0)
 
@@ -618,22 +652,22 @@ def plot_bt_comp_metrics(
         std_at_goal = np.std(at_goal, axis=0)
 
         # plot metrics
-        axs[0].plot(mean_reward, color=method_colors[idx])
+        axs[0].plot(mean_reward, color=method_colors[idx], ls=method_ls[idx])
         axs[0].fill_between(range(len(mean_reward)), mean_reward - std_reward, mean_reward + std_reward, color=method_colors[idx], alpha=0.2)
         axs[0].set_ylabel("Reward")
         axs[0].set_xlabel("Eval. episodes")
         axs[0].set_xlim(0, len(mean_reward) - 1)
         axs[0].set_xticks(range(0, len(mean_reward), 20))
 
-        axs[1].plot(mean_in_lava, color=method_colors[idx], label=method_labels[idx])
+        axs[1].plot(mean_in_lava, color=method_colors[idx], label=method_names[idx], ls=method_ls[idx])
         axs[1].fill_between(range(len(mean_in_lava)), mean_in_lava - std_in_lava, mean_in_lava + std_in_lava, color=method_colors[idx], alpha=0.2)
         axs[1].set_ylabel("Steps " + predicate_names[0].replace("_", " "))
         axs[1].set_xlabel("Eval. episodes")
-        axs[1].legend(loc="upper center", bbox_to_anchor=(0.5, 1.25), ncol=2)
+        axs[1].legend(loc="upper center", bbox_to_anchor=(0.5, 1.25), ncol=len(method_names))
         axs[1].set_xlim(0, len(mean_in_lava) - 1)
         axs[1].set_xticks(range(0, len(mean_in_lava), 20))
 
-        axs[2].plot(mean_at_goal, color=method_colors[idx])
+        axs[2].plot(mean_at_goal, color=method_colors[idx], ls=method_ls[idx])
         axs[2].fill_between(range(len(mean_at_goal)), mean_at_goal - std_at_goal, mean_at_goal + std_at_goal, color=method_colors[idx], alpha=0.2)
         axs[2].set_ylabel("Steps " + predicate_names[1].replace("_", " "))
         axs[2].set_xlabel("Eval. episodes")
@@ -656,17 +690,181 @@ def plot_bt_comp_metrics(
     plt.rcParams.update({'font.size': 12})
 
 
+def plot_numpy_feasiblity_dqn(
+        dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/",
+        file_name="feasibility_dqn.pt",
+        state=np.array([6.2, 2.2, 0.8, 1.5]),
+        feasibility_thresh=0.05,
+        value_function="min",
+        cmap="viridis",
+        value_resolution=500,
+        fontsize=15,
+):
+    # set fontsize
+    plt.rcParams.update({'font.size': fontsize})
+
+    fig = plt.figure(figsize=(10, 5))
+    plt.scatter(state[0], state[1], c="magenta", s=100, marker="^")
+    # plt.scatter(state[0], state[1], c="magenta", s=40, marker="o")
+    # plt.quiver(state[0], state[1], 0, 1, color="magenta")
+    plt.gca().axis("off")
+    plt.savefig("runs/marker")
+    plt.close()
+
+    # setup wide env
+    env = SimpleAccEnv(
+        with_conveyer=True,
+        x_max=20,
+        conveyer_x_min=2,
+        conveyer_x_max=10,
+        lava_x_min=10,
+        lava_x_max=18,
+        goal_x=10,
+    )
+    
+    # read dqn params from dir
+    params = yaml.load(open(f"{dqn_load_dir}/params.yaml", "r"), Loader=yaml.FullLoader)
+
+    # load trained model
+    dqn = MLP(
+        input_size=env.observation_space.shape[0],
+        output_size=env.action_space.n,
+        hidden_arch=params["hidden_arch"],
+        hidden_activation=params["hidden_activation"],
+    )
+    dqn.load_state_dict(torch.load(f"{dqn_load_dir}/{file_name}"))
+
+    fig = plt.figure(figsize=(10, 5))
+
+    # setup subplot grid: two plots ontop of each on the left, one large plot on the right
+    gs = fig.add_gridspec(2, 2)
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[1, 0])
+    ax3 = fig.add_subplot(gs[:, 1])
+    axs = [ax1, ax2, ax3]
+
+    # setup input for value function plotting
+    agent_x = np.linspace(env.x_min, env.x_max, value_resolution)
+    agent_y = np.linspace(env.y_max, env.y_min, value_resolution)
+    agent_x, agent_y = np.meshgrid(agent_x, agent_y)
+    agent_x = agent_x.flatten()
+    agent_y = agent_y.flatten()
+
+    # plot with [0, 0] and [0, 2] (upward) velocity
+    for vel_idx, vel_arr in enumerate([np.array([0, 0]), np.array([0, 2.0])]):
+        agent_vel_x = np.full_like(agent_x, vel_arr[0])
+        agent_vel_y = np.full_like(agent_y, vel_arr[1])
+        states = np.stack([agent_x, agent_y, agent_vel_x, agent_vel_y], axis=1)
+
+        q_values = dqn(torch.Tensor(states).to("cpu"))
+
+        if value_function == "max":
+            state_values = q_values.max(dim=1).values.cpu().detach().numpy()
+        elif value_function == "min":
+            state_values = q_values.min(dim=1).values.cpu().detach().numpy()
+        elif value_function == "mean":
+            state_values = q_values.mean(dim=1).cpu().detach().numpy()
+        else:
+            raise ValueError(f"value_function must be 'min', 'max', or 'mean' but got '{value_function}'")
+
+        state_values = state_values.reshape(value_resolution, value_resolution)
+
+        img = axs[vel_idx].imshow(state_values, cmap=cmap, interpolation="nearest", extent=[0, env.x_max, 0, env.y_max])
+
+        # add indicator for state location
+        axs[vel_idx].scatter(state[0], state[1], c="magenta", s=100, marker="^")
+        # axs[vel_idx].scatter(state[0], state[1], c="magenta", s=40, marker="o")
+        # axs[vel_idx].quiver(state[0], state[1], 0, 1, color="magenta")
+
+        # plot rectangle and text for unsafe area
+        lava_rect = plt.Rectangle(
+            (env.lava_x_min, env.lava_y_min),
+            env.lava_x_max - env.lava_x_min,
+            env.lava_y_max - env.lava_y_min,
+            fill=False,
+            color='red',
+            linewidth=2,
+            alpha=1,
+        )
+        axs[vel_idx].add_patch(lava_rect)
+        axs[vel_idx].text(
+            env.lava_x_min + (env.lava_x_max - env.lava_x_min) / 2,
+            env.lava_y_min + (env.lava_y_max - env.lava_y_min) / 2,
+            "Unsafe area",
+            fontsize=15,
+            horizontalalignment='center',
+            verticalalignment='center',
+            color="red"
+            )
+
+        axs[vel_idx].set_xticks([], [])
+        axs[vel_idx].set_yticks([], [])
+        axs[vel_idx].set_title(f"Velocity: {vel_arr}")
+        axs[vel_idx].set_xlabel("Env x")
+        axs[vel_idx].set_ylabel("Env y")
+
+    # plot feasiblity action-values and mask for particular state
+    q_vals = dqn(torch.Tensor(state).unsqueeze(0)).detach().cpu().numpy().flatten()
+    for a_idx in range(len(q_vals)):
+        acceleration = action_to_acc(a_idx)
+        point = axs[2].scatter(
+            acceleration[0],
+            acceleration[1],
+            s=800,
+            c=q_vals[a_idx],
+            cmap=cmap,
+            vmin=min(q_vals),
+            vmax=max(q_vals),
+        )
+
+        if q_vals[a_idx] > q_vals.min() + feasibility_thresh:
+            axs[2].scatter(acceleration[0], acceleration[1], s=800, c="r", marker="x")
+
+    axs[2].set_xlim(-2.4, 2.4)
+    axs[2].set_ylim(-2.4, 2.4)
+    axs[2].set_title(f"Feasibility action mask, Y-velocity: {state[3]}")
+    # axs[2].set_xlabel("Acceleration X")
+    axs[2].set_ylabel("Acceleration Y")
+    plt.colorbar(point, ax=axs[2])
+
+    plt.tight_layout()
+    plt.subplots_adjust(
+        top=0.925,
+        bottom=0.075,
+        left=-0.03,
+        right=0.99,
+        wspace=0.05
+    )
+    plt.savefig("runs/feasiblity_estimator")
+    plt.show()
+    plt.close()
+
+    # reset fontsize
+    plt.rcParams.update({'font.size': 12})
+
+
 if __name__ == "__main__":
     # env_actuator = EnvActuatorGrid5x5()
     # env_actuator.plot_action_acceleration_mapping()
 
+    method_names = ["BT-DQN", "BT-MORL", "CBTRL (Ours)"]
+    method_colors = ["magenta", "red", "cyan"]
+    method_ls = ["--", ":", "-"]
+
     plot_bt_comp_rollouts(
         con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-02-49-02_withLogging_withCon_moreEvals/",
         no_con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-02-28-51_withLoggin_withoutCon_moreEvals/",
+        # sum_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-19-13-45-26_MORL_sumWeight:0.5_withCon",
+        # sum_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-19-14-12-02_BT_sumWeight:0.5_withCon",
+        # sum_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-19-14-32-28_BT_sumWeight:0.1_withCon",
+        sum_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-21-13-33-57_BT_sumWeight:0.5_punish:50_2",
+        method_names=method_names,
+        method_colors=method_colors,
+        method_ls=method_ls
     )
 
     plot_bt_comp_metrics(
-        which_data="train",
+        which_data="eval",
         no_con_load_dirs=[
             r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-19-40-12_noCon_1",
             r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-19-57-53_noCon_2",
@@ -680,6 +878,19 @@ if __name__ == "__main__":
             r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-14-30-02_withCon_3",
             r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-14-50-05_withCon_4",
             r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-14-50-05_withCon_4"
-        ]
+        ],
+        sum_load_dir=[
+            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-21-13-16-14_BT_sumWeight:0.5_punish:50_1",
+            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-21-13-33-57_BT_sumWeight:0.5_punish:50_2",
+            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-21-13-51-43_BT_sumWeight:0.5_punish:50_3",
+            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-21-14-09-32_BT_sumWeight:0.5_punish:50_4",
+            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-21-14-27-19_BT_sumWeight:0.5_punish:50_5",
+        ],
+        method_names=method_names,
+        method_colors=method_colors,
+        method_ls=method_ls
     )
+
+    plot_numpy_feasiblity_dqn()
+
 

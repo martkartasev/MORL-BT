@@ -32,7 +32,8 @@ class SimpleAccEnv(gym.Env):
             conveyer_y_min=3,
             conveyer_y_max=7,
             goal_x=5,
-            goal_y=9
+            goal_y=9,
+            task_sum_weight=0.5,
     ):
         self.x_min = x_min
         self.x_max = x_max
@@ -59,7 +60,9 @@ class SimpleAccEnv(gym.Env):
             self.lava_y_min = lava_y_min
             self.lava_y_max = lava_y_max
         self.task = task
-        assert task in ["lava", "goal"]
+        self.task_sum_weight = task_sum_weight
+        assert task in ["lava", "goal", "lava_goal_sum"]
+        assert 0 <= self.task_sum_weight <= 1
 
         self.goal_x = goal_x
         self.goal_y = goal_y
@@ -159,11 +162,15 @@ class SimpleAccEnv(gym.Env):
         agent_at_goal = self._at_goal()
         agent_on_conveyer = self._on_conveyer()
 
+        lava_reward = -1 if agent_in_lava else 0
+        goal_rewad = -1 * np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y])
+
         if self.task == "lava":
-            # reward = -10 if agent_in_lava else 0
-            reward = -1 if agent_in_lava else 0
+            reward = lava_reward
         elif self.task == "goal":
-            reward = -1 * np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y])
+            reward = goal_rewad
+        elif self.task == "lava_goal_sum":
+            reward = self.task_sum_weight * lava_reward + (1 - self.task_sum_weight) * goal_rewad
         else:
             raise NotImplementedError(f"Task {self.task} not imlpemented")
 

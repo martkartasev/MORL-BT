@@ -88,8 +88,13 @@ def setup_numpy_env(params, device, exp_dir):
     if "lava" in env_id:
         dqns = [avoid_lava_dqn]
     elif "goal" in env_id:
+        assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
         avoid_lava_dqn.save_model(exp_dir)
         dqns = [avoid_lava_dqn, reach_goal_dqn]
+    elif "sum" in env_id:
+        assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
+        dqns = [avoid_lava_dqn, reach_goal_dqn]
+        # dqns = [reach_goal_dqn]
     else:
         raise ValueError(f"Unknown env-id '{env_id}', not sure which DQNs to use...")
 
@@ -192,6 +197,10 @@ def env_interaction_numpy_env(
 
     action = dqns[dqn_idx].act(obs, epsilon)
     next_obs, reward, done, trunc, info = env.step(action)
+    
+    if params["with_lava_reward_punish"]:
+        if env.lava_x_min < next_obs[0] < env.lava_x_max and env.lava_y_min < next_obs[1] < env.lava_y_max:
+            reward -= 50
 
     if with_plot:
         with torch.no_grad():
@@ -432,7 +441,8 @@ def main(args):
         # "env_id": "SimpleAccEnv-wide-withConveyer-lava-v0",
         # "env_id": "SimpleAccEnv-goal-v0",
         # "env_id": "SimpleAccEnv-withConveyer-goal-v0",
-        "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
+        # "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
+        "env_id": "SimpleAccEnv-wide-withConveyer-sum-v0",
         # "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
         # "env_id": "flat-acc",  # name of the folder containing the unity scene binaries
         "unity_take_screenshots": True,
@@ -453,11 +463,12 @@ def main(args):
         "exp_fraction": 0.5,
         "learning_start": 50_000,
         "seed": args.seed,
+        "with_lava_reward_punish": True,
         # "numpy_env_lava_dqn_cp": "",
         "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/avoid_lava_net.pth",
         "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
-        # "numpy_env_lava_feasibility_dqn_cp": "",
-        "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/feasibility_dqn.pt",
+        "numpy_env_lava_feasibility_dqn_cp": "",
+        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/feasibility_dqn.pt",
         "numpy_env_lava_feasibility_dqn_arch": [32, 32, 16, 16],
         "numpy_env_feasibility_thresh": 0.1,
         "numpy_env_goal_dqn_cp": "",
@@ -510,7 +521,7 @@ def main(args):
 
     # TRAINING
     epsilon_vals = np.linspace(params["start_epsilon"], params["end_epsilon"], int(params["exp_fraction"] * params["total_timesteps"] - params["learning_start"]))
-    episodes_since_eval = 5
+    episodes_since_eval = 0
     for global_step in range(params["total_timesteps"]):
         if params["no_train_only_plot"]:
             # we are only creating plots and collecting trajectory data...
@@ -574,13 +585,13 @@ def main(args):
             learn_dqn.save_model(exp_dir)
             replay_buffer.save(f"{exp_dir}/replay_buffer.npz")
 
-        # include one eval episode every 50 episodes...
+        # include one eval episode every n episodes...
         if global_step > params["learning_start"]:
             if (done or trunc):
                 episodes_since_eval -= 1
                 if episodes_since_eval <= 0:
                     with torch.no_grad():
-                        episodes_since_eval = 50
+                        episodes_since_eval = 5
                         eval_obs, eval_info = env.reset(options={
                             "x": env.x_max / 2 + np.random.uniform(-4, 4),
                             "y": 1
