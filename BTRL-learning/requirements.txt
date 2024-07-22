@@ -3,4 +3,6 @@ numpy==1.26.4
 matplotlib==3.8.3
 gymnasium==0.29.1
 mlagents-envs==0.30.0
+minigrid==2.3.1
+pygame==2.6.0
 # torch==2.2.1+cu118  # install torch manually...

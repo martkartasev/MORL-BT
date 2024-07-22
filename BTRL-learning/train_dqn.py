@@ -9,6 +9,7 @@ import argparse
 
 import torch
 import torch.nn as nn
+from gymnasium.spaces import Discrete, Box
 from torch.utils.tensorboard import SummaryWriter
 
 # from mlagents_envs.base_env import ActionTuple
@@ -16,6 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 # from mlagents_envs.side_channel.engine_configuration_channel import EngineConfigurationChannel
 
 import envs
+from envs.minigrid_wrapper import FlattenedMinigrid
 from envs.unity_misc import rewards_flat_acc_env, done_check_flat_acc_env, unity_state_predicate_check, unity_state_predicate_names
 from envs.simple_acc_env import action_to_acc
 from misc import ReplayBuffer
@@ -176,7 +178,6 @@ def env_interaction_numpy_env(
         with_plot=False,
         save_plot_path="",
 ):
-
     # BT is just if-else, and only active if we are training the goal reach DQN
     if len(dqns) == 2:
         agent_x = obs[0]
@@ -192,7 +193,6 @@ def env_interaction_numpy_env(
 
     action = dqns[dqn_idx].act(obs, epsilon)
     next_obs, reward, done, trunc, info = env.step(action)
-
     if with_plot:
         with torch.no_grad():
             state_fig, state_axs = plt.subplots(nrows=1, ncols=4, figsize=(20, 5))
@@ -258,18 +258,18 @@ def env_interaction_numpy_env(
     obs = next_obs
     logging_dict["ep_len"] += 1
     logging_dict["ep_reward_sum"] += reward
-    logging_dict["ep_state_predicates"] += info["state_predicates"]
+    #logging_dict["ep_state_predicates"] += info["state_predicates"]
 
     if (done or trunc):
         obs, info = env.reset()
         writer.add_scalar("episode/length", logging_dict["ep_len"], logging_dict["episodes_done"])
         writer.add_scalar("episode/reward_sum", logging_dict["ep_reward_sum"], logging_dict["episodes_done"])
         # writer.add_scalar("episode/acc_violations", logging_dict["ep_acc_violations"], logging_dict["episodes_done"])
-        for i, state_predicate in enumerate(env.state_predicate_names):
-            writer.add_scalar(f"episode/{state_predicate}", logging_dict["ep_state_predicates"][i], logging_dict["episodes_done"])
+        #for i, state_predicate in enumerate(env.state_predicate_names):
+        #    writer.add_scalar(f"episode/{state_predicate}", logging_dict["ep_state_predicates"][i], logging_dict["episodes_done"])
         logging_dict["ep_reward_hist"].append(logging_dict["ep_reward_sum"])
         logging_dict["ep_len_hist"].append(logging_dict["ep_len"])
-        logging_dict["ep_state_predicate_hist"].append(logging_dict["ep_state_predicates"])
+        #logging_dict["ep_state_predicate_hist"].append(logging_dict["ep_state_predicates"])
 
         print(
             f"Episode {logging_dict['episodes_done']} | "
@@ -279,9 +279,9 @@ def env_interaction_numpy_env(
 
         logging_dict["ep_len"] = 0
         logging_dict["ep_reward_sum"] = 0
-        logging_dict["ep_state_predicates"] = np.zeros(len(env.state_predicate_names))
+        #logging_dict["ep_state_predicates"] = np.zeros(len(env.state_predicate_names))
         logging_dict["episodes_done"] += 1
-        
+
     return obs, reward, done, trunc, info
 
 
@@ -314,7 +314,7 @@ def env_interaction_unity_env(
 
             if params["unity_take_screenshots"]:
                 if -3 < obs[i][0] < 3:
-                # if True:
+                    # if True:
                     screenshot_action = 1
                     os.makedirs(f"{exp_dir}/imgs/Q", exist_ok=True)
                     plot_unity_q_vals(
@@ -419,10 +419,62 @@ def env_interaction_unity_env(
         pass
 
 
+def setup_minigrid_env(env_id, params):
+    env = FlattenedMinigrid(gym.make(env_id))
+    obs, info = env.reset()
+    action_dim = env.action_space.n
+    state_dim = env.observation_space.shape[0]
+
+    episodes_done, ep_len, ep_reward_sum = 0, 0, 0
+    loss_hist = []
+    avg_q_hist = []
+    ep_reward_hist = []
+    ep_len_hist = []
+    #  ep_state_predicates = np.zeros(len(env.state_predicate_names))
+    #  ep_state_predicate_hist = []
+    eval_reward_hist = []
+    eval_state_predicate_hist = []
+    eval_episodes_times = []
+
+    logging_dict = {
+        "episodes_done": episodes_done,
+        "ep_len": ep_len,
+        "ep_reward_sum": ep_reward_sum,
+        #   "ep_state_predicates": ep_state_predicates,
+        "loss_hist": loss_hist,
+        "avg_q_hist": avg_q_hist,
+        "ep_reward_hist": ep_reward_hist,
+        "ep_len_hist": ep_len_hist,
+        #   "ep_state_predicate_hist": ep_state_predicate_hist,
+        "eval_reward_hist": eval_reward_hist,
+        "eval_state_predicate_hist": eval_state_predicate_hist,
+        "eval_episodes_times": eval_episodes_times,
+    }
+
+    minigrid_dqn = DQN(
+        action_dim=action_dim,
+        state_dim=state_dim,
+        hidden_arch=params["minigrid_env_dqn_arch"],
+        hidden_activation=params["hidden_activation"],
+        device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+        lr=params["lr"],
+        gamma=params["gamma"],
+        load_cp=params["minigrid_env_dqn_cp"],
+        con_model_load_cp="",  # highest prio, no constraint...
+        con_thresh=np.inf,  # value does not matter without constraint...
+        model_name="end_to_end",
+    )
+
+    dqns = [minigrid_dqn]
+
+    return env, env.observation_space, env.action_space, obs, info, logging_dict, dqns
+
+
 def main(args):
     # HYPERPARAMETERS
-    which_env = "numpy"  # "unity" or "numpy
+    # which_env = "numpy"  # "unity" or "numpy
     # which_env = "unity"  # "unity" or "numpy
+    which_env = "minigrid"
     params = {
         "which_env": which_env,
         # "env_id": "LavaGoalConveyerAcceleration-lava-v0",
@@ -432,7 +484,9 @@ def main(args):
         # "env_id": "SimpleAccEnv-wide-withConveyer-lava-v0",
         # "env_id": "SimpleAccEnv-goal-v0",
         # "env_id": "SimpleAccEnv-withConveyer-goal-v0",
-        "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
+        # "env_id": "MiniGrid-LavaCrossingS11N5-v0",
+        "env_id": "MiniGrid-Empty-5x5-v0",
+        # "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
         # "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
         # "env_id": "flat-acc",  # name of the folder containing the unity scene binaries
         "unity_take_screenshots": True,
@@ -453,11 +507,14 @@ def main(args):
         "exp_fraction": 0.5,
         "learning_start": 50_000,
         "seed": 1,
-        # "numpy_env_lava_dqn_cp": "",
-        "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/avoid_lava_net.pth",
+        "minigrid_env_dqn_cp": "",
+        "numpy_env_lava_dqn_cp": "",
+        # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/avoid_lava_net.pth",
+        "numpy_env_dqn_arch": [32, 32, 16, 16],
         "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
-        # "numpy_env_lava_feasibility_dqn_cp": "",
-        "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/feasibility_dqn.pt",
+        "minigrid_env_dqn_arch": [32, 32, 16, 16],
+        "numpy_env_lava_feasibility_dqn_cp": "",
+       # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/feasibility_dqn.pt",
         "numpy_env_lava_feasibility_dqn_arch": [32, 32, 16, 16],
         "numpy_env_feasibility_thresh": 0.1,
         "numpy_env_goal_dqn_cp": "",
@@ -495,6 +552,8 @@ def main(args):
         env, state_dim, action_dim, obs, info, logging_dict, dqns = setup_numpy_env(params=params, device=device, exp_dir=exp_dir)
     elif params["which_env"] == "unity":
         env, state_dim, action_dim, logging_dict, dqns = setup_unity_env(params["env_id"], take_screenshots=params["unity_take_screenshots"])
+    elif params["which_env"] == "minigrid":
+        env, state_dim, action_dim, obs, info, logging_dict, dqns = setup_minigrid_env(params["env_id"], params)
     else:
         raise ValueError(f"which_env must be 'numpy' or 'unity' but got '{params['which_env']}'")
 
@@ -549,6 +608,20 @@ def main(args):
                 params=params,
                 logging_dict=logging_dict
             )
+        elif params["which_env"] == "minigrid":
+            obs, _, done, trunc, _ = env_interaction_numpy_env(
+                dqns=dqns,
+                obs=obs,
+                epsilon=epsilon,
+                env=env,
+                replay_buffer=replay_buffer,
+                writer=writer,
+                global_step=global_step,
+                params=params,
+                logging_dict=logging_dict,
+                device=device,
+            )
+            env.render()
         else:
             raise ValueError(f"which_env must be 'numpy' or 'unity' but got '{params['which_env']}'")
 
@@ -643,7 +716,7 @@ def main(args):
             logging_dict["avg_q_hist"],
             logging_dict["ep_reward_hist"],
             logging_dict["ep_len_hist"],
-            ]
+        ]
         for y_data, title in zip(graphs, titles):
             plt.plot(y_data)
             plt.title(title)
