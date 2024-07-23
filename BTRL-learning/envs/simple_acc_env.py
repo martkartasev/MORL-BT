@@ -95,7 +95,7 @@ class SimpleAccEnv(gym.Env):
             ])
         )
 
-        self.state_predicate_names = ["in_lava", "at_goal", "on_conveyer"]
+        self.state_predicate_names = ["in_unsafe", "at_goal", "on_conveyer"]
 
         # episode variables, need to be reset
         self.x = None
