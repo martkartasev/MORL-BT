@@ -165,7 +165,7 @@ def setup_unity_env(unity_scene_dir, take_screenshots=False):
 
 
 def setup_minigrid_env(env_id, params):
-    env = FlattenedMinigrid(gym.make(env_id, render_mode="human"))  #
+    env = FlattenedMinigrid(gym.make(env_id))  # , render_mode="human"
     obs, info = env.reset()
     action_dim = env.action_space.n
     state_dim = env.observation_space.shape[0]
