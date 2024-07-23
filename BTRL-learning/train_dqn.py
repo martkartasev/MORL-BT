@@ -164,6 +164,57 @@ def setup_unity_env(unity_scene_dir, take_screenshots=False):
     return env, state_dim, action_dim, logging_dict, dqns
 
 
+def setup_minigrid_env(env_id, params):
+    env = FlattenedMinigrid(gym.make(env_id, render_mode="human"))  #
+    obs, info = env.reset()
+    action_dim = env.action_space.n
+    state_dim = env.observation_space.shape[0]
+
+    episodes_done, ep_len, ep_reward_sum = 0, 0, 0
+    loss_hist = []
+    avg_q_hist = []
+    ep_reward_hist = []
+    ep_len_hist = []
+    #  ep_state_predicates = np.zeros(len(env.state_predicate_names))
+    #  ep_state_predicate_hist = []
+    eval_reward_hist = []
+    eval_state_predicate_hist = []
+    eval_episodes_times = []
+
+    logging_dict = {
+        "episodes_done": episodes_done,
+        "ep_len": ep_len,
+        "ep_reward_sum": ep_reward_sum,
+        #   "ep_state_predicates": ep_state_predicates,
+        "loss_hist": loss_hist,
+        "avg_q_hist": avg_q_hist,
+        "ep_reward_hist": ep_reward_hist,
+        "ep_len_hist": ep_len_hist,
+        #   "ep_state_predicate_hist": ep_state_predicate_hist,
+        "eval_reward_hist": eval_reward_hist,
+        "eval_state_predicate_hist": eval_state_predicate_hist,
+        "eval_episodes_times": eval_episodes_times,
+    }
+
+    minigrid_dqn = DQN(
+        action_dim=action_dim,
+        state_dim=state_dim,
+        hidden_arch=params["minigrid_env_dqn_arch"],
+        hidden_activation=params["hidden_activation"],
+        device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+        lr=params["lr"],
+        gamma=params["gamma"],
+        load_cp=params["minigrid_env_dqn_cp"],
+        con_model_load_cp="",  # highest prio, no constraint...
+        con_thresh=np.inf,  # value does not matter without constraint...
+        model_name="end_to_end",
+    )
+
+    dqns = [minigrid_dqn]
+
+    return env, env.observation_space, env.action_space, obs, info, logging_dict, dqns
+
+
 def env_interaction_numpy_env(
         dqns,
         obs,
@@ -258,18 +309,18 @@ def env_interaction_numpy_env(
     obs = next_obs
     logging_dict["ep_len"] += 1
     logging_dict["ep_reward_sum"] += reward
-    #logging_dict["ep_state_predicates"] += info["state_predicates"]
+    # logging_dict["ep_state_predicates"] += info["state_predicates"]
 
     if (done or trunc):
         obs, info = env.reset()
         writer.add_scalar("episode/length", logging_dict["ep_len"], logging_dict["episodes_done"])
         writer.add_scalar("episode/reward_sum", logging_dict["ep_reward_sum"], logging_dict["episodes_done"])
         # writer.add_scalar("episode/acc_violations", logging_dict["ep_acc_violations"], logging_dict["episodes_done"])
-        #for i, state_predicate in enumerate(env.state_predicate_names):
+        # for i, state_predicate in enumerate(env.state_predicate_names):
         #    writer.add_scalar(f"episode/{state_predicate}", logging_dict["ep_state_predicates"][i], logging_dict["episodes_done"])
         logging_dict["ep_reward_hist"].append(logging_dict["ep_reward_sum"])
         logging_dict["ep_len_hist"].append(logging_dict["ep_len"])
-        #logging_dict["ep_state_predicate_hist"].append(logging_dict["ep_state_predicates"])
+        # logging_dict["ep_state_predicate_hist"].append(logging_dict["ep_state_predicates"])
 
         print(
             f"Episode {logging_dict['episodes_done']} | "
@@ -279,7 +330,7 @@ def env_interaction_numpy_env(
 
         logging_dict["ep_len"] = 0
         logging_dict["ep_reward_sum"] = 0
-        #logging_dict["ep_state_predicates"] = np.zeros(len(env.state_predicate_names))
+        # logging_dict["ep_state_predicates"] = np.zeros(len(env.state_predicate_names))
         logging_dict["episodes_done"] += 1
 
     return obs, reward, done, trunc, info
@@ -419,57 +470,6 @@ def env_interaction_unity_env(
         pass
 
 
-def setup_minigrid_env(env_id, params):
-    env = FlattenedMinigrid(gym.make(env_id))
-    obs, info = env.reset()
-    action_dim = env.action_space.n
-    state_dim = env.observation_space.shape[0]
-
-    episodes_done, ep_len, ep_reward_sum = 0, 0, 0
-    loss_hist = []
-    avg_q_hist = []
-    ep_reward_hist = []
-    ep_len_hist = []
-    #  ep_state_predicates = np.zeros(len(env.state_predicate_names))
-    #  ep_state_predicate_hist = []
-    eval_reward_hist = []
-    eval_state_predicate_hist = []
-    eval_episodes_times = []
-
-    logging_dict = {
-        "episodes_done": episodes_done,
-        "ep_len": ep_len,
-        "ep_reward_sum": ep_reward_sum,
-        #   "ep_state_predicates": ep_state_predicates,
-        "loss_hist": loss_hist,
-        "avg_q_hist": avg_q_hist,
-        "ep_reward_hist": ep_reward_hist,
-        "ep_len_hist": ep_len_hist,
-        #   "ep_state_predicate_hist": ep_state_predicate_hist,
-        "eval_reward_hist": eval_reward_hist,
-        "eval_state_predicate_hist": eval_state_predicate_hist,
-        "eval_episodes_times": eval_episodes_times,
-    }
-
-    minigrid_dqn = DQN(
-        action_dim=action_dim,
-        state_dim=state_dim,
-        hidden_arch=params["minigrid_env_dqn_arch"],
-        hidden_activation=params["hidden_activation"],
-        device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
-        lr=params["lr"],
-        gamma=params["gamma"],
-        load_cp=params["minigrid_env_dqn_cp"],
-        con_model_load_cp="",  # highest prio, no constraint...
-        con_thresh=np.inf,  # value does not matter without constraint...
-        model_name="end_to_end",
-    )
-
-    dqns = [minigrid_dqn]
-
-    return env, env.observation_space, env.action_space, obs, info, logging_dict, dqns
-
-
 def main(args):
     # HYPERPARAMETERS
     # which_env = "numpy"  # "unity" or "numpy
@@ -490,7 +490,7 @@ def main(args):
         # "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
         # "env_id": "flat-acc",  # name of the folder containing the unity scene binaries
         "unity_take_screenshots": True,
-        "unity_max_ep_len": 1000,
+        "unity_max_ep_len": 200,
         "unity_task": "fetch_trigger",
         # "unity_task": "reach_goal",
         "no_train_only_plot": False,
@@ -507,17 +507,21 @@ def main(args):
         "exp_fraction": 0.5,
         "learning_start": 50_000,
         "seed": 1,
-        "minigrid_env_dqn_cp": "",
-        "numpy_env_lava_dqn_cp": "",
-        # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/avoid_lava_net.pth",
-        "numpy_env_dqn_arch": [32, 32, 16, 16],
-        "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
+        "minigrid_env_dqn_cp": "runs/MiniGrid-Empty-5x5-v0/2024-07-23-09-49-06_/end_to_end_net.pth",
         "minigrid_env_dqn_arch": [32, 32, 16, 16],
+
+        # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/avoid_lava_net.pth",
+        "numpy_env_lava_dqn_cp": "",
+        "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
+
+        "numpy_env_goal_dqn_cp": "",
+        "numpy_env_dqn_arch": [32, 32, 16, 16],
+
+        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/feasibility_dqn.pt",
         "numpy_env_lava_feasibility_dqn_cp": "",
-       # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/feasibility_dqn.pt",
         "numpy_env_lava_feasibility_dqn_arch": [32, 32, 16, 16],
         "numpy_env_feasibility_thresh": 0.1,
-        "numpy_env_goal_dqn_cp": "",
+
         # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-18-26-38_slowLava_trainedWithCon/reach_goal_net.pth",
         # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-16-27-29_slowLava_trainedWithoutCon/reach_goal_net.pth",
         "numpy_env_goal_dqn_arch": [256, 256],
@@ -654,20 +658,17 @@ def main(args):
                 if episodes_since_eval <= 0:
                     with torch.no_grad():
                         episodes_since_eval = 50
-                        eval_obs, eval_info = env.reset(options={
-                            "x": env.x_max / 2 + np.random.uniform(-4, 4),
-                            "y": 1
-                        })
+                        eval_obs, eval_info = env.reset()
                         eval_logging_dict = {
                             "episodes_done": 0,
                             "ep_len": 0,
                             "ep_reward_sum": 0,
-                            "ep_state_predicates": np.zeros(len(env.state_predicate_names)),
+                            # "ep_state_predicates": np.zeros(len(env.state_predicate_names)),
                             "loss_hist": [],
                             "avg_q_hist": [],
                             "ep_reward_hist": [],
                             "ep_len_hist": [],
-                            "ep_state_predicate_hist": []
+                            #  "ep_state_predicate_hist": []
                         }
                         eval_done, eval_trunc = False, False
                         while not (eval_done or eval_trunc):
@@ -686,7 +687,7 @@ def main(args):
 
                         # save reward and predicate from eval episodes to main logging dict
                         logging_dict["eval_reward_hist"].append(eval_logging_dict["ep_reward_hist"][-1])
-                        logging_dict["eval_state_predicate_hist"].append(eval_logging_dict["ep_state_predicate_hist"][-1])
+                        #     logging_dict["eval_state_predicate_hist"].append(eval_logging_dict["ep_state_predicate_hist"][-1])
                         logging_dict["eval_episodes_times"].append(logging_dict["episodes_done"])
 
                         obs, info = env.reset()  # reset for next regular, non-eval episode...
@@ -702,9 +703,9 @@ def main(args):
         avg_q_hist=logging_dict["avg_q_hist"],
         train_reward_hist=logging_dict["ep_reward_hist"],
         train_len_hist=logging_dict["ep_len_hist"],
-        train_state_predicate_hist=logging_dict["ep_state_predicate_hist"],
+        #  train_state_predicate_hist=logging_dict["ep_state_predicate_hist"],
         eval_reward_hist=logging_dict["eval_reward_hist"],
-        eval_state_predicate_hist=logging_dict["eval_state_predicate_hist"],
+        #  eval_state_predicate_hist=logging_dict["eval_state_predicate_hist"],
         eval_ep_times=logging_dict["eval_episodes_times"],
     )
 
@@ -723,17 +724,17 @@ def main(args):
             plt.savefig(f"{exp_dir}/{title}.png")
             plt.close()
 
-        state_predicate_occurances = np.asarray(logging_dict["ep_state_predicate_hist"])
-        colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple", "tab:brown", "tab:pink", "tab:gray", "tab:olive", "tab:cyan"]
-        for i, state_predicate in enumerate(env.state_predicate_names):
-            y_data = state_predicate_occurances[:, i]
-            # apply some smoothing
-            y_data_smoothed = np.convolve(y_data, np.ones(10) / 10, mode="same")
-            plt.plot(y_data_smoothed, label=state_predicate, color=colors[i])
-            plt.plot(y_data, alpha=0.1, color=colors[i])
-            plt.title(f"{state_predicate} Occurances")
-            plt.savefig(f"{exp_dir}/state_predicate_{state_predicate}.png")
-            plt.close()
+    #  state_predicate_occurances = np.asarray(logging_dict["ep_state_predicate_hist"])
+    # colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple", "tab:brown", "tab:pink", "tab:gray", "tab:olive", "tab:cyan"]
+    # for i, state_predicate in enumerate(env.state_predicate_names):
+    #     y_data = state_predicate_occurances[:, i]
+    #     # apply some smoothing
+    #     y_data_smoothed = np.convolve(y_data, np.ones(10) / 10, mode="same")
+    #     plt.plot(y_data_smoothed, label=state_predicate, color=colors[i])
+    #     plt.plot(y_data, alpha=0.1, color=colors[i])
+    #     plt.title(f"{state_predicate} Occurances")
+    #     plt.savefig(f"{exp_dir}/state_predicate_{state_predicate}.png")
+    #     plt.close()
 
     if params["which_env"] == "numpy":
         create_plots_numpy_env(
@@ -824,7 +825,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--total_steps", type=int, default=500_000, help="Total number of training steps")
+    parser.add_argument("-t", "--total_steps", type=int, default=200_000, help="Total number of training steps")
     parser.add_argument("-e", "--exp_name", type=str, default="", help="Additional string to append to the experiment directory")
     args = parser.parse_args()
     print(args)

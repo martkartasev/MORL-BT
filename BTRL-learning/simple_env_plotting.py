@@ -1,12 +1,17 @@
+import gymnasium as gym
 import yaml
 import matplotlib.pyplot as plt
 import numpy as np
+
+from envs.minigrid_wrapper import FlattenedMinigrid
 from envs.simple_acc_env import SimpleAccEnv, action_to_acc
 from dqn import DQN
 from networks import MLP
 import torch
 import os
-os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE" # Flag from https://stackoverflow.com/questions/20554074/sklearn-omp-error-15-initializing-libiomp5md-dll-but-found-mk2iomp5md-dll-a
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"  # Flag from https://stackoverflow.com/questions/20554074/sklearn-omp-error-15-initializing-libiomp5md-dll-but-found-mk2iomp5md-dll-a
+
 
 def plot_q_state(q_values, state, env, cp_dir):
     for a in range(env.action_space.n):
@@ -27,7 +32,6 @@ def plot_q_state(q_values, state, env, cp_dir):
 
 
 def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False):
-
     # plot eval states
     lava_rect = plt.Rectangle(
         (env.lava_x_min, env.lava_y_min),
@@ -277,37 +281,61 @@ def plot_rollouts(
         plt.close()
 
 
+def play_minigrid(cp_dir, cp_file, env_id):
+    env = FlattenedMinigrid(gym.make(env_id, render_mode="human"))
+
+    params = yaml.load(open(f"{cp_dir}/params.yaml", "r"), Loader=yaml.FullLoader)
+    model = MLP(
+        input_size=env.observation_space.shape[0],
+        output_size=env.action_space.n,
+        hidden_arch=params["minigrid_env_dqn_arch"],
+        hidden_activation=params["hidden_activation"],
+    )
+    model.load_state_dict(torch.load(f"{cp_dir}/{cp_file}"))
+
+    obs, _ = env.reset()
+    for i in range(100000000):
+        task_q_vals = model(torch.from_numpy(obs).float()).detach().cpu().numpy()
+        action = np.argmax(task_q_vals)
+        obs, reward, done, trunc, _ = env.step(action)
+        env.render()
+        if done:
+            obs, _ = env.reset()
+
+
 if __name__ == "__main__":
-    env = SimpleAccEnv(
-        with_conveyer=True,
-        x_max=20,
-        conveyer_x_min=2,
-        conveyer_x_max=10,
-        lava_x_min=10,
-        lava_x_max=18,
-        goal_x=10,
-    )
-    # plot_cp(
-    #     env=env,
-    #     cp_dir=r"runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-13-12-46-08_BT_noCon",
-    #     cp_file="reach_goal_net.pth",
-    #     with_conveyer=True,
+    # env = SimpleAccEnv(
+    #    with_conveyer=True,
+    #    x_max=20,
+    #    conveyer_x_min=2,
+    #    conveyer_x_max=10,
+    #    lava_x_min=10,
+    #    lava_x_max=18,
+    #    goal_x=10,
     # )
-    plot_cp(
-        env=env,
-        # cp_dir=r"runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom/feasibility_2024-07-14-21-50-23",
-        cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18",
-        cp_file="feasibility_dqn.pt",
-        with_conveyer=True,
-    )
-
-    plot_rollouts(
-        env=env,
-        task_dqn_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-15-21-11-39",
-        con_dqn_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18",
-        # con_dqn_dir=r"",
-        con_thresh=0.05,
-        n_rollouts=10,
-        with_conveyer=True
-    )
-
+    ## plot_cp(
+    ##     env=env,
+    ##     cp_dir=r"runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-13-12-46-08_BT_noCon",
+    ##     cp_file="reach_goal_net.pth",
+    ##     with_conveyer=True,
+    ## )
+    # plot_cp(
+    #    env=env,
+    #    # cp_dir=r"runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom/feasibility_2024-07-14-21-50-23",
+    #    cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18",
+    #    cp_file="feasibility_dqn.pt",
+    #    with_conveyer=True,
+    # )
+    #
+    # plot_rollouts(
+    #    env=env,
+    #    task_dqn_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-15-21-11-39",
+    #    con_dqn_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18",
+    #    # con_dqn_dir=r"",
+    #    con_thresh=0.05,
+    #    n_rollouts=10,
+    #    with_conveyer=True
+    # )
+    play_minigrid(cp_dir=r"runs/MiniGrid-Empty-5x5-v0/2024-07-23-09-49-06_",
+                  cp_file="end_to_end_net.pth",
+                  env_id="MiniGrid-Empty-5x5-v0")
