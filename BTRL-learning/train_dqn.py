@@ -93,6 +93,7 @@ def setup_numpy_env(params, device, exp_dir):
         dqns = [avoid_lava_dqn, reach_goal_dqn]
     elif "sum" in env_id:
         assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
+        avoid_lava_dqn.save_model(exp_dir)
         dqns = [avoid_lava_dqn, reach_goal_dqn]
         # dqns = [reach_goal_dqn]
     else:
@@ -441,8 +442,8 @@ def main(args):
         # "env_id": "SimpleAccEnv-wide-withConveyer-lava-v0",
         # "env_id": "SimpleAccEnv-goal-v0",
         # "env_id": "SimpleAccEnv-withConveyer-goal-v0",
-        # "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
-        "env_id": "SimpleAccEnv-wide-withConveyer-sum-v0",
+        "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
+        # "env_id": "SimpleAccEnv-wide-withConveyer-sum-v0",
         # "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
         # "env_id": "flat-acc",  # name of the folder containing the unity scene binaries
         "unity_take_screenshots": True,
@@ -461,14 +462,15 @@ def main(args):
         "start_epsilon": 1.0,
         "end_epsilon": 0.05,
         "exp_fraction": 0.5,
-        "learning_start": 50_000,
+        # "learning_start": 50_000,  # to get good feasibility data...
+        "learning_start": 0,
         "seed": args.seed,
-        "with_lava_reward_punish": True,
+        "with_lava_reward_punish": False,
         # "numpy_env_lava_dqn_cp": "",
         "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/avoid_lava_net.pth",
         "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
-        "numpy_env_lava_feasibility_dqn_cp": "",
-        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/feasibility_dqn.pt",
+        # "numpy_env_lava_feasibility_dqn_cp": "",
+        "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/feasibility_dqn.pt",
         "numpy_env_lava_feasibility_dqn_arch": [32, 32, 16, 16],
         "numpy_env_feasibility_thresh": 0.1,
         "numpy_env_goal_dqn_cp": "",

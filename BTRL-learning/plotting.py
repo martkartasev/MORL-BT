@@ -540,48 +540,9 @@ def plot_bt_comp_rollouts(
         plt.plot([-100, -100], [-100, -100], ls=method_ls[idx], c=method_colors[idx], label=method_names[idx])
     plt.legend(loc="lower right")
 
-    plt.savefig("runs/2D-lava-con-noCon-rollouts.png")
+    plt.savefig("runs/2D-lava-con-noCon-rollouts.png", bbox_inches='tight')
     plt.show()
     plt.close()
-
-    # # load and plot con data
-    # data_con = np.load(con_load_dir + "trajectories.npz")
-    # rewards_con = data_con["rewards"]
-    # predicates_con = data_con["state_predicates"]
-    # predicate_names_con = data_con["state_predicate_names"]
-    # rewards_con = rewards_con.reshape(-1, 1)
-    # rollout_data_con = np.hstack([rewards_con, predicates_con])
-
-    # plot_multiple_rollouts(traj_data=data_con["trajectories"], ax=ax, color="green", show=False, close=False, ls=":", alpha=0.25, label="Ours")
-
-    # # load and plot no_con data
-    # data_noCon = np.load(no_con_load_dir + "trajectories.npz")
-    # rewards_noCon = data_noCon["rewards"]
-    # predicates_noCon = data_noCon["state_predicates"]
-    # predicate_names_noCon = data_noCon["state_predicate_names"]
-
-    # assert np.all(predicate_names_con == predicate_names_noCon), "Predicate names do not match!"
-    # predicate_names_format = []
-    # for name in predicate_names_con:
-    #     predicate_names_format.append(name.replace("_", " ").capitalize())
-
-    # # stack reward and predicates into one array
-    # rewards_noCon = rewards_noCon.reshape(-1, 1)
-    # rollout_data_noCon = np.hstack([rewards_noCon, predicates_noCon])
-
-    # # set matplotlib font size
-    # plt.rcParams.update({'font.size': 15})
-
-    # plot_multiple_rollouts(
-    #     traj_data=data_noCon["trajectories"],
-    #     ax=ax,
-    #     color="red",
-    #     ls="--",
-    #     alpha=0.25,
-    #     label="Baseline",
-    #     legend=True,
-    #     save_path=f"runs/2D-lava-con-noCon-rollouts.png"
-    # )
 
     # reset font size
     plt.rcParams.update({'font.size': 12})
@@ -652,12 +613,14 @@ def plot_bt_comp_metrics(
         std_at_goal = np.std(at_goal, axis=0)
 
         # plot metrics
+        n_x_ticks = 5
         axs[0].plot(mean_reward, color=method_colors[idx], ls=method_ls[idx])
         axs[0].fill_between(range(len(mean_reward)), mean_reward - std_reward, mean_reward + std_reward, color=method_colors[idx], alpha=0.2)
         axs[0].set_ylabel("Reward")
         axs[0].set_xlabel("Eval. episodes")
         axs[0].set_xlim(0, len(mean_reward) - 1)
-        axs[0].set_xticks(range(0, len(mean_reward), 20))
+        axs[0].set_ylim(-750, -250)
+        axs[0].set_xticks(np.linspace(0, len(mean_reward), n_x_ticks, dtype=np.int64))
 
         axs[1].plot(mean_in_lava, color=method_colors[idx], label=method_names[idx], ls=method_ls[idx])
         axs[1].fill_between(range(len(mean_in_lava)), mean_in_lava - std_in_lava, mean_in_lava + std_in_lava, color=method_colors[idx], alpha=0.2)
@@ -665,21 +628,23 @@ def plot_bt_comp_metrics(
         axs[1].set_xlabel("Eval. episodes")
         axs[1].legend(loc="upper center", bbox_to_anchor=(0.5, 1.25), ncol=len(method_names))
         axs[1].set_xlim(0, len(mean_in_lava) - 1)
-        axs[1].set_xticks(range(0, len(mean_in_lava), 20))
+        axs[1].set_ylim(-1, 60)
+        axs[1].set_xticks(np.linspace(0, len(mean_in_lava), n_x_ticks, dtype=np.int64))
 
         axs[2].plot(mean_at_goal, color=method_colors[idx], ls=method_ls[idx])
         axs[2].fill_between(range(len(mean_at_goal)), mean_at_goal - std_at_goal, mean_at_goal + std_at_goal, color=method_colors[idx], alpha=0.2)
         axs[2].set_ylabel("Steps " + predicate_names[1].replace("_", " "))
         axs[2].set_xlabel("Eval. episodes")
         axs[2].set_xlim(0, len(mean_at_goal) - 1)
-        axs[2].set_xticks(range(0, len(mean_at_goal), 20))
+        axs[2].set_ylim(-1, 60)
+        axs[2].set_xticks(np.linspace(0, len(mean_at_goal), n_x_ticks, dtype=np.int64))
 
     plt.tight_layout()
     plt.subplots_adjust(
         top=0.85,
         bottom=0.15,
         left=0.12,
-        right=0.99,
+        right=0.975,
         wspace=0.35
     )
     plt.savefig(f"runs/2D-lava-con-noCon-metrics.png")
@@ -847,17 +812,14 @@ if __name__ == "__main__":
     # env_actuator = EnvActuatorGrid5x5()
     # env_actuator.plot_action_acceleration_mapping()
 
-    method_names = ["BT-DQN", "BT-MORL", "CBTRL (Ours)"]
+    method_names = ["BT-DQN", "BT-Penalty", "CBTRL (Ours)"]
     method_colors = ["magenta", "red", "cyan"]
     method_ls = ["--", ":", "-"]
 
     plot_bt_comp_rollouts(
-        con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-02-49-02_withLogging_withCon_moreEvals/",
-        no_con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-02-28-51_withLoggin_withoutCon_moreEvals/",
-        # sum_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-19-13-45-26_MORL_sumWeight:0.5_withCon",
-        # sum_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-19-14-12-02_BT_sumWeight:0.5_withCon",
-        # sum_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-19-14-32-28_BT_sumWeight:0.1_withCon",
-        sum_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-21-13-33-57_BT_sumWeight:0.5_punish:50_2",
+        con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-09-27-34_withCon_noRandomStart_0/",
+        no_con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-09-53-46_noCon_noRandomStart_0/",
+        sum_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-22-10-17-42_BT_sumWeight:0.5_punish:50_noRandomStart_0/",
         method_names=method_names,
         method_colors=method_colors,
         method_ls=method_ls
@@ -866,25 +828,25 @@ if __name__ == "__main__":
     plot_bt_comp_metrics(
         which_data="eval",
         no_con_load_dirs=[
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-19-40-12_noCon_1",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-19-57-53_noCon_2",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-20-15-36_noCon_3",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-20-33-18_noCon_4",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-20-50-54_noCon_5"
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-09-53-46_noCon_noRandomStart_0/",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-13-45-04_noCon_noRandomStart_1/",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-14-14-48_noCon_noRandomStart_2/",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-14-35-17_noCon_noRandomStart_3/",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-14-56-52_noCon_noRandomStart_4/"
         ],
         con_load_dirs=[
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-13-49-57_withCon_1",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-14-10-06_withCon_2",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-14-30-02_withCon_3",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-14-50-05_withCon_4",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-18-14-50-05_withCon_4"
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-09-27-34_withCon_noRandomStart_0/",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-15-18-57_withCon_noRandomStart_1/",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-15-42-09_withCon_noRandomStart_2/",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-16-06-31_withCon_noRandomStart_3/",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-16-31-00_withCon_noRandomStart_4/"
         ],
         sum_load_dir=[
-            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-21-13-16-14_BT_sumWeight:0.5_punish:50_1",
-            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-21-13-33-57_BT_sumWeight:0.5_punish:50_2",
-            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-21-13-51-43_BT_sumWeight:0.5_punish:50_3",
-            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-21-14-09-32_BT_sumWeight:0.5_punish:50_4",
-            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-21-14-27-19_BT_sumWeight:0.5_punish:50_5",
+            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-22-10-17-42_BT_sumWeight:0.5_punish:50_noRandomStart_0/",
+            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-22-10-45-35_BT_sumWeight:0.5_punish:50_noRandomStart_1/",
+            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-22-11-06-29_BT_sumWeight:0.5_punish:50_noRandomStart_2/",
+            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-22-11-27-00_BT_sumWeight:0.5_punish:50_noRandomStart_3/",
+            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-22-11-48-08_BT_sumWeight:0.5_punish:50_noRandomStart_4/"
         ],
         method_names=method_names,
         method_colors=method_colors,
