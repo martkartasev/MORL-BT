@@ -77,6 +77,10 @@ class SimpleAccEnv(gym.Env):
             np.array([1.5, 5.0, 2.0, 0.0]),  # left of lava but rightwards velocity, lava unavailable
             np.array([8.5, 5.0, 0.0, 0.0]),  # right of lava, no velocity
             np.array([8.5, 5.0, -2.0, 0.0]),  # right of lava but leftwards velocity, lava unavailable
+            np.array([9.75, 1, 0.0, 0.0]),  # underneath lava, at x middle, no velocity
+            np.array([9.75, 1, 2.0, 0.0]),  # underneath lava, at x middle, velocity towards the right
+            np.array([18.5, 4, 0.0, 0.0]),  # right of lava, at y slightly lower than middle, no velocity
+            np.array([18.5, 6, 0.0, 0.0]),  # right of lava, at y slightly higher than, no velocity
         ]
 
         self.action_space = gym.spaces.Discrete(25)
