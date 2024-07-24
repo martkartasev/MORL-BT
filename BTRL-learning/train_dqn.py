@@ -470,7 +470,8 @@ def main(args):
         "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/avoid_lava_net.pth",
         "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
         # "numpy_env_lava_feasibility_dqn_cp": "",
-        "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/feasibility_dqn.pt",
+        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/feasibility_dqn.pt",
+        "numpy_env_lava_feasibility_dqn_cp": r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-23-12-18-59_gotoLeft_withHighPrioCon_arch:32-32-16-16_batch:256/feasibility_dqn.pt",
         "numpy_env_lava_feasibility_dqn_arch": [32, 32, 16, 16],
         "numpy_env_feasibility_thresh": 0.1,
         "numpy_env_goal_dqn_cp": "",
@@ -767,7 +768,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--total_steps", type=int, default=500_000, help="Total number of training steps")
     parser.add_argument("-s", "--seed", type=int, default=0, help="The random seed for this run")
-    parser.add_argument("-e", "--exp_name", type=str, default="", help="Additional string to append to the experiment directory")
+    parser.add_argument("-e", "--exp_name", type=str, default="withCon_noRandomStart_feasibility:Lava>Left", help="Additional string to append to the experiment directory")
     args = parser.parse_args()
     print(args)
 
