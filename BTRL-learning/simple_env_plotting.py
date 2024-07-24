@@ -11,10 +11,11 @@ os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE" # Flag from https://stackoverflow.com/
 def plot_q_state(q_values, state, env, cp_dir):
     for a in range(env.action_space.n):
         acc = action_to_acc(a)
-        if "feasibility" in cp_dir:
-            plt.scatter(acc[0], acc[1], c=q_values[a], s=800, cmap="plasma", vmin=0, vmax=1)
-        else:
-            plt.scatter(acc[0], acc[1], c=q_values[a], s=800, cmap="plasma", vmin=q_values.min(), vmax=q_values.max())
+        # if "feasibility" in cp_dir:
+        #     plt.scatter(acc[0], acc[1], c=q_values[a], s=800, cmap="plasma", vmin=0, vmax=1)
+        # else:
+        #     plt.scatter(acc[0], acc[1], c=q_values[a], s=800, cmap="plasma", vmin=q_values.min(), vmax=q_values.max())
+        plt.scatter(acc[0], acc[1], c=q_values[a], s=800, cmap="plasma", vmin=q_values.min(), vmax=q_values.max())
         plt.text(acc[0], acc[1], f"{a}, {acc}", fontsize=8, ha='center', va='center')
 
     plt.xlim(-3, 3)
@@ -118,8 +119,8 @@ def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False
 def plot_rollouts(
         env,
         task_dqn_dir="",
-        con_dqn_dir="",
-        con_thresh=0.25,
+        con_dqn_dirs=[],
+        con_threshes=[],
         n_rollouts=1,
         with_conveyer=False
 ):
@@ -132,20 +133,23 @@ def plot_rollouts(
     )
     task_dqn.load_state_dict(torch.load(f"{task_dqn_dir}/reach_goal_net.pth"))
 
-    if con_dqn_dir:
-        con_params = yaml.load(open(f"{con_dqn_dir}/params.yaml", "r"), Loader=yaml.FullLoader)
-        con_dqn = MLP(
-            input_size=env.observation_space.shape[0],
-            output_size=env.action_space.n,
-            hidden_arch=con_params["hidden_arch"],
-            hidden_activation=con_params["hidden_activation"],
-        )
-        con_dqn.load_state_dict(torch.load(f"{con_dqn_dir}/feasibility_dqn.pt"))
+    con_dqns = []
+    for con_dqn_dir in con_dqn_dirs:
+        if con_dqn_dir:
+            con_params = yaml.load(open(f"{con_dqn_dir}/params.yaml", "r"), Loader=yaml.FullLoader)
+            con_dqn = MLP(
+                input_size=env.observation_space.shape[0],
+                output_size=env.action_space.n,
+                hidden_arch=con_params["hidden_arch"],
+                hidden_activation=con_params["hidden_activation"],
+            )
+            con_dqn.load_state_dict(torch.load(f"{con_dqn_dir}/feasibility_dqn.pt"))
+            con_dqns.append(con_dqn)
 
     for i in range(n_rollouts):
         print(f"Rollout {i}")
-        if con_dqn_dir:
-            rollout_base_dir = f"{con_dqn_dir}/rollouts"
+        if len(con_dqn_dirs) > 0:
+            rollout_base_dir = f"{con_dqn_dirs[-1]}/rollouts"
         else:
             rollout_base_dir = f"{task_dqn_dir}/rollouts"
 
@@ -154,14 +158,111 @@ def plot_rollouts(
 
         save_dict = {
             "task_dqn_dr": task_dqn_dir,
-            "con_dqn_dir": con_dqn_dir,
-            "con_thresh": con_thresh,
+            "con_dqn_dirs": con_dqn_dirs,
+            "con_threshes": con_threshes,
 
         }
 
         with open(f"{rollout_base_dir}/args.yaml", "w") as f:
             yaml.dump(save_dict, f)
 
+        reset_options = {
+            "y": 1,
+            "x": (env.x_max / 2) + np.random.uniform(-4, 4),
+        }
+        obs, _ = env.reset(options=reset_options)
+        # obs, _ = env.reset(options={})
+        trajectory = [obs[:2]]
+        ep_reward = 0
+        ep_len = 0
+        done, trunc = False, False
+        while not (done or trunc):
+            print(obs)
+            q_val_fig, q_val_axs = plt.subplots(1, 2 + len(con_dqns), figsize=(15, 5))
+
+            task_q_vals = task_dqn(torch.from_numpy(obs).float()).detach().cpu().numpy()
+
+            # plot task q vals
+            for a in range(env.action_space.n):
+                acc = action_to_acc(a)
+                point = q_val_axs[0].scatter(acc[0], acc[1], s=800, c=task_q_vals[a], vmin=task_q_vals.min(), vmax=task_q_vals.max())
+            q_val_axs[0].set_title("Task Q-vals")
+            plt.colorbar(point, ax=q_val_axs[0])
+
+            forbidden_mask_global = torch.zeros(task_q_vals.shape)
+            con_colors = ["cyan",  "magenta"]
+            for con_idx, con_dqn in enumerate(con_dqns):
+                con_q_vals = con_dqn(torch.from_numpy(obs).float()).detach().cpu().numpy()
+                # forbidden_mask = con_q_vals > con_thresh
+                best_con_action_value = con_q_vals.min()
+                forbidden_mask = con_q_vals > best_con_action_value + con_threshes[con_idx]
+
+                if min(forbidden_mask_global + forbidden_mask) == 0:
+                    forbidden_mask_global += forbidden_mask
+                else:
+                    print("Not applying lower prio mask, would result in empty action space!")
+
+                # plot con q vals
+                for a in range(env.action_space.n):
+                    acc = action_to_acc(a)
+                    point = q_val_axs[1 + con_idx].scatter(acc[0], acc[1], s=800, c=con_q_vals[a], vmin=con_q_vals.min(), vmax=con_q_vals.max())
+                    if forbidden_mask[a]:
+                        q_val_axs[1 + con_idx].scatter(acc[0], acc[1], s=200, c=con_colors[con_idx], marker="x")
+                        q_val_axs[0].scatter(acc[0], acc[1], s=200, c=con_colors[con_idx], marker="x")
+
+                q_val_axs[1 + con_idx].set_title(f"Feasibility Q-vals {con_idx}")
+                plt.colorbar(point, ax=q_val_axs[1 + con_idx])
+
+            forbidden_mask_global = forbidden_mask_global.clamp(0, 1).bool()
+
+            if not False in forbidden_mask_global:
+                print(f"ALL ACTIONS ARE FORBIDDEN IN STATE {obs}!")
+
+            task_q_vals[forbidden_mask_global] -= np.inf
+
+            # plot env
+            rect = plt.Rectangle(
+                (env.lava_x_min, env.lava_y_min),
+                env.lava_x_max - env.lava_x_min,
+                env.lava_y_max - env.lava_y_min,
+                fill=True,
+                color='orange',
+                alpha=0.5
+            )
+            q_val_axs[-1].add_patch(rect)
+            if with_conveyer:
+                conveyer_rect = plt.Rectangle(
+                    (env.conveyer_x_min, env.conveyer_y_min),
+                    env.conveyer_x_max - env.conveyer_x_min,
+                    env.conveyer_y_max - env.conveyer_y_min,
+                    fill=True,
+                    color='gray',
+                    alpha=0.5
+                )
+                q_val_axs[-1].add_patch(conveyer_rect)
+
+            action = np.argmax(task_q_vals)
+            q_val_fig.suptitle(f"State: {obs}, action: {action}, acc: {action_to_acc(action)}")
+
+            q_val_axs[-1].quiver(obs[0], obs[1], obs[2], obs[3], color="r")  # current state
+            plt.plot(np.array(trajectory)[:, 0], np.array(trajectory)[:, 1], 'o-', c="r", alpha=0.5)
+            q_val_axs[-1].set_xlim(env.x_min - 0.1, env.x_max + 0.1)
+            q_val_axs[-1].set_ylim(env.y_min - 0.1, env.y_max + 0.1)
+            q_val_axs[-1].set_title("Env")
+
+            plt.tight_layout()
+            plt.savefig(f"{rollout_dir}/q_vals{ep_len}.png")
+            plt.close()
+
+            obs, reward, done, trunc, _ = env.step(action)
+            ep_reward += reward
+            ep_len += 1
+
+            trajectory.append(obs[:2])
+            if done:
+                break
+
+        # plot final trajectory
         rect = plt.Rectangle(
             (env.lava_x_min, env.lava_y_min),
             env.lava_x_max - env.lava_x_min,
@@ -180,99 +281,15 @@ def plot_rollouts(
                 color='gray',
                 alpha=0.5
             )
-            plt.gca().add_patch(conveyer_rect)
-
-        reset_options = {
-            "y": 1,
-            "x": 5 + np.random.uniform(-4, 4),
-        }
-        obs, _ = env.reset(options=reset_options)
-        # obs, _ = env.reset(options={})
-        trajectory = [obs[:2]]
-        ep_reward = 0
-        ep_len = 0
-        done, trunc = False, False
-        while not (done or trunc):
-            print(obs)
-            q_val_fig, q_val_axs = plt.subplots(1, 3, figsize=(15, 5))
-
-            task_q_vals = task_dqn(torch.from_numpy(obs).float()).detach().cpu().numpy()
-
-            # plot task q vals
-            for a in range(env.action_space.n):
-                acc = action_to_acc(a)
-                point = q_val_axs[0].scatter(acc[0], acc[1], s=800, c=task_q_vals[a], vmin=task_q_vals.min(), vmax=task_q_vals.max())
-            q_val_axs[0].set_title("Task Q-vals")
-            plt.colorbar(point, ax=q_val_axs[0])
-
-            if con_dqn_dir:
-                con_q_vals = con_dqn(torch.from_numpy(obs).float()).detach().cpu().numpy()
-                # forbidden_mask = con_q_vals > con_thresh
-                best_con_action_value = con_q_vals.min()
-                forbidden_mask = con_q_vals > best_con_action_value + con_thresh
-
-                # plot con q vals
-                for a in range(env.action_space.n):
-                    acc = action_to_acc(a)
-                    point = q_val_axs[1].scatter(acc[0], acc[1], s=800, c=con_q_vals[a], vmin=con_q_vals.min(), vmax=con_q_vals.max())
-                    if forbidden_mask[a]:
-                        q_val_axs[1].scatter(acc[0], acc[1], s=200, c="r", marker="x")
-
-                q_val_axs[1].set_title("Feasibility Q-vals")
-                plt.colorbar(point, ax=q_val_axs[1])
-
-                if not False in forbidden_mask:
-                    print(f"ALL ACTIONS ARE FORBIDDEN IN STATE {obs}!")
-
-                task_q_vals[forbidden_mask] -= np.inf
-
-            # plot env
-            rect = plt.Rectangle(
-                (env.lava_x_min, env.lava_y_min),
-                env.lava_x_max - env.lava_x_min,
-                env.lava_y_max - env.lava_y_min,
-                fill=True,
-                color='orange',
-                alpha=0.5
-            )
-            q_val_axs[2].add_patch(rect)
-            if with_conveyer:
-                conveyer_rect = plt.Rectangle(
-                    (env.conveyer_x_min, env.conveyer_y_min),
-                    env.conveyer_x_max - env.conveyer_x_min,
-                    env.conveyer_y_max - env.conveyer_y_min,
-                    fill=True,
-                    color='gray',
-                    alpha=0.5
-                )
-                q_val_axs[2].add_patch(conveyer_rect)
-
-            action = np.argmax(task_q_vals)
-            q_val_fig.suptitle(f"State: {obs}, action: {action}, acc: {action_to_acc(action)}")
-
-            q_val_axs[2].quiver(obs[0], obs[1], obs[2], obs[3], color="r")  # current state
-            plt.plot(np.array(trajectory)[:, 0], np.array(trajectory)[:, 1], 'o-', c="r", alpha=0.5)
-            q_val_axs[2].set_xlim(env.x_min - 0.1, env.x_max + 0.1)
-            q_val_axs[2].set_ylim(env.y_min - 0.1, env.y_max + 0.1)
-            q_val_axs[2].set_title("Env")
-
-            plt.savefig(f"{rollout_dir}/q_vals{ep_len}.png")
-            plt.close()
-
-            obs, reward, done, trunc, _ = env.step(action)
-            ep_reward += reward
-            ep_len += 1
-
-            trajectory.append(obs[:2])
-            if done:
-                break
-
+            plt.gca().add_patch(conveyer_rect
+                                )
         trajectory = np.array(trajectory)
         plt.plot(trajectory[:, 0], trajectory[:, 1], 'o-')
 
         plt.xlim(env.x_min - 0.1, env.x_max + 0.1)
         plt.ylim(env.y_min - 0.1, env.y_max + 0.1)
-        plt.savefig(f"{rollout_dir}/trajectory.png")
+        plt.tight_layout()
+        plt.savefig(f"{rollout_dir}/trajectory.png", bbox_inches="tight")
         plt.show()
         plt.close()
 
@@ -286,6 +303,7 @@ if __name__ == "__main__":
         lava_x_min=10,
         lava_x_max=18,
         goal_x=10,
+        max_ep_len=150
     )
     # plot_cp(
     #     env=env,
@@ -296,7 +314,7 @@ if __name__ == "__main__":
     plot_cp(
         env=env,
         # cp_dir=r"runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom/feasibility_2024-07-14-21-50-23",
-        cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18",
+        cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-23-16-57-49_goToLeft_withHighPrioCon_arch:32-32-16-16_batch:256",
         cp_file="feasibility_dqn.pt",
         with_conveyer=True,
     )
@@ -304,9 +322,14 @@ if __name__ == "__main__":
     plot_rollouts(
         env=env,
         task_dqn_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-15-21-11-39",
-        con_dqn_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18",
-        # con_dqn_dir=r"",
-        con_thresh=0.05,
+        con_dqn_dirs=[
+            r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18",
+            r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-23-16-57-49_goToLeft_withHighPrioCon_arch:32-32-16-16_batch:256"
+        ],
+        con_threshes=[
+            0.1,
+            0.1
+        ],
         n_rollouts=10,
         with_conveyer=True
     )
