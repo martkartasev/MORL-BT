@@ -336,6 +336,6 @@ if __name__ == "__main__":
     #    n_rollouts=10,
     #    with_conveyer=True
     # )
-    play_minigrid(cp_dir=r"runs/MiniGrid-Empty-5x5-v0/2024-07-23-09-49-06_",
+    play_minigrid(cp_dir=r"runs/MiniGrid-PutNear-6x6-N2-v0/2024-07-24-09-30-01_",
                   cp_file="end_to_end_net.pth",
-                  env_id="MiniGrid-Empty-5x5-v0")
+                  env_id="MiniGrid-PutNear-6x6-N2-v0")

@@ -485,12 +485,12 @@ def main(args):
         # "env_id": "SimpleAccEnv-goal-v0",
         # "env_id": "SimpleAccEnv-withConveyer-goal-v0",
         # "env_id": "MiniGrid-LavaCrossingS11N5-v0",
-        "env_id": "MiniGrid-Empty-5x5-v0",
+        "env_id": "MiniGrid-PutNear-6x6-N2-v0",
         # "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
         # "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
         # "env_id": "flat-acc",  # name of the folder containing the unity scene binaries
         "unity_take_screenshots": True,
-        "unity_max_ep_len": 200,
+        "unity_max_ep_len": 35,
         "unity_task": "fetch_trigger",
         # "unity_task": "reach_goal",
         "no_train_only_plot": False,
@@ -507,8 +507,10 @@ def main(args):
         "exp_fraction": 0.5,
         "learning_start": 50_000,
         "seed": 1,
-        "minigrid_env_dqn_cp": "runs/MiniGrid-Empty-5x5-v0/2024-07-23-09-49-06_/end_to_end_net.pth",
-        "minigrid_env_dqn_arch": [32, 32, 16, 16],
+
+        "minigrid_env_dqn_cp": "",
+        #"minigrid_env_dqn_cp": "runs/MiniGrid-Empty-5x5-v0/2024-07-23-09-49-06_/end_to_end_net.pth",
+        "minigrid_env_dqn_arch": [64, 32, 16, 16],
 
         # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/avoid_lava_net.pth",
         "numpy_env_lava_dqn_cp": "",
@@ -825,7 +827,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--total_steps", type=int, default=200_000, help="Total number of training steps")
+    parser.add_argument("-t", "--total_steps", type=int, default=1000_000, help="Total number of training steps")
     parser.add_argument("-e", "--exp_name", type=str, default="", help="Additional string to append to the experiment directory")
     args = parser.parse_args()
     print(args)
