@@ -134,6 +134,7 @@ def train_model(
         dones,
         batch_size,
         exp_dir,
+        device,
         epochs=10,
         nuke_layer_every=1e6,
         gamma=0.99,
@@ -163,11 +164,11 @@ def train_model(
             # sample batch
             batch_idx = np.random.choice(states.shape[0], batch_size)
 
-            state_batch = torch.from_numpy(states[batch_idx])
-            action_batch = torch.from_numpy(actions[batch_idx])
-            reward_batch = torch.from_numpy(labels[batch_idx])
-            next_state_batch = torch.from_numpy(next_states[batch_idx])
-            done_batch = torch.from_numpy(dones[batch_idx])
+            state_batch = torch.from_numpy(states[batch_idx]).to(device)
+            action_batch = torch.from_numpy(actions[batch_idx]).to(device)
+            reward_batch = torch.from_numpy(labels[batch_idx]).to(device)
+            next_state_batch = torch.from_numpy(next_states[batch_idx]).to(device)
+            done_batch = torch.from_numpy(dones[batch_idx]).to(device)
 
             # compute TD target
             with torch.no_grad():
@@ -189,10 +190,10 @@ def train_model(
                 # current_state_val = (1 - gamma) * reward_batch
                 current_state_val = reward_batch
                 target_min = target_q_values.min(dim=1, keepdim=True)[0]
-                future_val = torch.max(target_min, reward_batch)
+                future_val = torch.max(target_min.to(device), reward_batch)
                 td_target = current_state_val + gamma * future_val
 
-            q_values = model(state_batch.float())
+            q_values = model(state_batch.float().to(device))
             q_values = q_values.gather(dim=1, index=action_batch.to(torch.int64))
             loss = criterion(q_values.float(), td_target.float())
             pred_mean_hist.append(q_values.mean().item())
@@ -328,19 +329,26 @@ def main():
     with open(f"{exp_dir}/params.yaml", "w") as f:
         yaml.dump(params, f)
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     print("Setting up model...")
     model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["hidden_arch"])
+    model.to(device)
     target_model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["hidden_arch"])
     target_model.load_state_dict(model.state_dict())
-    optimizer = torch.optim.Adam(model.parameters(), lr=params["optimizer_initial_lr"])
+    target_model.to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=params["optimizer_initial_lr"], weight_decay=params["optimizer_weight_decay"])
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=params["exponential_lr_decay"])
     
     # load higher_prio Model
     higher_prio_nets = []
+    higher_prio_threshes = []
     if params["higher_prio_load_path"]:
         higher_prio_model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["higher_prio_arch"])
         higher_prio_model.load_state_dict(torch.load(f"{params['higher_prio_load_path']}/feasibility_dqn.pt"))
+        higher_prio_model.to(device)
         higher_prio_nets.append(higher_prio_model)
+        higher_prio_threshes.append(params["higher_prio_threshold"])
 
     # train model
     model, train_loss_hist, lr_hist, pred_mean_hist = train_model(
@@ -361,8 +369,9 @@ def main():
         nuke_layer_every=params["nuke_layer_every"],
         gamma=params["discount_gamma"],
         higher_prio_constraint_nets=higher_prio_nets,
-        higher_prio_constraint_thresholds=[params["higher_prio_threshold"]],
-        polyak_tau=params["polyak_tau"]
+        higher_prio_constraint_thresholds=higher_prio_threshes,
+        polyak_tau=params["polyak_tau"],
+        device=device
     )
 
     create_training_plots(
