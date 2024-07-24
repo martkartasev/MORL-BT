@@ -180,15 +180,15 @@ def train_model(
 
                 for idx, net in enumerate(higher_prio_constraint_nets):
                     high_prio_vals = net(next_state_batch.float())
-                    best_high_prio_vals = high_prio_vals.min(dim=1).values
+                    best_high_prio_vals = high_prio_vals.min(dim=1).values  # TODO, consider higher prio when finding best?
                     high_prio_forbidden = high_prio_vals > best_high_prio_vals.unsqueeze(1) + higher_prio_constraint_thresholds[idx]
 
                     target_q_values[high_prio_forbidden] = torch.inf
 
                 assert torch.all(target_q_values.min(dim=1).values < torch.inf)
 
-                # current_state_val = (1 - gamma) * reward_batch
-                current_state_val = reward_batch
+                current_state_val = (1 - gamma) * reward_batch
+                # current_state_val = reward_batch
                 target_min = target_q_values.min(dim=1, keepdim=True)[0]
                 future_val = torch.max(target_min.to(device), reward_batch)
                 td_target = current_state_val + gamma * future_val
@@ -286,10 +286,10 @@ def main():
     n_actions = 25
     def label_fun(state):
         # only lava
-        # return env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max
+        return env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max
 
         # only left
-        return state[0] > (env.x_max / 2)
+        # return state[0] > (env.x_max / 2)
 
         # combined estimator for right side of env OR being inside lava region
         # return (state[0] > (env.x_max / 2)) or (env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max)
@@ -310,16 +310,19 @@ def main():
 
     params = {
         "optimizer_initial_lr": 0.001,
-        "exponential_lr_decay": 0.999,
-        "batch_size": 256,
+        "optimizer_weight_decay": 0.000,
+        "exponential_lr_decay": 1.0,
+        "batch_size": 2048,
         "epochs": 1000,
         "nuke_layer_every": 1e9,
         "hidden_activation": torch.nn.ReLU,
         "hidden_arch": [32, 32, 16, 16],
         "criterion": torch.nn.MSELoss,
         # "criterion": torch.nn.L1Loss,
-        "discount_gamma": 1.0,
-        "higher_prio_load_path": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-23-10-54-38_repr",
+        # "discount_gamma": 1.0,  # unlike traditional finite-horizon TD, feasibility discount must always be <1!
+        "discount_gamma": 0.99,
+        # "higher_prio_load_path": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-23-10-54-38_lava_repr",
+        "higher_prio_load_path": "",
         "higher_prio_arch": [32, 32, 16, 16],
         "higher_prio_threshold": 0.1,
         "polyak_tau": 0.01
