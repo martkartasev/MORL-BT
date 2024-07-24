@@ -137,8 +137,13 @@ def train_model(
         epochs=10,
         nuke_layer_every=1e6,
         gamma=0.99,
-        criterion=torch.nn.MSELoss()
+        polyak_tau=0.01,
+        criterion=torch.nn.MSELoss(),
+        higher_prio_constraint_nets=[],
+        higher_prio_constraint_thresholds=[],
 ):
+
+    assert len(higher_prio_constraint_thresholds) == len(higher_prio_constraint_nets)
 
     criterion = criterion()
 
@@ -172,6 +177,15 @@ def train_model(
                 # target_max = target_q_values.max(dim=1, keepdim=True)[0]
                 # td_target = reward_batch + gamma * target_max * (1 - done_batch)
 
+                for idx, net in enumerate(higher_prio_constraint_nets):
+                    high_prio_vals = net(next_state_batch.float())
+                    best_high_prio_vals = high_prio_vals.min(dim=1).values
+                    high_prio_forbidden = high_prio_vals > best_high_prio_vals.unsqueeze(1) + higher_prio_constraint_thresholds[idx]
+
+                    target_q_values[high_prio_forbidden] = torch.inf
+
+                assert torch.all(target_q_values.min(dim=1).values < torch.inf)
+
                 # current_state_val = (1 - gamma) * reward_batch
                 current_state_val = reward_batch
                 target_min = target_q_values.min(dim=1, keepdim=True)[0]
@@ -192,9 +206,9 @@ def train_model(
             batches_done += 1
 
             # polyak target network update
-            tau = 0.01
+            # tau = 0.01
             for target_param, param in zip(target_model.parameters(), model.parameters()):
-                target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
+                target_param.data.copy_(polyak_tau * param.data + (1.0 - polyak_tau) * target_param.data)
 
             if i % 100 == 0:
                 print(f"Epoch {epoch}, batch {i} / {batches_per_episode}, loss: {np.around(loss.item(), 5)}, avg. q-values: {np.around(q_values.mean().item(), 3)}, lr={np.around(optimizer.param_groups[0]['lr'], 5)}")
@@ -270,8 +284,14 @@ def main():
     n_obs = 4
     n_actions = 25
     def label_fun(state):
-        # return env._in_lava(state)
-        return env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max
+        # only lava
+        # return env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max
+
+        # only left
+        return state[0] > (env.x_max / 2)
+
+        # combined estimator for right side of env OR being inside lava region
+        # return (state[0] > (env.x_max / 2)) or (env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max)
 
     # unity env
     # env = None
@@ -292,12 +312,16 @@ def main():
         "exponential_lr_decay": 0.999,
         "batch_size": 256,
         "epochs": 1000,
-        "nuke_layer_every": 1e6,
+        "nuke_layer_every": 1e9,
         "hidden_activation": torch.nn.ReLU,
         "hidden_arch": [32, 32, 16, 16],
         "criterion": torch.nn.MSELoss,
         # "criterion": torch.nn.L1Loss,
-        "discount_gamma": 1.0
+        "discount_gamma": 1.0,
+        "higher_prio_load_path": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-23-10-54-38_repr",
+        "higher_prio_arch": [32, 32, 16, 16],
+        "higher_prio_threshold": 0.1,
+        "polyak_tau": 0.01
     }
 
     # save params as yaml
@@ -310,6 +334,13 @@ def main():
     target_model.load_state_dict(model.state_dict())
     optimizer = torch.optim.Adam(model.parameters(), lr=params["optimizer_initial_lr"])
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=params["exponential_lr_decay"])
+    
+    # load higher_prio Model
+    higher_prio_nets = []
+    if params["higher_prio_load_path"]:
+        higher_prio_model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["higher_prio_arch"])
+        higher_prio_model.load_state_dict(torch.load(f"{params['higher_prio_load_path']}/feasibility_dqn.pt"))
+        higher_prio_nets.append(higher_prio_model)
 
     # train model
     model, train_loss_hist, lr_hist, pred_mean_hist = train_model(
@@ -328,7 +359,10 @@ def main():
         exp_dir=exp_dir,
         epochs=params["epochs"],
         nuke_layer_every=params["nuke_layer_every"],
-        gamma=params["discount_gamma"]
+        gamma=params["discount_gamma"],
+        higher_prio_constraint_nets=higher_prio_nets,
+        higher_prio_constraint_thresholds=[params["higher_prio_threshold"]],
+        polyak_tau=params["polyak_tau"]
     )
 
     create_training_plots(
