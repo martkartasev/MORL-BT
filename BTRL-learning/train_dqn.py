@@ -500,12 +500,12 @@ def main(args):
         "gamma": 0.99,
         "tau": 0.001,
         "target_freq": 1,
-        "batch_size": 2048,
+        "batch_size": 9128,
         "hidden_activation": nn.ReLU,
         "start_epsilon": 1.0,
         "end_epsilon": 0.05,
         "exp_fraction": 0.5,
-        "learning_start": 50_000,
+        "learning_start": 100_000,
         "seed": 1,
 
         "minigrid_env_dqn_cp": "",
@@ -827,7 +827,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--total_steps", type=int, default=1000_000, help="Total number of training steps")
+    parser.add_argument("-t", "--total_steps", type=int, default=2000_000, help="Total number of training steps")
     parser.add_argument("-e", "--exp_name", type=str, default="", help="Additional string to append to the experiment directory")
     args = parser.parse_args()
     print(args)

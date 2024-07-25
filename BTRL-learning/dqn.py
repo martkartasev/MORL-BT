@@ -102,7 +102,7 @@ class DQN:
 
         self.optimizer.zero_grad()
         loss.backward()
-        # torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), 1.0)
+        torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), 1.0)
         self.optimizer.step()
 
         return loss.item(), pred.mean().item()
