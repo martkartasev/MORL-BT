@@ -523,7 +523,7 @@ def main(args):
     )
 
     # TRAINING
-    epsilon_vals = np.linspace(params["start_epsilon"], params["end_epsilon"], int(params["exp_fraction"] * params["total_timesteps"] - params["learning_start"]))
+    epsilon_vals = np.linspace(params["start_epsilon"], params["end_epsilon"], int(params["exp_fraction"] * (params["total_timesteps"] - params["learning_start"])))
     episodes_since_eval = 0
     for global_step in range(params["total_timesteps"]):
         if params["no_train_only_plot"]:
@@ -531,7 +531,7 @@ def main(args):
             continue
 
         if global_step > params["learning_start"]:
-            epsilon = epsilon_vals[min(global_step, len(epsilon_vals) - 1)]
+            epsilon = epsilon_vals[min(global_step - params["learning_start"], len(epsilon_vals) - 1)]
         else:
             epsilon = params["start_epsilon"]
         writer.add_scalar("epsilon", epsilon, global_step)
