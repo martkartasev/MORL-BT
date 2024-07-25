@@ -81,7 +81,7 @@ gym.envs.register(
         "lava_x_min":  10,
         "lava_x_max":  18,
         "goal_x": 10,
-        "max_ep_len": 100,
+        "max_ep_len": 25,
     },
 )
 
@@ -99,7 +99,25 @@ gym.envs.register(
         "lava_x_min":  10,
         "lava_x_max":  18,
         "goal_x": 10,
-        "max_ep_len": 100,
+        "max_ep_len": 150,
+    },
+)
+
+gym.envs.register(
+    id="SimpleAccEnv-wide-withConveyer-left-v0",
+    entry_point="envs:SimpleAccEnv",
+    max_episode_steps=100,
+    reward_threshold=0,
+    kwargs={
+        "task": "left",
+        "with_conveyer": True,
+        "x_max": 20,
+        "conveyer_x_min": 2,
+        "conveyer_x_max": 10,
+        "lava_x_min":  10,
+        "lava_x_max":  18,
+        "goal_x": 10,
+        "max_ep_len": 150,
     },
 )
 
