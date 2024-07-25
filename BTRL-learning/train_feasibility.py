@@ -259,7 +259,7 @@ def main():
     # load_rb_dir = "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-11-20-12-40_250k"
     # load_rb_dir = "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom"
     # load_rb_dir = "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-11-11-06-24_250k"
-    load_rb_dir = "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good"
+    load_rb_dir = "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings"
     rb_path = f"{load_rb_dir}/replay_buffer.npz"
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
     exp_dir = f"{load_rb_dir}/feasibility_{timestamp}"
@@ -310,7 +310,7 @@ def main():
 
     params = {
         "optimizer_initial_lr": 0.001,
-        "optimizer_weight_decay": 0.000,
+        "optimizer_weight_decay": 0.0001,
         "exponential_lr_decay": 1.0,
         "batch_size": 2048,
         "epochs": 1000,
@@ -320,7 +320,7 @@ def main():
         "criterion": torch.nn.MSELoss,
         # "criterion": torch.nn.L1Loss,
         # "discount_gamma": 1.0,  # unlike traditional finite-horizon TD, feasibility discount must always be <1!
-        "discount_gamma": 0.99,
+        "discount_gamma": 0.995,
         # "higher_prio_load_path": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-23-10-54-38_lava_repr",
         "higher_prio_load_path": "",
         "higher_prio_arch": [32, 32, 16, 16],
