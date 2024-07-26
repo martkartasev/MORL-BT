@@ -78,6 +78,9 @@ class DQN:
         if up_to_idx == -1:
             up_to_idx = len(self.con_models)
 
+        if len(self.con_models) > 1:
+            print("Mask computation for multiple constraints has not been tested yet!")
+
         n_states = state_batch.shape[0]
         mask_forbidden_global = torch.zeros(n_states, self.action_dim, device=self.device)
 
@@ -110,22 +113,8 @@ class DQN:
             double_q_values = self.q_net(next_state_batch)
             target_q_values = self.q_target_net(next_state_batch)
 
-            # TODO: use compute_mask method in stead...
-            for con_idx, con_model in enumerate(self.con_models):
-                con_pred = con_model(next_state_batch)
-                # con_mask_forbidden = con_pred > self.con_thresh
-                # simply apply higher prio mask to con_pred also?!
-                best_con_action_value = con_pred.min(dim=1).values  # TODO, consider higher prio when finding best...
-                con_mask_forbidden = con_pred > best_con_action_value.unsqueeze(1) + self.con_threshes[con_idx]
-
-                masked_double_q_values = double_q_values.clone()
-                masked_double_q_values[con_mask_forbidden] = -torch.inf
-
-                # only apply mask num con_idx IF it does not result in all actions being forbidden...
-                if torch.all(masked_double_q_values.max(dim=1).values > -torch.inf):
-                    double_q_values = masked_double_q_values
-
-                # double_q_values[con_mask_forbidden] = -torch.inf
+            forbidden_mask = self.compute_mask(next_state_batch)
+            double_q_values[forbidden_mask] = -torch.inf
 
             target_max = target_q_values.gather(1, torch.argmax(double_q_values, dim=1, keepdim=True)).squeeze()
 
@@ -159,21 +148,8 @@ class DQN:
         state = torch.from_numpy(state).float().to(self.device)
         q_values = self.q_net(state)
 
-        # TODO: use compute mask method instead...
-        con_mask_forbidden_global = torch.zeros_like(q_values)
-        for con_idx, con_model in enumerate(self.con_models):
-            con_pred = con_model(state)
-            # con_mask_forbidden = con_pred > self.con_thresh
-            best_con_action_value = con_pred.min().item()  # TODO, consider higher prio when finding best
-            con_mask_forbidden = con_pred > best_con_action_value + self.con_threshes[con_idx]
-
-            if min(con_mask_forbidden_global + con_mask_forbidden) == 0:
-                con_mask_forbidden_global += con_mask_forbidden
-            else:
-                print(f"Not applying con maks {con_idx}, would result in empty action space...")
-
-        con_mask_forbidden_global = con_mask_forbidden_global.clamp(0, 1).bool()
-        q_values[con_mask_forbidden_global] = -torch.inf
+        forbidden_mask = self.compute_mask(state_batch=state.unsqueeze(0))
+        q_values[forbidden_mask] = -torch.inf
 
         if np.random.rand() < epsilon:
             action = np.random.choice(np.where(q_values.detach().cpu().numpy() > -np.inf)[0])
