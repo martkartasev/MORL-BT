@@ -485,7 +485,7 @@ def main(args):
         # "env_id": "SimpleAccEnv-goal-v0",
         # "env_id": "SimpleAccEnv-withConveyer-goal-v0",
         # "env_id": "MiniGrid-LavaCrossingS11N5-v0",
-        "env_id": "MiniGrid-PutNear-6x6-N2-v0",
+        "env_id": "MiniGrid-Empty-Random-6x6-v0",
         # "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
         # "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
         # "env_id": "flat-acc",  # name of the folder containing the unity scene binaries
@@ -576,7 +576,7 @@ def main(args):
     # TRAINING
     epsilon_vals = np.linspace(params["start_epsilon"], params["end_epsilon"],
                                int(params["exp_fraction"] * (params["total_timesteps"] - params["learning_start"])))
-    episodes_since_eval = 5
+    episodes_since_eval = params["total_timesteps"] + 5
     for global_step in range(params["total_timesteps"]):
         if params["no_train_only_plot"]:
             # we are only creating plots and collecting trajectory data...
@@ -828,7 +828,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--total_steps", type=int, default=1000_000, help="Total number of training steps")
+    parser.add_argument("-t", "--total_steps", type=int, default=1500_000, help="Total number of training steps")
     parser.add_argument("-e", "--exp_name", type=str, default="", help="Additional string to append to the experiment directory")
     args = parser.parse_args()
     print(args)
