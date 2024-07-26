@@ -69,26 +69,26 @@ def setup_numpy_env(params, device, exp_dir):
         model_name="avoid_lava",
     )
     
-    # reach_left_dqn = DQN(
-    #     action_dim=action_dim,
-    #     state_dim=state_dim,
-    #     hidden_arch=params["numpy_env_left_dqn_arch"],
-    #     hidden_activation=params["hidden_activation"],
-    #     device=device,
-    #     lr=params["lr"],
-    #     gamma=params["gamma"],
-    #     load_cp=params["numpy_env_left_dqn_cp"],
-    #     con_model_load_cps=[
-    #         params["numpy_env_lava_feasibility_dqn_cp"]
-    #     ],
-    #     con_model_arches=[
-    #         params["numpy_env_lava_feasibility_dqn_arch"]
-    #     ],
-    #     con_threshes=[
-    #         params["numpy_env_lava_feasibility_thresh"]
-    #     ],
-    #     model_name="reach_left",
-    # )
+    reach_left_dqn = DQN(
+        action_dim=action_dim,
+        state_dim=state_dim,
+        hidden_arch=params["numpy_env_left_dqn_arch"],
+        hidden_activation=params["hidden_activation"],
+        device=device,
+        lr=params["lr"],
+        gamma=params["gamma"],
+        load_cp=params["numpy_env_left_dqn_cp"],
+        con_model_load_cps=[
+            params["numpy_env_lava_feasibility_dqn_cp"]
+        ],
+        con_model_arches=[
+            params["numpy_env_lava_feasibility_dqn_arch"]
+        ],
+        con_threshes=[
+            params["numpy_env_lava_feasibility_thresh"]
+        ],
+        model_name="reach_left",
+    )
 
     # reach_goal_dqn = DQN(
     #     action_dim=action_dim,
@@ -117,10 +117,10 @@ def setup_numpy_env(params, device, exp_dir):
     if "lava" in env_id:
         dqns = [avoid_lava_dqn]
     # elif "left" in env_id:
-    # elif "goal" in env_id:
-    #     assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
-    #     avoid_lava_dqn.save_model(exp_dir)
-    #     dqns = [avoid_lava_dqn, reach_left_dqn]
+    elif "goal" in env_id:
+        assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
+        avoid_lava_dqn.save_model(exp_dir)
+        dqns = [avoid_lava_dqn, reach_left_dqn]
     # elif "goal" in env_id:
     #     assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
     #     assert params["numpy_env_left_dqn_cp"] != "", "Pre-trained reach_left DQN load path must be given"
@@ -501,10 +501,10 @@ def main(args):
         # "env_id": "LavaGoalConveyerAcceleration-lava-noConveyer-v0",
         # "env_id": "SimpleAccEnv-lava-v0",
         # "env_id": "SimpleAccEnv-withConveyer-lava-v0",
-        "env_id": "SimpleAccEnv-wide-withConveyer-lava-v0",
+        # "env_id": "SimpleAccEnv-wide-withConveyer-lava-v0",
         # "env_id": "SimpleAccEnv-goal-v0",
         # "env_id": "SimpleAccEnv-withConveyer-goal-v0",
-        # "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
+        "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
         # "env_id": "SimpleAccEnv-wide-withConveyer-sum-v0",
         # "env_id": "SimpleAccEnv-wide-withConveyer-left-v0",
         # "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
@@ -513,7 +513,7 @@ def main(args):
         "unity_max_ep_len": 1000,
         "unity_task": "fetch_trigger",
         # "unity_task": "reach_goal",
-        "no_train_only_plot": True,
+        "no_train_only_plot": False,
         "total_timesteps": args.total_steps,
         "lr": 0.0005,
         "buffer_size": 1e6,
@@ -525,15 +525,15 @@ def main(args):
         "start_epsilon": 1.0,
         "end_epsilon": 0.05,
         "exp_fraction": 0.5,
-        "learning_start": 200_000,  # to get good feasibility data...
-        # "learning_start": 0,
+        # "learning_start": 200_000,  # to get good feasibility data...
+        "learning_start": 0,
         "seed": args.seed,
-        "with_lava_reward_punish": True,
-        "numpy_env_lava_dqn_cp": "",
+        "with_lava_reward_punish": False,
+        # "numpy_env_lava_dqn_cp": "",
         # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/avoid_lava_net.pth",
-        # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-14-23-05_100kRandom_squareReset/avoid_lava_net.pth",
+        "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-14-23-05_100kRandom_squareReset/avoid_lava_net.pth",
         "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
-        "numpy_env_lava_feasibility_dqn_cp": "",
+        # "numpy_env_lava_feasibility_dqn_cp": "",
         # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-23-10-54-38_lava_repr/feasibility_dqn.pt",
         # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-24-18-52-30_lava_feasibilityDiscount:0.99_noLRDecay_noWeightDecay_batch:256/feasibility_dqn.pt",
         # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-24-22-17-47_lava_feasibilityDiscount:0.99_longTrain_LRDecay:0.9999_noWeightDecay_batch:256/feasibility_dqn.pt",
@@ -541,13 +541,13 @@ def main(args):
         # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-10-51-05_100kRandom/feasibility_2024-07-25-13-23-22_oversampleBalance/feasibility_dqn.pt",
         # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-14-23-05_100kRandom_squareReset/feasibility_2024-07-25-14-33-27/feasibility_dqn.pt",
         # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-15-00-15_200kRandom_squareReset/feasibility_2024-07-25-15-13-38/feasibility_dqn.pt",
-        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-16-36-07/feasibility_dqn.pt",
-        "numpy_env_lava_feasibility_dqn_arch": [32, 32, 16, 16],
+        "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29/feasibility_dqn.pt",
+        "numpy_env_lava_feasibility_dqn_arch": [32, 32, 32, 16],
         "numpy_env_lava_feasibility_thresh": 0.05,
         "numpy_env_left_dqn_cp": "",
         # "numpy_env_left_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-24-22-19-06_withLavaFeasibility/reach_left_net.pth",
         # "numpy_env_left_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-left-v0/2024-07-25-11-28-14_withLavaFeasibility/reach_left_net.pth",
-        "numpy_env_left_dqn_arch": [32, 32, 16, 16],
+        "numpy_env_left_dqn_arch": [256, 256],
         "numpy_env_left_feasibility_dqn_cp": "",
         "numpy_env_left_feasibility_dqn_arch": [32, 32, 16, 16],
         "numpy_env_left_feasibility_thresh": 0.1,
@@ -843,7 +843,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--total_steps", type=int, default=400_000, help="Total number of training steps")
+    parser.add_argument("-t", "--total_steps", type=int, default=500_000, help="Total number of training steps")
     parser.add_argument("-s", "--seed", type=int, default=0, help="The random seed for this run")
     parser.add_argument("-e", "--exp_name", type=str, default="", help="Additional string to append to the experiment directory")
     args = parser.parse_args()

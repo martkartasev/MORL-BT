@@ -316,7 +316,7 @@ def main():
         "epochs": 1000,
         "nuke_layer_every": 1e9,
         "hidden_activation": torch.nn.ReLU,
-        "hidden_arch": [32, 32, 16, 16],
+        "hidden_arch": [32, 32, 32, 16],
         "criterion": torch.nn.MSELoss,
         # "criterion": torch.nn.L1Loss,
         # "discount_gamma": 1.0,  # unlike traditional finite-horizon TD, feasibility discount must always be <1!

@@ -817,7 +817,7 @@ if __name__ == "__main__":
     method_ls = ["--", ":", "-"]
 
     plot_bt_comp_rollouts(
-        con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-09-27-34_withCon_noRandomStart_0/",
+        con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-25-21-38-09_withLavaFeasibilityDiscount_200krandomSquareResetMultiRing_thresh:0.05_3",
         no_con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-09-53-46_noCon_noRandomStart_0/",
         sum_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-22-10-17-42_BT_sumWeight:0.5_punish:50_noRandomStart_0/",
         method_names=method_names,
@@ -835,11 +835,11 @@ if __name__ == "__main__":
             r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-14-56-52_noCon_noRandomStart_4/"
         ],
         con_load_dirs=[
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-09-27-34_withCon_noRandomStart_0/",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-15-18-57_withCon_noRandomStart_1/",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-15-42-09_withCon_noRandomStart_2/",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-16-06-31_withCon_noRandomStart_3/",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-16-31-00_withCon_noRandomStart_4/"
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-25-20-40-57_withLavaFeasibilityDiscount_200krandomSquareResetMultiRing_thresh:0.05_1/",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-25-21-15-01_withLavaFeasibilityDiscount_200krandomSquareResetMultiRing_thresh:0.05_2/",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-25-21-38-09_withLavaFeasibilityDiscount_200krandomSquareResetMultiRing_thresh:0.05_3/",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-25-22-01-09_withLavaFeasibilityDiscount_200krandomSquareResetMultiRing_thresh:0.05_4/",
+            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-25-22-24-16_withLavaFeasibilityDiscount_200krandomSquareResetMultiRing_thresh:0.05_5/"
         ],
         sum_load_dir=[
             r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-22-10-17-42_BT_sumWeight:0.5_punish:50_noRandomStart_0/",
@@ -853,6 +853,9 @@ if __name__ == "__main__":
         method_ls=method_ls
     )
 
-    plot_numpy_feasiblity_dqn()
+    plot_numpy_feasiblity_dqn(
+        # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/",
+        dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29",
+    )
 
 

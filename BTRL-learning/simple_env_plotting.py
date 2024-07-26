@@ -314,7 +314,8 @@ if __name__ == "__main__":
     plot_cp(
         env=env,
         # cp_dir=r"runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom/feasibility_2024-07-14-21-50-23",
-        cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-23-16-57-49_goToLeft_withHighPrioCon_arch:32-32-16-16_batch:256",
+        # cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-25-10-33-03_lava_feasibilityDiscount:0.99_longTrain_LRDecay:0.9999_WeightDecay:0.0001_batch:256_BEST",
+        cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29",
         cp_file="feasibility_dqn.pt",
         with_conveyer=True,
     )
@@ -323,12 +324,12 @@ if __name__ == "__main__":
         env=env,
         task_dqn_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-15-21-11-39",
         con_dqn_dirs=[
-            r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18",
-            r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-23-16-57-49_goToLeft_withHighPrioCon_arch:32-32-16-16_batch:256"
+            r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29",
+            # r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-24-11-57-59_goToLeft_withHighPrioCon_arch:32-32-16-16_batch:256_discount:0.99_L2norm:0.001_feasibilityDiscount"
         ],
         con_threshes=[
             0.1,
-            0.1
+            0.05
         ],
         n_rollouts=10,
         with_conveyer=True
