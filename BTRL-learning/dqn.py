@@ -18,10 +18,10 @@ class DQN:
             lr=1e-3,
             gamma=0.99,
             load_cp="",
-            con_model_load_cp="",
-            con_thresh=0.1,
+            con_model_load_cps=[],
+            con_threshes=[],
             model_name="q",
-            con_model_arch=(32, 32, 16, 16),
+            con_model_arches=[],
     ):
         self.action_dim = action_dim
         self.state_dim = state_dim
@@ -32,14 +32,17 @@ class DQN:
         self.gamma = gamma
         self.load_cp = load_cp
         self.con_model = None
-        self.con_thresh = con_thresh
+        self.con_threshes = con_threshes
         self.model_name = model_name
-        self.con_model_arch = con_model_arch
+        self.con_model_arches = con_model_arches
 
-        if con_model_load_cp:
-            self.con_model = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.con_model_arch)
-            self.con_model.load_state_dict(torch.load(con_model_load_cp))
-            self.con_model.to(self.device)
+        self.con_models = []
+        for con_idx, con_model_load_cp in enumerate(con_model_load_cps):
+            if con_model_load_cp != "":
+                con_model = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.con_model_arches[con_idx])
+                con_model.load_state_dict(torch.load(con_model_load_cp))
+                con_model.to(self.device)
+                self.con_models.append(con_model)
 
         self.q_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.hidden_arch)
 
@@ -58,8 +61,42 @@ class DQN:
         torch.save(self.q_net.state_dict(), f"{save_dir}/{self.model_name}_net.pth")
         torch.save(self.q_target_net.state_dict(), f"{save_dir}/{self.model_name}_target_net.pth")
 
-        if self.con_model is not None:
-            torch.save(self.con_model.state_dict(), f"{save_dir}/{self.model_name}_con_model.pth")
+        for con_idx, con_model in enumerate(self.con_models):
+            torch.save(con_model.state_dict(), f"{save_dir}/{self.model_name}_con_model_{con_idx}.pth")
+
+    def compute_mask(self, state_batch, up_to_idx=-1):
+        """
+        Computes the action mask for a batch of states, consider the first, up to but not including, `up_to_idx` constraints.
+        If `up_to_idx` is -1, all constraints are used to compute the mask.
+        Otherwise, if 0 < `up_to_idx` < len(self.con_models), i.e. 2, constraint  0 and 1 are used.
+        :param state_batch: The batch of states, must be of shape (-1, self.state_dim)
+        :param up_to_idx: Int, use the first, up to this many, constraints.
+        :return:
+        """
+        assert state_batch.ndim == 2
+        assert state_batch.shape[1] == self.state_dim
+
+        if up_to_idx == -1:
+            up_to_idx = len(self.con_models)
+
+        if len(self.con_models) > 1:
+            print("Mask computation for multiple constraints has not been tested yet!")
+
+        n_states = state_batch.shape[0]
+        mask_forbidden_global = torch.zeros(n_states, self.action_dim, device=self.device)
+
+        for con_idx in range(up_to_idx):
+            con_model = self.con_models[con_idx]
+            con_thresh = self.con_threshes[con_idx]
+
+            con_pred = con_model(state_batch)
+            con_pred[mask_forbidden_global.bool()] += torch.inf  # apply higher prio cons before finding best value
+            best_con_action_value = con_pred.min(dim=1).values
+            mask_forbidden_local = con_pred > best_con_action_value.unsqueeze(1) + con_thresh
+
+            mask_forbidden_global[mask_forbidden_local] += torch.inf
+
+        return mask_forbidden_global.bool().squeeze()
 
     def update(
             self,
@@ -77,13 +114,8 @@ class DQN:
             double_q_values = self.q_net(next_state_batch)
             target_q_values = self.q_target_net(next_state_batch)
 
-            if self.con_model is not None:
-                con_pred = self.con_model(next_state_batch)
-                # con_mask_forbidden = con_pred > self.con_thresh
-                best_con_action_value = con_pred.min(dim=1).values
-                con_mask_forbidden = con_pred > best_con_action_value.unsqueeze(1) + self.con_thresh
-
-                double_q_values[con_mask_forbidden] = -torch.inf
+            forbidden_mask = self.compute_mask(next_state_batch)
+            double_q_values[forbidden_mask] = -torch.inf
 
             target_max = target_q_values.gather(1, torch.argmax(double_q_values, dim=1, keepdim=True)).squeeze()
 
@@ -117,18 +149,8 @@ class DQN:
         state = torch.from_numpy(state).float().to(self.device)
         q_values = self.q_net(state)
 
-        if self.con_model is not None:
-            con_pred = self.con_model(state)
-            # con_mask_forbidden = con_pred > self.con_thresh
-            best_con_action_value = con_pred.min().item()
-            con_mask_forbidden = con_pred > best_con_action_value + self.con_thresh
-        else:
-            con_mask_forbidden = torch.zeros_like(q_values).bool()
-
-        if False in con_mask_forbidden:
-            q_values[con_mask_forbidden] = -torch.inf
-        else:
-            print("EVERY ACTION IS FORBIDDEN, NOT APPLYING MASK")
+        forbidden_mask = self.compute_mask(state_batch=state.unsqueeze(0))
+        q_values[forbidden_mask] = -torch.inf
 
         if np.random.rand() < epsilon:
             action = np.random.choice(np.where(q_values.detach().cpu().numpy() > -np.inf)[0])

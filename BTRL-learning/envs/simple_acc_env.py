@@ -10,6 +10,34 @@ def action_to_acc(a):
     return np.array([row - 2, col - 2])
 
 
+def random_point_on_rectangle_outline(x_min, y_min, x_max, y_max):
+    # Calculate the lengths of the sides
+    width = x_max - x_min
+    height = y_max - y_min
+
+    # Perimeter of the rectangle
+    perimeter = 2 * (width + height)
+
+    # Generate a random value between 0 and the perimeter
+    rand_value = np.random.uniform(0, perimeter)
+
+    # Determine the side on which the random point lies
+    if rand_value <= width:  # Top side
+        x = x_min + rand_value
+        y = y_min
+    elif rand_value <= width + height:  # Right side
+        x = x_max
+        y = y_min + (rand_value - width)
+    elif rand_value <= 2 * width + height:  # Bottom side
+        x = x_max - (rand_value - width - height)
+        y = y_max
+    else:  # Left side
+        x = x_min
+        y = y_max - (rand_value - 2 * width - height)
+
+    return (x, y)
+
+
 class SimpleAccEnv(gym.Env):
 
     def __init__(
@@ -32,7 +60,8 @@ class SimpleAccEnv(gym.Env):
             conveyer_y_min=3,
             conveyer_y_max=7,
             goal_x=5,
-            goal_y=9
+            goal_y=9,
+            task_sum_weight=0.5,
     ):
         self.x_min = x_min
         self.x_max = x_max
@@ -59,7 +88,9 @@ class SimpleAccEnv(gym.Env):
             self.lava_y_min = lava_y_min
             self.lava_y_max = lava_y_max
         self.task = task
-        assert task in ["lava", "goal"]
+        self.task_sum_weight = task_sum_weight
+        assert task in ["lava", "goal", "lava_goal_sum", "left"]
+        assert 0 <= self.task_sum_weight <= 1
 
         self.goal_x = goal_x
         self.goal_y = goal_y
@@ -74,6 +105,13 @@ class SimpleAccEnv(gym.Env):
             np.array([1.5, 5.0, 2.0, 0.0]),  # left of lava but rightwards velocity, lava unavailable
             np.array([8.5, 5.0, 0.0, 0.0]),  # right of lava, no velocity
             np.array([8.5, 5.0, -2.0, 0.0]),  # right of lava but leftwards velocity, lava unavailable
+            np.array([9.75, 1, 0.0, 0.0]),  # underneath lava, at x middle, no velocity
+            np.array([9.75, 1, 2.0, 0.0]),  # underneath lava, at x middle, velocity towards the right
+            np.array([18.5, 4, 0.0, 0.0]),  # right of lava, at y slightly lower than middle, no velocity
+            np.array([18.5, 6, 0.0, 0.0]),  # right of lava, at y slightly higher than, no velocity
+            np.array([18.5, 1, 0.0, 0.0]),  # right of lava, low at bottom, no velocity
+            np.array([self.lava_x_max - 0.05, 5, 0, 0]),  # can step out of lava
+            np.array([self.lava_x_max + 0.05, 5, 0, 0]),  # can step into of lava
         ]
 
         self.action_space = gym.spaces.Discrete(25)
@@ -92,7 +130,7 @@ class SimpleAccEnv(gym.Env):
             ])
         )
 
-        self.state_predicate_names = ["in_lava", "at_goal", "on_conveyer"]
+        self.state_predicate_names = ["in_unsafe", "at_goal", "on_conveyer"]
 
         # episode variables, need to be reset
         self.x = None
@@ -120,10 +158,21 @@ class SimpleAccEnv(gym.Env):
 
     def reset(self, seed=None, options={}):
 
-        self.x = np.random.uniform(self.x_min, self.x_max)
-        self.y = np.random.uniform(self.y_min, self.y_max)
+        # self.x = np.random.uniform(self.x_min, self.x_max)
+        # self.y = np.random.uniform(self.y_min, self.y_max)
         self.vel_x = np.random.uniform(-self.max_velocity, self.max_velocity)
         self.vel_y = np.random.uniform(-self.max_velocity, self.max_velocity)
+
+        # seems I need this or train on much more data to learn good feasibility estimator for all velocities and poses
+        border_dist = np.random.choice([0, 0.05, 1])
+        p = random_point_on_rectangle_outline(
+            x_min=self.conveyer_x_min-border_dist,
+            y_min=self.conveyer_y_min-border_dist,
+            x_max=self.lava_x_max+border_dist,
+            y_max=self.lava_y_max+border_dist
+        )
+        self.x = p[0]
+        self.y = p[1]
 
         # ---
         # when training without a BT, the feasibility constrained goal-reach DQN must not be initialized in the
@@ -159,11 +208,18 @@ class SimpleAccEnv(gym.Env):
         agent_at_goal = self._at_goal()
         agent_on_conveyer = self._on_conveyer()
 
+        lava_reward = -1 if agent_in_lava else 0
+        goal_rewad = -1 * np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y])
+        left_reward = 0 if self.x < (self.x_max * (2/3)) else -1
+
         if self.task == "lava":
-            # reward = -10 if agent_in_lava else 0
-            reward = -1 if agent_in_lava else 0
+            reward = lava_reward
         elif self.task == "goal":
-            reward = -1 * np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y])
+            reward = goal_rewad
+        elif self.task == "lava_goal_sum":
+            reward = self.task_sum_weight * lava_reward + (1 - self.task_sum_weight) * goal_rewad
+        elif self.task == "left":
+            reward = left_reward
         else:
             raise NotImplementedError(f"Task {self.task} not imlpemented")
 
@@ -281,7 +337,12 @@ if __name__ == "__main__":
     )
 
     # plot accelerations
-    # plot_action_acceleration()
+    plot_action_acceleration()
+
+    for _ in range(1000):
+        obs, _ = env.reset()
+        plt.scatter(obs[0], obs[1])
+    plt.show()
 
     # plot reward function
     xs = np.linspace(env.x_min, env.x_max, 100)

@@ -134,11 +134,17 @@ def train_model(
         dones,
         batch_size,
         exp_dir,
+        device,
         epochs=10,
         nuke_layer_every=1e6,
         gamma=0.99,
-        criterion=torch.nn.MSELoss()
+        polyak_tau=0.01,
+        criterion=torch.nn.MSELoss(),
+        higher_prio_constraint_nets=[],
+        higher_prio_constraint_thresholds=[],
 ):
+
+    assert len(higher_prio_constraint_thresholds) == len(higher_prio_constraint_nets)
 
     criterion = criterion()
 
@@ -158,11 +164,11 @@ def train_model(
             # sample batch
             batch_idx = np.random.choice(states.shape[0], batch_size)
 
-            state_batch = torch.from_numpy(states[batch_idx])
-            action_batch = torch.from_numpy(actions[batch_idx])
-            reward_batch = torch.from_numpy(labels[batch_idx])
-            next_state_batch = torch.from_numpy(next_states[batch_idx])
-            done_batch = torch.from_numpy(dones[batch_idx])
+            state_batch = torch.from_numpy(states[batch_idx]).to(device)
+            action_batch = torch.from_numpy(actions[batch_idx]).to(device)
+            reward_batch = torch.from_numpy(labels[batch_idx]).to(device)
+            next_state_batch = torch.from_numpy(next_states[batch_idx]).to(device)
+            done_batch = torch.from_numpy(dones[batch_idx]).to(device)
 
             # compute TD target
             with torch.no_grad():
@@ -172,13 +178,22 @@ def train_model(
                 # target_max = target_q_values.max(dim=1, keepdim=True)[0]
                 # td_target = reward_batch + gamma * target_max * (1 - done_batch)
 
+                for idx, net in enumerate(higher_prio_constraint_nets):
+                    high_prio_vals = net(next_state_batch.float())
+                    best_high_prio_vals = high_prio_vals.min(dim=1).values  # TODO, consider higher prio when finding best?
+                    high_prio_forbidden = high_prio_vals > best_high_prio_vals.unsqueeze(1) + higher_prio_constraint_thresholds[idx]
+
+                    target_q_values[high_prio_forbidden] = torch.inf
+
+                assert torch.all(target_q_values.min(dim=1).values < torch.inf)
+
                 current_state_val = (1 - gamma) * reward_batch
                 # current_state_val = reward_batch
                 target_min = target_q_values.min(dim=1, keepdim=True)[0]
-                future_val = torch.max(target_min, reward_batch)
+                future_val = torch.max(target_min.to(device), reward_batch)
                 td_target = current_state_val + gamma * future_val
 
-            q_values = model(state_batch.float())
+            q_values = model(state_batch.float().to(device))
             q_values = q_values.gather(dim=1, index=action_batch.to(torch.int64))
             loss = criterion(q_values.float(), td_target.float())
             pred_mean_hist.append(q_values.mean().item())
@@ -192,9 +207,9 @@ def train_model(
             batches_done += 1
 
             # polyak target network update
-            tau = 0.01
+            # tau = 0.01
             for target_param, param in zip(target_model.parameters(), model.parameters()):
-                target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
+                target_param.data.copy_(polyak_tau * param.data + (1.0 - polyak_tau) * target_param.data)
 
             if i % 100 == 0:
                 print(f"Epoch {epoch}, batch {i} / {batches_per_episode}, loss: {np.around(loss.item(), 5)}, avg. q-values: {np.around(q_values.mean().item(), 3)}, lr={np.around(optimizer.param_groups[0]['lr'], 5)}")
@@ -244,7 +259,7 @@ def main():
     # load_rb_dir = "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-11-20-12-40_250k"
     # load_rb_dir = "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom"
     # load_rb_dir = "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-11-11-06-24_250k"
-    load_rb_dir = "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good"
+    load_rb_dir = "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings"
     rb_path = f"{load_rb_dir}/replay_buffer.npz"
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
     exp_dir = f"{load_rb_dir}/feasibility_{timestamp}"
@@ -270,8 +285,14 @@ def main():
     n_obs = 4
     n_actions = 25
     def label_fun(state):
-        # return env._in_lava(state)
+        # only lava
         return env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max
+
+        # only left
+        # return state[0] > (env.x_max / 2)
+
+        # combined estimator for right side of env OR being inside lava region
+        # return (state[0] > (env.x_max / 2)) or (env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max)
 
     # unity env
     # env = None
@@ -289,27 +310,48 @@ def main():
 
     params = {
         "optimizer_initial_lr": 0.001,
-        "exponential_lr_decay": 0.999,
-        "batch_size": 256,
+        "optimizer_weight_decay": 0.0001,
+        "exponential_lr_decay": 1.0,
+        "batch_size": 2048,
         "epochs": 1000,
-        "nuke_layer_every": 1e6,
+        "nuke_layer_every": 1e9,
         "hidden_activation": torch.nn.ReLU,
-        "hidden_arch": [32, 32, 16, 16],
+        "hidden_arch": [32, 32, 32, 16],
         "criterion": torch.nn.MSELoss,
         # "criterion": torch.nn.L1Loss,
-        "discount_gamma": 1.0
+        # "discount_gamma": 1.0,  # unlike traditional finite-horizon TD, feasibility discount must always be <1!
+        "discount_gamma": 0.995,
+        # "higher_prio_load_path": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-23-10-54-38_lava_repr",
+        "higher_prio_load_path": "",
+        "higher_prio_arch": [32, 32, 16, 16],
+        "higher_prio_threshold": 0.1,
+        "polyak_tau": 0.01
     }
 
     # save params as yaml
     with open(f"{exp_dir}/params.yaml", "w") as f:
         yaml.dump(params, f)
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     print("Setting up model...")
     model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["hidden_arch"])
+    model.to(device)
     target_model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["hidden_arch"])
     target_model.load_state_dict(model.state_dict())
-    optimizer = torch.optim.Adam(model.parameters(), lr=params["optimizer_initial_lr"])
+    target_model.to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=params["optimizer_initial_lr"], weight_decay=params["optimizer_weight_decay"])
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=params["exponential_lr_decay"])
+
+    # load higher_prio Model
+    higher_prio_nets = []
+    higher_prio_threshes = []
+    if params["higher_prio_load_path"]:
+        higher_prio_model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["higher_prio_arch"])
+        higher_prio_model.load_state_dict(torch.load(f"{params['higher_prio_load_path']}/feasibility_dqn.pt"))
+        higher_prio_model.to(device)
+        higher_prio_nets.append(higher_prio_model)
+        higher_prio_threshes.append(params["higher_prio_threshold"])
 
     # train model
     model, train_loss_hist, lr_hist, pred_mean_hist = train_model(
@@ -328,7 +370,11 @@ def main():
         exp_dir=exp_dir,
         epochs=params["epochs"],
         nuke_layer_every=params["nuke_layer_every"],
-        gamma=params["discount_gamma"]
+        gamma=params["discount_gamma"],
+        higher_prio_constraint_nets=higher_prio_nets,
+        higher_prio_constraint_thresholds=higher_prio_threshes,
+        polyak_tau=params["polyak_tau"],
+        device=device
     )
 
     create_training_plots(

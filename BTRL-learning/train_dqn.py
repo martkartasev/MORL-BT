@@ -31,7 +31,10 @@ def setup_numpy_env(params, device, exp_dir):
     state_dim = env.observation_space.shape[0]
     action_dim = env.action_space.n
 
-    obs, info = env.reset()
+    obs, info = env.reset(options={
+        "x": env.x_max / 2 + np.random.uniform(-4, 4),
+        "y": 1
+        })
     episodes_done, ep_len, ep_reward_sum = 0, 0, 0
     loss_hist = []
     avg_q_hist = []
@@ -67,31 +70,73 @@ def setup_numpy_env(params, device, exp_dir):
         lr=params["lr"],
         gamma=params["gamma"],
         load_cp=params["numpy_env_lava_dqn_cp"],
-        con_model_load_cp="",  # highest prio, no constraint...
-        con_thresh=np.inf,  # value does not matter without constraint...
+        con_model_load_cps=[],  # highest prio, no constraint...
         model_name="avoid_lava",
     )
 
-    reach_goal_dqn = DQN(
-        action_dim=action_dim,
-        state_dim=state_dim,
-        hidden_arch=params["numpy_env_goal_dqn_arch"],
-        hidden_activation=params["hidden_activation"],
-        device=device,
-        lr=params["lr"],
-        gamma=params["gamma"],
-        load_cp=params["numpy_env_goal_dqn_cp"],
-        con_model_load_cp=params["numpy_env_lava_feasibility_dqn_cp"],
-        con_model_arch=params["numpy_env_lava_feasibility_dqn_arch"],
-        con_thresh=params["numpy_env_feasibility_thresh"],
-        model_name="reach_goal",
-    )
+    # reach_left_dqn = DQN(
+    #     action_dim=action_dim,
+    #     state_dim=state_dim,
+    #     hidden_arch=params["numpy_env_left_dqn_arch"],
+    #     hidden_activation=params["hidden_activation"],
+    #     device=device,
+    #     lr=params["lr"],
+    #     gamma=params["gamma"],
+    #     load_cp=params["numpy_env_left_dqn_cp"],
+    #     con_model_load_cps=[
+    #         params["numpy_env_lava_feasibility_dqn_cp"]
+    #     ],
+    #     con_model_arches=[
+    #         params["numpy_env_lava_feasibility_dqn_arch"]
+    #     ],
+    #     con_threshes=[
+    #         params["numpy_env_lava_feasibility_thresh"]
+    #     ],
+    #     model_name="reach_left",
+    # )
+
+    # reach_goal_dqn = DQN(
+    #     action_dim=action_dim,
+    #     state_dim=state_dim,
+    #     hidden_arch=params["numpy_env_goal_dqn_arch"],
+    #     hidden_activation=params["hidden_activation"],
+    #     device=device,
+    #     lr=params["lr"],
+    #     gamma=params["gamma"],
+    #     load_cp=params["numpy_env_goal_dqn_cp"],
+    #     con_model_load_cps=[
+    #         params["numpy_env_lava_feasibility_dqn_cp"],
+    #         params["numpy_env_left_feasibility_dqn_cp"]
+    #     ],
+    #     con_model_arches=[
+    #         params["numpy_env_lava_feasibility_dqn_arch"],
+    #         params["numpy_env_left_feasibility_dqn_arch"]
+    #     ],
+    #     con_threshes=[
+    #         params["numpy_env_lava_feasibility_thresh"],
+    #         params["numpy_env_left_feasibility_thresh"],
+    #         ],
+    #     model_name="reach_goal",
+    # )
 
     if "lava" in env_id:
         dqns = [avoid_lava_dqn]
-    elif "goal" in env_id:
-        avoid_lava_dqn.save_model(exp_dir)
-        dqns = [avoid_lava_dqn, reach_goal_dqn]
+    # elif "left" in env_id:
+    # elif "goal" in env_id:
+    #     assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
+    #     avoid_lava_dqn.save_model(exp_dir)
+    #     dqns = [avoid_lava_dqn, reach_left_dqn]
+    # elif "goal" in env_id:
+    #     assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
+    #     assert params["numpy_env_left_dqn_cp"] != "", "Pre-trained reach_left DQN load path must be given"
+    #     avoid_lava_dqn.save_model(exp_dir)
+    #     reach_left_dqn.save_model(exp_dir)
+    #     dqns = [avoid_lava_dqn, reach_left_dqn, reach_goal_dqn]
+    # elif "sum" in env_id:
+    #     assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
+    #     avoid_lava_dqn.save_model(exp_dir)
+    #     dqns = [avoid_lava_dqn, reach_goal_dqn]
+    #     # dqns = [reach_goal_dqn]
     else:
         raise ValueError(f"Unknown env-id '{env_id}', not sure which DQNs to use...")
 
@@ -230,42 +275,74 @@ def env_interaction_numpy_env(
         save_plot_path="",
 ):
     # BT is just if-else, and only active if we are training the goal reach DQN
-    if len(dqns) == 2:
-        agent_x = obs[0]
-        agent_y = obs[1]
+    agent_x = obs[0]
+    agent_y = obs[1]
+    if len(dqns) == 1:
+        dqn_idx = 0
+    elif len(dqns) == 2:  # avoid lava and next task (reach goal, or go left)
         # if env.conveyer_x_min < agent_x < env.lava_x_max and env.conveyer_y_min < agent_y < env.lava_y_max:
         if env.lava_x_min < agent_x < env.lava_x_max and env.lava_y_min < agent_y < env.lava_y_max:
-            print("Agent in lava or on conveyer, using avoid DQN")
+            print("Agent in lava, using avoid DQN")
             dqn_idx = 0
         else:
             dqn_idx = 1
+    elif len(dqns) == 3:  # avoid lava, go left, reach goal
+        if env.lava_x_min < agent_x < env.lava_x_max and env.lava_y_min < agent_y < env.lava_y_max:
+            print("Agent in lava, using avoid DQN")
+            dqn_idx = 0
+        elif agent_x > (env.x_max / 2):
+            print("Agent not in lava but on right side, using go left DQN")
+            dqn_idx = 1
+        else:
+            dqn_idx = 2
     else:
-        dqn_idx = 0
+        raise NotImplementedError("More than 3 DQNs given, Implement BT here!")
 
     action = dqns[dqn_idx].act(obs, epsilon)
     next_obs, reward, done, trunc, info = env.step(action)
+
+    punish_reward = reward
+    if params["with_lava_reward_punish"]:
+        if env.lava_x_min < next_obs[0] < env.lava_x_max and env.lava_y_min < next_obs[1] < env.lava_y_max:
+            punish_reward -= 50
+
     if with_plot:
         with torch.no_grad():
-            state_fig, state_axs = plt.subplots(nrows=1, ncols=4, figsize=(20, 5))
-            lava_q_vals = dqns[0].q_net(torch.tensor(obs).float().to(device)).detach().cpu().numpy()
-            goal_q_vals = None
-            feasibility_q_vals = None
-            if len(dqns) > 1:
-                goal_q_vals = dqns[1].q_net(torch.tensor(obs).float().to(device)).detach().cpu().numpy()
-                if dqns[1].con_model is not None:
-                    feasibility_q_vals = dqns[1].con_model(torch.tensor(obs).float().to(device)).detach().cpu().numpy()
+            # figure out how many subplots we need
+            n_dqns = len(dqns)
+            n_con_models = 0
+            for dqn in dqns:
+                n_con_models += len(dqn.con_models)
+            n_subplots = n_dqns + n_con_models + 1
 
-            # plot q_vals
-            for ax_idx, q_vals, title in zip([0, 1, 2], [lava_q_vals, goal_q_vals, feasibility_q_vals], ["Lava", "Goal", "Feasibility"]):
-                if q_vals is not None:
+            state_fig, state_axs = plt.subplots(nrows=1, ncols=n_subplots, figsize=(20, 5))
+
+            subplot_idx = 0
+            for dqn_plt_idx, dqn in enumerate(dqns):
+                q_vals = dqn.q_net(torch.tensor(obs).float().to(device)).detach().cpu().numpy()
+                # plot q_vals
+                for a in range(env.action_space.n):
+                    acc = action_to_acc(a)
+                    point = state_axs[subplot_idx].scatter(acc[0], acc[1], s=800, c=q_vals[a], vmin=q_vals.min(), vmax=q_vals.max())
+                plt.colorbar(point, ax=state_axs[subplot_idx])
+
+                state_axs[subplot_idx].set_title(f"Q-values {dqn_plt_idx}: ({'active' if dqn_idx == dqn_plt_idx else 'inactive'})")
+                subplot_idx += 1
+
+                for con_plt_idx, con_model in enumerate(dqn.con_models):
+                    con_q_vals = con_model(torch.tensor(obs).float().to(device)).detach().cpu().numpy()
+                    con_mask = dqns[dqn_plt_idx].compute_mask(torch.tensor(obs).unsqueeze(0).float().to(device))
+                    # plot con_q_vals
                     for a in range(env.action_space.n):
                         acc = action_to_acc(a)
-                        point = state_axs[ax_idx].scatter(acc[0], acc[1], s=800, c=q_vals[a], vmin=q_vals.min(), vmax=q_vals.max())
-                    plt.colorbar(point, ax=state_axs[ax_idx])
+                        point = state_axs[subplot_idx].scatter(acc[0], acc[1], s=800, c=con_q_vals[a], vmin=con_q_vals.min(), vmax=con_q_vals.max())
+                        if con_mask[a]:
+                            state_axs[subplot_idx].scatter(acc[0], acc[1], s=800, c="r", marker="x")
 
-            state_axs[0].set_title(f"Lava Q values ({'active' if dqn_idx == 0 else ''})")
-            state_axs[1].set_title(f"Goal Q values ({'active' if dqn_idx == 1 else ''})")
-            state_axs[2].set_title("Feasibility Q values")
+                    plt.colorbar(point, ax=state_axs[subplot_idx])
+
+                    state_axs[subplot_idx].set_title(f"Q-values {dqn_plt_idx}, con: {con_plt_idx}")
+                    subplot_idx += 1
 
             # plot env
             lava_rect = plt.Rectangle(
@@ -275,7 +352,7 @@ def env_interaction_numpy_env(
                 color="orange",
                 alpha=1
             )
-            state_axs[3].add_patch(lava_rect)
+            state_axs[-1].add_patch(lava_rect)
             conveyer_rect = plt.Rectangle(
                 (env.conveyer_x_min, env.conveyer_y_min),
                 env.conveyer_x_max - env.conveyer_x_min,
@@ -283,11 +360,11 @@ def env_interaction_numpy_env(
                 color="gray",
                 alpha=1
             )
-            state_axs[3].add_patch(conveyer_rect)
-            state_axs[3].quiver(obs[0], obs[1], obs[2], obs[3], color="r")  # current state
-            state_axs[3].set_xlim(env.x_min - 0.1, env.x_max + 0.1)
-            state_axs[3].set_ylim(env.y_min - 0.1, env.y_max + 0.1)
-            state_axs[3].set_title(f"Env: {obs}")
+            state_axs[-1].add_patch(conveyer_rect)
+            state_axs[-1].quiver(obs[0], obs[1], obs[2], obs[3], color="r")  # current state
+            state_axs[-1].set_xlim(env.x_min - 0.1, env.x_max + 0.1)
+            state_axs[-1].set_ylim(env.y_min - 0.1, env.y_max + 0.1)
+            state_axs[-1].set_title(f"Env: {obs}")
 
             if save_plot_path:
                 if not os.path.exists(os.path.dirname(save_plot_path)):
@@ -301,18 +378,21 @@ def env_interaction_numpy_env(
         replay_buffer.add(
             obs=obs,
             action=action,
-            reward=reward,
+            reward=punish_reward,  # use reward with punishment for learning
             next_obs=next_obs,
             done=done,
             infos=info)
 
     obs = next_obs
     logging_dict["ep_len"] += 1
-    logging_dict["ep_reward_sum"] += reward
+    logging_dict["ep_reward_sum"] += reward  # log (MDP) reward without punishment
     logging_dict["ep_state_predicates"] += info["state_predicates"]
 
     if (done or trunc):
-        obs, info = env.reset()
+        obs, info = env.reset(options={
+            "x": env.x_max / 2 + np.random.uniform(-4, 4),
+            "y": 1
+        })
         writer.add_scalar("episode/length", logging_dict["ep_len"], logging_dict["episodes_done"])
         writer.add_scalar("episode/reward_sum", logging_dict["ep_reward_sum"], logging_dict["episodes_done"])
         # writer.add_scalar("episode/acc_violations", logging_dict["ep_acc_violations"], logging_dict["episodes_done"])
@@ -481,12 +561,10 @@ def main(args):
         # "env_id": "LavaGoalConveyerAcceleration-lava-noConveyer-v0",
         # "env_id": "SimpleAccEnv-lava-v0",
         # "env_id": "SimpleAccEnv-withConveyer-lava-v0",
-        # "env_id": "SimpleAccEnv-wide-withConveyer-lava-v0",
+        "env_id": "SimpleAccEnv-wide-withConveyer-lava-v0",
         # "env_id": "SimpleAccEnv-goal-v0",
         # "env_id": "SimpleAccEnv-withConveyer-goal-v0",
-        # "env_id": "MiniGrid-LavaCrossingS11N5-v0",
-        "env_id": "MiniGrid-Empty-Random-6x6-v0",
-        # "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
+        "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
         # "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
         # "env_id": "flat-acc",  # name of the folder containing the unity scene binaries
         "unity_take_screenshots": True,
@@ -505,28 +583,37 @@ def main(args):
         "start_epsilon": 1.0,
         "end_epsilon": 0.05,
         "exp_fraction": 0.5,
-        "learning_start": 100_000,
-        "seed": 1,
-
-        "minigrid_env_dqn_cp": "",
-        #"minigrid_env_dqn_cp": "runs/MiniGrid-Empty-5x5-v0/2024-07-23-09-49-06_/end_to_end_net.pth",
-        "minigrid_env_dqn_arch": [64, 32, 16, 16],
-
-        # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/avoid_lava_net.pth",
+        # "learning_start": 200_000,  # to get good feasibility data...
+        "learning_start": 0,
+        "seed": args.seed,
+        "with_lava_reward_punish": False,
         "numpy_env_lava_dqn_cp": "",
-        "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
-
-        "numpy_env_goal_dqn_cp": "",
-        "numpy_env_dqn_arch": [32, 32, 16, 16],
-
-        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/feasibility_dqn.pt",
+        # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/avoid_lava_net.pth",
+        # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-14-23-05_100kRandom_squareReset/avoid_lava_net.pth",
+        # "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
+        "numpy_env_lava_dqn_arch": [256, 256],
         "numpy_env_lava_feasibility_dqn_cp": "",
-        "numpy_env_lava_feasibility_dqn_arch": [32, 32, 16, 16],
-        "numpy_env_feasibility_thresh": 0.1,
-
-        # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-18-26-38_slowLava_trainedWithCon/reach_goal_net.pth",
+        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-23-10-54-38_lava_repr/feasibility_dqn.pt",
+        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-24-18-52-30_lava_feasibilityDiscount:0.99_noLRDecay_noWeightDecay_batch:256/feasibility_dqn.pt",
+        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-24-22-17-47_lava_feasibilityDiscount:0.99_longTrain_LRDecay:0.9999_noWeightDecay_batch:256/feasibility_dqn.pt",
+        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-25-10-33-03_lava_feasibilityDiscount:0.99_longTrain_LRDecay:0.9999_WeightDecay:0.0001_batch:256_BEST/feasibility_dqn.pt",
+        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-10-51-05_100kRandom/feasibility_2024-07-25-13-23-22_oversampleBalance/feasibility_dqn.pt",
+        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-14-23-05_100kRandom_squareReset/feasibility_2024-07-25-14-33-27/feasibility_dqn.pt",
+        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-15-00-15_200kRandom_squareReset/feasibility_2024-07-25-15-13-38/feasibility_dqn.pt",
+        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29/feasibility_dqn.pt",
+        "numpy_env_lava_feasibility_dqn_arch": [32, 32, 32, 16],
+        "numpy_env_lava_feasibility_thresh": 0.05,
+        "numpy_env_left_dqn_cp": "",
+        # "numpy_env_left_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-24-22-19-06_withLavaFeasibility/reach_left_net.pth",
+        # "numpy_env_left_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-left-v0/2024-07-25-11-28-14_withLavaFeasibility/reach_left_net.pth",
+        "numpy_env_left_dqn_arch": [256, 256],
+        "numpy_env_left_feasibility_dqn_cp": "",
+        "numpy_env_left_feasibility_dqn_arch": [32, 32, 16, 16],
+        "numpy_env_left_feasibility_thresh": 0.1,
+        "numpy_env_goal_dqn_cp": "",
+        # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-24-22-19-06_withLavaFeasibility/reach_left_net.pth",
         # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-16-27-29_slowLava_trainedWithoutCon/reach_goal_net.pth",
-        "numpy_env_goal_dqn_arch": [256, 256],
+        "numpy_env_goal_dqn_arch": [32, 32, 16, 16],
     }
 
     # DIR FOR LOGGING
@@ -574,16 +661,16 @@ def main(args):
     )
 
     # TRAINING
-    epsilon_vals = np.linspace(params["start_epsilon"], params["end_epsilon"],
-                               int(params["exp_fraction"] * (params["total_timesteps"] - params["learning_start"])))
-    episodes_since_eval = params["total_timesteps"] + 5
+    epsilon_vals = np.linspace(params["start_epsilon"], params["end_epsilon"], int(params["exp_fraction"] * (params["total_timesteps"] - params["learning_start"])))
+    episodes_since_eval = 1_000_000
+    # episodes_since_eval = 5
     for global_step in range(params["total_timesteps"]):
         if params["no_train_only_plot"]:
             # we are only creating plots and collecting trajectory data...
             continue
 
         if global_step > params["learning_start"]:
-            epsilon = epsilon_vals[min(global_step, len(epsilon_vals) - 1)]
+            epsilon = epsilon_vals[min(global_step - params["learning_start"], len(epsilon_vals) - 1)]
         else:
             epsilon = params["start_epsilon"]
         writer.add_scalar("epsilon", epsilon, global_step)
@@ -654,14 +741,17 @@ def main(args):
             learn_dqn.save_model(exp_dir)
             replay_buffer.save(f"{exp_dir}/replay_buffer.npz")
 
-        # include one eval episode every 50 episodes...
+        # include one eval episode every n episodes...
         if global_step > params["learning_start"]:
             if (done or trunc):
                 episodes_since_eval -= 1
                 if episodes_since_eval <= 0:
                     with torch.no_grad():
-                        episodes_since_eval = 50
-                        eval_obs, eval_info = env.reset()
+                        episodes_since_eval = 5
+                        eval_obs, eval_info = env.reset(options={
+                            "x": env.x_max / 2 + np.random.uniform(-4, 4),
+                            "y": 1
+                        })
                         eval_logging_dict = {
                             "episodes_done": 0,
                             "ep_len": 0,
@@ -756,7 +846,7 @@ def main(args):
         state_predicates = []
         for j in range(100):
             obs, info = env.reset(options={
-                "x": env.x_max / 2 + np.random.uniform(-1, 1),
+                "x": env.x_max / 2 + np.random.uniform(-4, 4),
                 "y": 1
             })
             done, trunc = False, False
@@ -812,7 +902,8 @@ def main(args):
             traj_data=trajectory_data,
             save_path=f"{exp_dir}/trajectories.png",
             xlim=[env.x_min - 0.1, env.x_max + 0.1],
-            ylim=[env.y_min - 0.1, env.y_max + 0.1]
+            ylim=[env.y_min - 0.1, env.y_max + 0.1],
+            show=False
         )
         np.savez(
             f"{exp_dir}/trajectories.npz",
@@ -828,8 +919,9 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--total_steps", type=int, default=1500_000, help="Total number of training steps")
-    parser.add_argument("-e", "--exp_name", type=str, default="", help="Additional string to append to the experiment directory")
+    parser.add_argument("-t", "--total_steps", type=int, default=200_000, help="Total number of training steps")
+    parser.add_argument("-s", "--seed", type=int, default=0, help="The random seed for this run")
+    parser.add_argument("-e", "--exp_name", type=str, default="likeCleanDQN_withEvalEPS", help="Additional string to append to the experiment directory")
     args = parser.parse_args()
     print(args)
 
