@@ -175,8 +175,8 @@ def setup_minigrid_env(env_id, params):
     avg_q_hist = []
     ep_reward_hist = []
     ep_len_hist = []
-    #  ep_state_predicates = np.zeros(len(env.state_predicate_names))
-    #  ep_state_predicate_hist = []
+    ep_state_predicates = np.zeros(len(env.state_predicate_names))
+    ep_state_predicate_hist = []
     eval_reward_hist = []
     eval_state_predicate_hist = []
     eval_episodes_times = []
@@ -185,12 +185,12 @@ def setup_minigrid_env(env_id, params):
         "episodes_done": episodes_done,
         "ep_len": ep_len,
         "ep_reward_sum": ep_reward_sum,
-        #   "ep_state_predicates": ep_state_predicates,
+        "ep_state_predicates": ep_state_predicates,
         "loss_hist": loss_hist,
         "avg_q_hist": avg_q_hist,
         "ep_reward_hist": ep_reward_hist,
         "ep_len_hist": ep_len_hist,
-        #   "ep_state_predicate_hist": ep_state_predicate_hist,
+        "ep_state_predicate_hist": ep_state_predicate_hist,
         "eval_reward_hist": eval_reward_hist,
         "eval_state_predicate_hist": eval_state_predicate_hist,
         "eval_episodes_times": eval_episodes_times,
@@ -309,18 +309,18 @@ def env_interaction_numpy_env(
     obs = next_obs
     logging_dict["ep_len"] += 1
     logging_dict["ep_reward_sum"] += reward
-    # logging_dict["ep_state_predicates"] += info["state_predicates"]
+    logging_dict["ep_state_predicates"] += info["state_predicates"]
 
     if (done or trunc):
         obs, info = env.reset()
         writer.add_scalar("episode/length", logging_dict["ep_len"], logging_dict["episodes_done"])
         writer.add_scalar("episode/reward_sum", logging_dict["ep_reward_sum"], logging_dict["episodes_done"])
         # writer.add_scalar("episode/acc_violations", logging_dict["ep_acc_violations"], logging_dict["episodes_done"])
-        # for i, state_predicate in enumerate(env.state_predicate_names):
-        #    writer.add_scalar(f"episode/{state_predicate}", logging_dict["ep_state_predicates"][i], logging_dict["episodes_done"])
+        for i, state_predicate in enumerate(env.state_predicate_names):
+           writer.add_scalar(f"episode/{state_predicate}", logging_dict["ep_state_predicates"][i], logging_dict["episodes_done"])
         logging_dict["ep_reward_hist"].append(logging_dict["ep_reward_sum"])
         logging_dict["ep_len_hist"].append(logging_dict["ep_len"])
-        # logging_dict["ep_state_predicate_hist"].append(logging_dict["ep_state_predicates"])
+        logging_dict["ep_state_predicate_hist"].append(logging_dict["ep_state_predicates"])
 
         print(
             f"Episode {logging_dict['episodes_done']} | "
@@ -330,7 +330,7 @@ def env_interaction_numpy_env(
 
         logging_dict["ep_len"] = 0
         logging_dict["ep_reward_sum"] = 0
-        # logging_dict["ep_state_predicates"] = np.zeros(len(env.state_predicate_names))
+        logging_dict["ep_state_predicates"] = np.zeros(len(env.state_predicate_names))
         logging_dict["episodes_done"] += 1
 
     return obs, reward, done, trunc, info
@@ -574,7 +574,8 @@ def main(args):
     )
 
     # TRAINING
-    epsilon_vals = np.linspace(params["start_epsilon"], params["end_epsilon"], int(params["exp_fraction"] * params["total_timesteps"] - params["learning_start"]))
+    epsilon_vals = np.linspace(params["start_epsilon"], params["end_epsilon"],
+                               int(params["exp_fraction"] * (params["total_timesteps"] - params["learning_start"])))
     episodes_since_eval = 5
     for global_step in range(params["total_timesteps"]):
         if params["no_train_only_plot"]:
@@ -665,12 +666,12 @@ def main(args):
                             "episodes_done": 0,
                             "ep_len": 0,
                             "ep_reward_sum": 0,
-                            # "ep_state_predicates": np.zeros(len(env.state_predicate_names)),
+                            "ep_state_predicates": np.zeros(len(env.state_predicate_names)),
                             "loss_hist": [],
                             "avg_q_hist": [],
                             "ep_reward_hist": [],
                             "ep_len_hist": [],
-                            #  "ep_state_predicate_hist": []
+                            "ep_state_predicate_hist": []
                         }
                         eval_done, eval_trunc = False, False
                         while not (eval_done or eval_trunc):
@@ -705,9 +706,9 @@ def main(args):
         avg_q_hist=logging_dict["avg_q_hist"],
         train_reward_hist=logging_dict["ep_reward_hist"],
         train_len_hist=logging_dict["ep_len_hist"],
-        #  train_state_predicate_hist=logging_dict["ep_state_predicate_hist"],
+        train_state_predicate_hist=logging_dict["ep_state_predicate_hist"],
         eval_reward_hist=logging_dict["eval_reward_hist"],
-        #  eval_state_predicate_hist=logging_dict["eval_state_predicate_hist"],
+        eval_state_predicate_hist=logging_dict["eval_state_predicate_hist"],
         eval_ep_times=logging_dict["eval_episodes_times"],
     )
 
@@ -726,17 +727,17 @@ def main(args):
             plt.savefig(f"{exp_dir}/{title}.png")
             plt.close()
 
-    #  state_predicate_occurances = np.asarray(logging_dict["ep_state_predicate_hist"])
-    # colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple", "tab:brown", "tab:pink", "tab:gray", "tab:olive", "tab:cyan"]
-    # for i, state_predicate in enumerate(env.state_predicate_names):
-    #     y_data = state_predicate_occurances[:, i]
-    #     # apply some smoothing
-    #     y_data_smoothed = np.convolve(y_data, np.ones(10) / 10, mode="same")
-    #     plt.plot(y_data_smoothed, label=state_predicate, color=colors[i])
-    #     plt.plot(y_data, alpha=0.1, color=colors[i])
-    #     plt.title(f"{state_predicate} Occurances")
-    #     plt.savefig(f"{exp_dir}/state_predicate_{state_predicate}.png")
-    #     plt.close()
+    state_predicate_occurances = np.asarray(logging_dict["ep_state_predicate_hist"])
+    colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple", "tab:brown", "tab:pink", "tab:gray", "tab:olive", "tab:cyan"]
+    for i, state_predicate in enumerate(env.state_predicate_names):
+        y_data = state_predicate_occurances[:, i]
+        # apply some smoothing
+        y_data_smoothed = np.convolve(y_data, np.ones(10) / 10, mode="same")
+        plt.plot(y_data_smoothed, label=state_predicate, color=colors[i])
+        plt.plot(y_data, alpha=0.1, color=colors[i])
+        plt.title(f"{state_predicate} Occurances")
+        plt.savefig(f"{exp_dir}/state_predicate_{state_predicate}.png")
+        plt.close()
 
     if params["which_env"] == "numpy":
         create_plots_numpy_env(
@@ -827,7 +828,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--total_steps", type=int, default=2000_000, help="Total number of training steps")
+    parser.add_argument("-t", "--total_steps", type=int, default=1000_000, help="Total number of training steps")
     parser.add_argument("-e", "--exp_name", type=str, default="", help="Additional string to append to the experiment directory")
     args = parser.parse_args()
     print(args)

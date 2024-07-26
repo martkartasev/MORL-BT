@@ -172,8 +172,8 @@ def train_model(
                 # target_max = target_q_values.max(dim=1, keepdim=True)[0]
                 # td_target = reward_batch + gamma * target_max * (1 - done_batch)
 
-                # current_state_val = (1 - gamma) * reward_batch
-                current_state_val = reward_batch
+                current_state_val = (1 - gamma) * reward_batch
+                # current_state_val = reward_batch
                 target_min = target_q_values.min(dim=1, keepdim=True)[0]
                 future_val = torch.max(target_min, reward_batch)
                 td_target = current_state_val + gamma * future_val
