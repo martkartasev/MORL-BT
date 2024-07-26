@@ -29,7 +29,10 @@ def setup_numpy_env(params, device, exp_dir):
     state_dim = env.observation_space.shape[0]
     action_dim = env.action_space.n
 
-    obs, info = env.reset()
+    obs, info = env.reset(options={
+        "x": env.x_max / 2 + np.random.uniform(-4, 4),
+        "y": 1
+        })
     episodes_done, ep_len, ep_reward_sum = 0, 0, 0
     loss_hist = []
     avg_q_hist = []
@@ -69,26 +72,26 @@ def setup_numpy_env(params, device, exp_dir):
         model_name="avoid_lava",
     )
     
-    reach_left_dqn = DQN(
-        action_dim=action_dim,
-        state_dim=state_dim,
-        hidden_arch=params["numpy_env_left_dqn_arch"],
-        hidden_activation=params["hidden_activation"],
-        device=device,
-        lr=params["lr"],
-        gamma=params["gamma"],
-        load_cp=params["numpy_env_left_dqn_cp"],
-        con_model_load_cps=[
-            params["numpy_env_lava_feasibility_dqn_cp"]
-        ],
-        con_model_arches=[
-            params["numpy_env_lava_feasibility_dqn_arch"]
-        ],
-        con_threshes=[
-            params["numpy_env_lava_feasibility_thresh"]
-        ],
-        model_name="reach_left",
-    )
+    # reach_left_dqn = DQN(
+    #     action_dim=action_dim,
+    #     state_dim=state_dim,
+    #     hidden_arch=params["numpy_env_left_dqn_arch"],
+    #     hidden_activation=params["hidden_activation"],
+    #     device=device,
+    #     lr=params["lr"],
+    #     gamma=params["gamma"],
+    #     load_cp=params["numpy_env_left_dqn_cp"],
+    #     con_model_load_cps=[
+    #         params["numpy_env_lava_feasibility_dqn_cp"]
+    #     ],
+    #     con_model_arches=[
+    #         params["numpy_env_lava_feasibility_dqn_arch"]
+    #     ],
+    #     con_threshes=[
+    #         params["numpy_env_lava_feasibility_thresh"]
+    #     ],
+    #     model_name="reach_left",
+    # )
 
     # reach_goal_dqn = DQN(
     #     action_dim=action_dim,
@@ -117,10 +120,10 @@ def setup_numpy_env(params, device, exp_dir):
     if "lava" in env_id:
         dqns = [avoid_lava_dqn]
     # elif "left" in env_id:
-    elif "goal" in env_id:
-        assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
-        avoid_lava_dqn.save_model(exp_dir)
-        dqns = [avoid_lava_dqn, reach_left_dqn]
+    # elif "goal" in env_id:
+    #     assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
+    #     avoid_lava_dqn.save_model(exp_dir)
+    #     dqns = [avoid_lava_dqn, reach_left_dqn]
     # elif "goal" in env_id:
     #     assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
     #     assert params["numpy_env_left_dqn_cp"] != "", "Pre-trained reach_left DQN load path must be given"
@@ -245,10 +248,11 @@ def env_interaction_numpy_env(
 
     action = dqns[dqn_idx].act(obs, epsilon)
     next_obs, reward, done, trunc, info = env.step(action)
-    
+
+    punish_reward = reward
     if params["with_lava_reward_punish"]:
         if env.lava_x_min < next_obs[0] < env.lava_x_max and env.lava_y_min < next_obs[1] < env.lava_y_max:
-            reward -= 50
+            punish_reward -= 50
 
     if with_plot:
         with torch.no_grad():
@@ -322,18 +326,21 @@ def env_interaction_numpy_env(
         replay_buffer.add(
             obs=obs,
             action=action,
-            reward=reward,
+            reward=punish_reward,  # use reward with punishment for learning
             next_obs=next_obs,
             done=done,
             infos=info)
 
     obs = next_obs
     logging_dict["ep_len"] += 1
-    logging_dict["ep_reward_sum"] += reward
+    logging_dict["ep_reward_sum"] += reward  # log (MDP) reward without punishment
     logging_dict["ep_state_predicates"] += info["state_predicates"]
 
     if (done or trunc):
-        obs, info = env.reset()
+        obs, info = env.reset(options={
+            "x": env.x_max / 2 + np.random.uniform(-4, 4),
+            "y": 1
+        })
         writer.add_scalar("episode/length", logging_dict["ep_len"], logging_dict["episodes_done"])
         writer.add_scalar("episode/reward_sum", logging_dict["ep_reward_sum"], logging_dict["episodes_done"])
         # writer.add_scalar("episode/acc_violations", logging_dict["ep_acc_violations"], logging_dict["episodes_done"])
@@ -501,10 +508,10 @@ def main(args):
         # "env_id": "LavaGoalConveyerAcceleration-lava-noConveyer-v0",
         # "env_id": "SimpleAccEnv-lava-v0",
         # "env_id": "SimpleAccEnv-withConveyer-lava-v0",
-        # "env_id": "SimpleAccEnv-wide-withConveyer-lava-v0",
+        "env_id": "SimpleAccEnv-wide-withConveyer-lava-v0",
         # "env_id": "SimpleAccEnv-goal-v0",
         # "env_id": "SimpleAccEnv-withConveyer-goal-v0",
-        "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
+        # "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
         # "env_id": "SimpleAccEnv-wide-withConveyer-sum-v0",
         # "env_id": "SimpleAccEnv-wide-withConveyer-left-v0",
         # "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
@@ -529,11 +536,12 @@ def main(args):
         "learning_start": 0,
         "seed": args.seed,
         "with_lava_reward_punish": False,
-        # "numpy_env_lava_dqn_cp": "",
+        "numpy_env_lava_dqn_cp": "",
         # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/avoid_lava_net.pth",
-        "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-14-23-05_100kRandom_squareReset/avoid_lava_net.pth",
-        "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
-        # "numpy_env_lava_feasibility_dqn_cp": "",
+        # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-14-23-05_100kRandom_squareReset/avoid_lava_net.pth",
+        # "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
+        "numpy_env_lava_dqn_arch": [256, 256],
+        "numpy_env_lava_feasibility_dqn_cp": "",
         # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-23-10-54-38_lava_repr/feasibility_dqn.pt",
         # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-24-18-52-30_lava_feasibilityDiscount:0.99_noLRDecay_noWeightDecay_batch:256/feasibility_dqn.pt",
         # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-24-22-17-47_lava_feasibilityDiscount:0.99_longTrain_LRDecay:0.9999_noWeightDecay_batch:256/feasibility_dqn.pt",
@@ -541,7 +549,7 @@ def main(args):
         # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-10-51-05_100kRandom/feasibility_2024-07-25-13-23-22_oversampleBalance/feasibility_dqn.pt",
         # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-14-23-05_100kRandom_squareReset/feasibility_2024-07-25-14-33-27/feasibility_dqn.pt",
         # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-15-00-15_200kRandom_squareReset/feasibility_2024-07-25-15-13-38/feasibility_dqn.pt",
-        "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29/feasibility_dqn.pt",
+        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29/feasibility_dqn.pt",
         "numpy_env_lava_feasibility_dqn_arch": [32, 32, 32, 16],
         "numpy_env_lava_feasibility_thresh": 0.05,
         "numpy_env_left_dqn_cp": "",
@@ -601,7 +609,8 @@ def main(args):
 
     # TRAINING
     epsilon_vals = np.linspace(params["start_epsilon"], params["end_epsilon"], int(params["exp_fraction"] * (params["total_timesteps"] - params["learning_start"])))
-    episodes_since_eval = 0
+    episodes_since_eval = 1_000_000
+    # episodes_since_eval = 5
     for global_step in range(params["total_timesteps"]):
         if params["no_train_only_plot"]:
             # we are only creating plots and collecting trajectory data...
@@ -843,9 +852,9 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--total_steps", type=int, default=500_000, help="Total number of training steps")
+    parser.add_argument("-t", "--total_steps", type=int, default=200_000, help="Total number of training steps")
     parser.add_argument("-s", "--seed", type=int, default=0, help="The random seed for this run")
-    parser.add_argument("-e", "--exp_name", type=str, default="", help="Additional string to append to the experiment directory")
+    parser.add_argument("-e", "--exp_name", type=str, default="likeCleanDQN_withEvalEPS", help="Additional string to append to the experiment directory")
     args = parser.parse_args()
     print(args)
 

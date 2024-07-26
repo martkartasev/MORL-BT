@@ -38,10 +38,11 @@ class DQN:
 
         self.con_models = []
         for con_idx, con_model_load_cp in enumerate(con_model_load_cps):
-            con_model = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.con_model_arches[con_idx])
-            con_model.load_state_dict(torch.load(con_model_load_cp))
-            con_model.to(self.device)
-            self.con_models.append(con_model)
+            if con_model_load_cp != "":
+                con_model = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.con_model_arches[con_idx])
+                con_model.load_state_dict(torch.load(con_model_load_cp))
+                con_model.to(self.device)
+                self.con_models.append(con_model)
 
         self.q_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.hidden_arch)
 
