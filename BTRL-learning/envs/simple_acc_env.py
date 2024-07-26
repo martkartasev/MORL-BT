@@ -191,16 +191,17 @@ class SimpleAccEnv(gym.Env):
 
         self.ep_len = 0
 
-        if "x" in options:
-            self.x = options["x"]
-        if "y" in options:
-            self.y = options["y"]
-        if "vel_x" in options:
-            self.vel_x = options["vel_x"]
-        if "vel_y" in options:
-            self.vel_y = options["vel_y"]
+        if options is not None:
+            if "x" in options:
+                self.x = options["x"]
+            if "y" in options:
+                self.y = options["y"]
+            if "vel_x" in options:
+                self.vel_x = options["vel_x"]
+            if "vel_y" in options:
+                self.vel_y = options["vel_y"]
 
-        return self._get_obs(), options
+        return self._get_obs(), {}
 
     def step(self, action):
 
