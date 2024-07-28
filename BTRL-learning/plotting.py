@@ -599,6 +599,7 @@ def plot_bt_comp_metrics(
             reward_hists = np.array(train_reward_hists)
             predicate_hists = np.array(train_predicate_hists)
 
+        print(method_dirs)
         in_lava = predicate_hists[:, :, 0]
         at_goal = predicate_hists[:, :, 1]
 
@@ -613,28 +614,29 @@ def plot_bt_comp_metrics(
         std_at_goal = np.std(at_goal, axis=0)
 
         # plot metrics
-        n_x_ticks = 5
-        axs[0].plot(mean_reward, color=method_colors[idx], ls=method_ls[idx])
+        n_x_ticks = 3
+        lw = 1
+        axs[0].plot(mean_reward, color=method_colors[idx], ls=method_ls[idx], lw=lw)
         axs[0].fill_between(range(len(mean_reward)), mean_reward - std_reward, mean_reward + std_reward, color=method_colors[idx], alpha=0.2)
         axs[0].set_ylabel("Reward")
-        axs[0].set_xlabel("Eval. episodes")
+        axs[0].set_xlabel("Episodes")
         axs[0].set_xlim(0, len(mean_reward) - 1)
-        axs[0].set_ylim(-750, -250)
+        axs[0].set_ylim(-1200, -250)
         axs[0].set_xticks(np.linspace(0, len(mean_reward), n_x_ticks, dtype=np.int64))
 
-        axs[1].plot(mean_in_lava, color=method_colors[idx], label=method_names[idx], ls=method_ls[idx])
+        axs[1].plot(mean_in_lava, color=method_colors[idx], label=method_names[idx], ls=method_ls[idx], lw=lw)
         axs[1].fill_between(range(len(mean_in_lava)), mean_in_lava - std_in_lava, mean_in_lava + std_in_lava, color=method_colors[idx], alpha=0.2)
         axs[1].set_ylabel("Steps " + predicate_names[0].replace("_", " "))
-        axs[1].set_xlabel("Eval. episodes")
+        axs[1].set_xlabel("Episodes")
         axs[1].legend(loc="upper center", bbox_to_anchor=(0.5, 1.25), ncol=len(method_names))
         axs[1].set_xlim(0, len(mean_in_lava) - 1)
-        axs[1].set_ylim(-1, 60)
+        axs[1].set_ylim(-1, 100)
         axs[1].set_xticks(np.linspace(0, len(mean_in_lava), n_x_ticks, dtype=np.int64))
 
-        axs[2].plot(mean_at_goal, color=method_colors[idx], ls=method_ls[idx])
+        axs[2].plot(mean_at_goal, color=method_colors[idx], ls=method_ls[idx], lw=lw)
         axs[2].fill_between(range(len(mean_at_goal)), mean_at_goal - std_at_goal, mean_at_goal + std_at_goal, color=method_colors[idx], alpha=0.2)
         axs[2].set_ylabel("Steps " + predicate_names[1].replace("_", " "))
-        axs[2].set_xlabel("Eval. episodes")
+        axs[2].set_xlabel("Episodes")
         axs[2].set_xlim(0, len(mean_at_goal) - 1)
         axs[2].set_ylim(-1, 60)
         axs[2].set_xticks(np.linspace(0, len(mean_at_goal), n_x_ticks, dtype=np.int64))
@@ -817,36 +819,36 @@ if __name__ == "__main__":
     method_ls = ["--", ":", "-"]
 
     plot_bt_comp_rollouts(
-        con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-25-21-38-09_withLavaFeasibilityDiscount_200krandomSquareResetMultiRing_thresh:0.05_3",
-        no_con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-09-53-46_noCon_noRandomStart_0/",
-        sum_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-22-10-17-42_BT_sumWeight:0.5_punish:50_noRandomStart_0/",
+        con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
+        no_con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-13-12_noPunish_noConstraint_noEval_2",
+        sum_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-53-56_withPunish_noConstraint_noEval_2",
         method_names=method_names,
         method_colors=method_colors,
         method_ls=method_ls
     )
 
     plot_bt_comp_metrics(
-        which_data="eval",
+        which_data="train",
         no_con_load_dirs=[
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-09-53-46_noCon_noRandomStart_0/",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-13-45-04_noCon_noRandomStart_1/",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-14-14-48_noCon_noRandomStart_2/",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-14-35-17_noCon_noRandomStart_3/",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-22-14-56-52_noCon_noRandomStart_4/"
+            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-14-52-57_noPunish_noConstraint_noEval_1",
+            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-13-12_noPunish_noConstraint_noEval_2",
+            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-33-37_noPunish_noConstraint_noEval_3",
+            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-53-56_noPunish_noConstraint_noEval_4",
+            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-14-18_noPunish_noConstraint_noEval_5",
         ],
         con_load_dirs=[
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-25-20-40-57_withLavaFeasibilityDiscount_200krandomSquareResetMultiRing_thresh:0.05_1/",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-25-21-15-01_withLavaFeasibilityDiscount_200krandomSquareResetMultiRing_thresh:0.05_2/",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-25-21-38-09_withLavaFeasibilityDiscount_200krandomSquareResetMultiRing_thresh:0.05_3/",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-25-22-01-09_withLavaFeasibilityDiscount_200krandomSquareResetMultiRing_thresh:0.05_4/",
-            r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-25-22-24-16_withLavaFeasibilityDiscount_200krandomSquareResetMultiRing_thresh:0.05_5/"
+            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
+            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-35-40_noPunish_withConstraint_noEval_2",
+            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-01-19_noPunish_withConstraint_noEval_3",
+            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-27-03_noPunish_withConstraint_noEval_4",
+            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-52-26_noPunish_withConstraint_noEval_5",
         ],
         sum_load_dir=[
-            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-22-10-17-42_BT_sumWeight:0.5_punish:50_noRandomStart_0/",
-            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-22-10-45-35_BT_sumWeight:0.5_punish:50_noRandomStart_1/",
-            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-22-11-06-29_BT_sumWeight:0.5_punish:50_noRandomStart_2/",
-            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-22-11-27-00_BT_sumWeight:0.5_punish:50_noRandomStart_3/",
-            r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-22-11-48-08_BT_sumWeight:0.5_punish:50_noRandomStart_4/"
+            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-34-46_withPunish_noConstraint_noEval_1",
+            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-53-56_withPunish_noConstraint_noEval_2",
+            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-13-07_withPunish_noConstraint_noEval_3",
+            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-32-10_withPunish_noConstraint_noEval_4",
+            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-51-14_withPunish_noConstraint_noEval_5",
         ],
         method_names=method_names,
         method_colors=method_colors,
