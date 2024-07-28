@@ -72,15 +72,15 @@ def setup_numpy_env(params, device, exp_dir):
         model_name="avoid_lava",
     )
     
-    reach_left_dqn = DQN(
+    reach_goal_dqn = DQN(
         action_dim=action_dim,
         state_dim=state_dim,
-        hidden_arch=params["numpy_env_left_dqn_arch"],
+        hidden_arch=params["numpy_env_goal_dqn_arch"],
         hidden_activation=params["hidden_activation"],
         device=device,
         lr=params["lr"],
         gamma=params["gamma"],
-        load_cp=params["numpy_env_left_dqn_cp"],
+        load_cp=params["numpy_env_goal_dqn_cp"],
         con_model_load_cps=[
             params["numpy_env_lava_feasibility_dqn_cp"]
         ],
@@ -90,51 +90,15 @@ def setup_numpy_env(params, device, exp_dir):
         con_threshes=[
             params["numpy_env_lava_feasibility_thresh"]
         ],
-        model_name="reach_left",
+        model_name="reach_goal",
     )
-
-    # reach_goal_dqn = DQN(
-    #     action_dim=action_dim,
-    #     state_dim=state_dim,
-    #     hidden_arch=params["numpy_env_goal_dqn_arch"],
-    #     hidden_activation=params["hidden_activation"],
-    #     device=device,
-    #     lr=params["lr"],
-    #     gamma=params["gamma"],
-    #     load_cp=params["numpy_env_goal_dqn_cp"],
-    #     con_model_load_cps=[
-    #         params["numpy_env_lava_feasibility_dqn_cp"],
-    #         params["numpy_env_left_feasibility_dqn_cp"]
-    #     ],
-    #     con_model_arches=[
-    #         params["numpy_env_lava_feasibility_dqn_arch"],
-    #         params["numpy_env_left_feasibility_dqn_arch"]
-    #     ],
-    #     con_threshes=[
-    #         params["numpy_env_lava_feasibility_thresh"],
-    #         params["numpy_env_left_feasibility_thresh"],
-    #         ],
-    #     model_name="reach_goal",
-    # )
 
     if "lava" in env_id:
         dqns = [avoid_lava_dqn]
-    # elif "left" in env_id:
     elif "goal" in env_id:
         assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
         avoid_lava_dqn.save_model(exp_dir)
-        dqns = [avoid_lava_dqn, reach_left_dqn]
-    # elif "goal" in env_id:
-    #     assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
-    #     assert params["numpy_env_left_dqn_cp"] != "", "Pre-trained reach_left DQN load path must be given"
-    #     avoid_lava_dqn.save_model(exp_dir)
-    #     reach_left_dqn.save_model(exp_dir)
-    #     dqns = [avoid_lava_dqn, reach_left_dqn, reach_goal_dqn]
-    # elif "sum" in env_id:
-    #     assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
-    #     avoid_lava_dqn.save_model(exp_dir)
-    #     dqns = [avoid_lava_dqn, reach_goal_dqn]
-    #     # dqns = [reach_goal_dqn]
+        dqns = [avoid_lava_dqn, reach_goal_dqn]
     else:
         raise ValueError(f"Unknown env-id '{env_id}', not sure which DQNs to use...")
 
@@ -228,23 +192,13 @@ def env_interaction_numpy_env(
     if len(dqns) == 1:
         dqn_idx = 0
     elif len(dqns) == 2:  # avoid lava and next task (reach goal, or go left)
-        # if env.conveyer_x_min < agent_x < env.lava_x_max and env.conveyer_y_min < agent_y < env.lava_y_max:
         if env.lava_x_min < agent_x < env.lava_x_max and env.lava_y_min < agent_y < env.lava_y_max:
             print("Agent in lava, using avoid DQN")
             dqn_idx = 0
         else:
             dqn_idx = 1
-    elif len(dqns) == 3:  # avoid lava, go left, reach goal
-        if env.lava_x_min < agent_x < env.lava_x_max and env.lava_y_min < agent_y < env.lava_y_max:
-            print("Agent in lava, using avoid DQN")
-            dqn_idx = 0
-        elif agent_x > (env.x_max / 2):
-            print("Agent not in lava but on right side, using go left DQN")
-            dqn_idx = 1
-        else:
-            dqn_idx = 2
     else:
-        raise NotImplementedError("More than 3 DQNs given, Implement BT here!")
+        raise NotImplementedError("More than 2 DQNs given, Implement BT here!")
 
     action = dqns[dqn_idx].act(obs, epsilon)
     next_obs, reward, done, trunc, info = env.step(action)
@@ -504,13 +458,7 @@ def main(args):
     # which_env = "unity"  # "unity" or "numpy
     params = {
         "which_env": which_env,
-        # "env_id": "LavaGoalConveyerAcceleration-lava-v0",
-        # "env_id": "LavaGoalConveyerAcceleration-lava-noConveyer-v0",
-        # "env_id": "SimpleAccEnv-lava-v0",
-        # "env_id": "SimpleAccEnv-withConveyer-lava-v0",
         # "env_id": "SimpleAccEnv-wide-withConveyer-lava-v0",
-        # "env_id": "SimpleAccEnv-goal-v0",
-        # "env_id": "SimpleAccEnv-withConveyer-goal-v0",
         "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
         # "env_id": "SimpleAccEnv-wide-withConveyer-sum-v0",
         # "env_id": "SimpleAccEnv-wide-withConveyer-left-v0",
@@ -537,28 +485,12 @@ def main(args):
         "seed": args.seed,
         "with_lava_reward_punish": args.punishACC,
         # "numpy_env_lava_dqn_cp": "",
-        # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/avoid_lava_net.pth",
         "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-14-23-05_100kRandom_squareReset/avoid_lava_net.pth",
         "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
         # "numpy_env_lava_dqn_arch": [256, 256],
         "numpy_env_lava_feasibility_dqn_cp": args.lava_constraint_feasibility_path,
-        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-23-10-54-38_lava_repr/feasibility_dqn.pt",
-        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-24-18-52-30_lava_feasibilityDiscount:0.99_noLRDecay_noWeightDecay_batch:256/feasibility_dqn.pt",
-        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-24-22-17-47_lava_feasibilityDiscount:0.99_longTrain_LRDecay:0.9999_noWeightDecay_batch:256/feasibility_dqn.pt",
-        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-25-10-33-03_lava_feasibilityDiscount:0.99_longTrain_LRDecay:0.9999_WeightDecay:0.0001_batch:256_BEST/feasibility_dqn.pt",
-        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-10-51-05_100kRandom/feasibility_2024-07-25-13-23-22_oversampleBalance/feasibility_dqn.pt",
-        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-14-23-05_100kRandom_squareReset/feasibility_2024-07-25-14-33-27/feasibility_dqn.pt",
-        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-15-00-15_200kRandom_squareReset/feasibility_2024-07-25-15-13-38/feasibility_dqn.pt",
-        # "numpy_env_lava_feasibility_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29/feasibility_dqn.pt",
         "numpy_env_lava_feasibility_dqn_arch": [32, 32, 32, 16],
         "numpy_env_lava_feasibility_thresh": 0.05,
-        "numpy_env_left_dqn_cp": "",
-        # "numpy_env_left_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-24-22-19-06_withLavaFeasibility/reach_left_net.pth",
-        # "numpy_env_left_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-left-v0/2024-07-25-11-28-14_withLavaFeasibility/reach_left_net.pth",
-        "numpy_env_left_dqn_arch": [256, 256],
-        "numpy_env_left_feasibility_dqn_cp": "",
-        "numpy_env_left_feasibility_dqn_arch": [32, 32, 16, 16],
-        "numpy_env_left_feasibility_thresh": 0.1,
         "numpy_env_goal_dqn_cp": "",
         # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-24-22-19-06_withLavaFeasibility/reach_left_net.pth",
         # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-16-27-29_slowLava_trainedWithoutCon/reach_goal_net.pth",
