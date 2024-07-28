@@ -184,6 +184,7 @@ def env_interaction_numpy_env(
         device,
         with_plot=False,
         save_plot_path="",
+        eval_ep=False
 ):
 
     # BT is just if-else, and only active if we are training the goal reach DQN
@@ -275,8 +276,8 @@ def env_interaction_numpy_env(
 
             plt.close()
 
-    if dqn_idx == len(dqns) - 1:
-        # only add transition to the replay buffer when the DQN we are currently learning is used...
+    if dqn_idx == len(dqns) - 1 and not eval_ep:
+        # only add transition to the replay buffer when the DQN we are currently learning is used and we are not doing eval run
         replay_buffer.add(
             obs=obs,
             action=action,
@@ -295,11 +296,13 @@ def env_interaction_numpy_env(
             "x": env.x_max / 2 + np.random.uniform(-4, 4),
             "y": 1
         })
-        writer.add_scalar("episode/length", logging_dict["ep_len"], logging_dict["episodes_done"])
-        writer.add_scalar("episode/reward_sum", logging_dict["ep_reward_sum"], logging_dict["episodes_done"])
-        # writer.add_scalar("episode/acc_violations", logging_dict["ep_acc_violations"], logging_dict["episodes_done"])
-        for i, state_predicate in enumerate(env.state_predicate_names):
-            writer.add_scalar(f"episode/{state_predicate}", logging_dict["ep_state_predicates"][i], logging_dict["episodes_done"])
+        if not eval_ep:
+            # only log non-eval episodes
+            writer.add_scalar("episode/length", logging_dict["ep_len"], logging_dict["episodes_done"])
+            writer.add_scalar("episode/reward_sum", logging_dict["ep_reward_sum"], logging_dict["episodes_done"])
+            for i, state_predicate in enumerate(env.state_predicate_names):
+                writer.add_scalar(f"episode/{state_predicate}", logging_dict["ep_state_predicates"][i], logging_dict["episodes_done"])
+                
         logging_dict["ep_reward_hist"].append(logging_dict["ep_reward_sum"])
         logging_dict["ep_len_hist"].append(logging_dict["ep_len"])
         logging_dict["ep_state_predicate_hist"].append(logging_dict["ep_state_predicates"])
@@ -641,6 +644,7 @@ def main(args):
                                 params=params,
                                 logging_dict=eval_logging_dict,
                                 device=device,
+                                eval_ep=True
                             )
 
                         # save reward and predicate from eval episodes to main logging dict
