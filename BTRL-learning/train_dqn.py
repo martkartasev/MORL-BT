@@ -250,8 +250,6 @@ def setup_minigrid_env(env_id, params):
         lr=params["lr"],
         gamma=params["gamma"],
         load_cp=params["minigrid_env_dqn_cp"],
-        con_model_load_cp="",  # highest prio, no constraint...
-        con_thresh=np.inf,  # value does not matter without constraint...
         model_name="end_to_end",
     )
 
@@ -390,8 +388,8 @@ def env_interaction_numpy_env(
 
     if (done or trunc):
         obs, info = env.reset(options={
-            "x": env.x_max / 2 + np.random.uniform(-4, 4),
-            "y": 1
+        #    "x": env.x_max / 2 + np.random.uniform(-4, 4),
+        #    "y": 1
         })
         writer.add_scalar("episode/length", logging_dict["ep_len"], logging_dict["episodes_done"])
         writer.add_scalar("episode/reward_sum", logging_dict["ep_reward_sum"], logging_dict["episodes_done"])
@@ -557,14 +555,20 @@ def main(args):
     which_env = "minigrid"
     params = {
         "which_env": which_env,
+        "env_id": "MiniGrid-LavaCrossingS9N1-v0",
+        # "env_id": "MiniGrid-LavaCrossingS9N2-v0",
+        # "env_id": "MiniGrid-LavaCrossingS9N3-v0",
+        # "env_id": "MiniGrid-LavaCrossingS11N5-v0",
+        # "env_id": "MiniGrid-PutNear-6x6-N2-v0",
+        # "env_id": "MiniGrid-PutNear-8x8-N3-v0",
         # "env_id": "LavaGoalConveyerAcceleration-lava-v0",
         # "env_id": "LavaGoalConveyerAcceleration-lava-noConveyer-v0",
         # "env_id": "SimpleAccEnv-lava-v0",
         # "env_id": "SimpleAccEnv-withConveyer-lava-v0",
-        "env_id": "SimpleAccEnv-wide-withConveyer-lava-v0",
+        # "env_id": "SimpleAccEnv-wide-withConveyer-lava-v0",
         # "env_id": "SimpleAccEnv-goal-v0",
         # "env_id": "SimpleAccEnv-withConveyer-goal-v0",
-        "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
+        # "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
         # "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
         # "env_id": "flat-acc",  # name of the folder containing the unity scene binaries
         "unity_take_screenshots": True,
@@ -576,8 +580,9 @@ def main(args):
         "lr": 0.0005,
         "buffer_size": 1e6,
         "gamma": 0.99,
-        "tau": 0.001,
-        "target_freq": 1,
+        "tau": 1,
+        "target_freq": 500,
+        "train_freq": 10,
         "batch_size": 9128,
         "hidden_activation": nn.ReLU,
         "start_epsilon": 1.0,
@@ -587,6 +592,8 @@ def main(args):
         "learning_start": 0,
         "seed": args.seed,
         "with_lava_reward_punish": False,
+        "minigrid_env_dqn_cp": "",
+        "minigrid_env_dqn_arch": [32, 32, 32, 16],
         "numpy_env_lava_dqn_cp": "",
         # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/avoid_lava_net.pth",
         # "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-14-23-05_100kRandom_squareReset/avoid_lava_net.pth",
@@ -720,18 +727,19 @@ def main(args):
             raise ValueError(f"which_env must be 'numpy' or 'unity' but got '{params['which_env']}'")
 
         if global_step > params["learning_start"]:
-            batch = replay_buffer.sample(params["batch_size"])
-            loss, avg_q = learn_dqn.update(
-                state_batch=batch.observations,
-                action_batch=batch.actions,
-                reward_batch=batch.rewards,
-                next_state_batch=batch.next_observations,
-                done_batch=batch.dones,
-            )
-            writer.add_scalar("train/q_loss", loss, global_step)
-            writer.add_scalar("train/avg_q", avg_q, global_step)
-            logging_dict["loss_hist"].append(loss)
-            logging_dict["avg_q_hist"].append(avg_q)
+            if global_step %  params["train_freq"] == 0:
+                batch = replay_buffer.sample(params["batch_size"])
+                loss, avg_q = learn_dqn.update(
+                    state_batch=batch.observations,
+                    action_batch=batch.actions,
+                    reward_batch=batch.rewards,
+                    next_state_batch=batch.next_observations,
+                    done_batch=batch.dones,
+                )
+                writer.add_scalar("train/q_loss", loss, global_step)
+                writer.add_scalar("train/avg_q", avg_q, global_step)
+                logging_dict["loss_hist"].append(loss)
+                logging_dict["avg_q_hist"].append(avg_q)
 
             if global_step % params["target_freq"] == 0:
                 learn_dqn.target_update(params["tau"])
@@ -846,8 +854,8 @@ def main(args):
         state_predicates = []
         for j in range(100):
             obs, info = env.reset(options={
-                "x": env.x_max / 2 + np.random.uniform(-4, 4),
-                "y": 1
+                # "x": env.x_max / 2 + np.random.uniform(-4, 4),
+                # "y": 1
             })
             done, trunc = False, False
             trajectory = [obs[:2]]
@@ -919,7 +927,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--total_steps", type=int, default=200_000, help="Total number of training steps")
+    parser.add_argument("-t", "--total_steps", type=int, default=3000_000, help="Total number of training steps")
     parser.add_argument("-s", "--seed", type=int, default=0, help="The random seed for this run")
     parser.add_argument("-e", "--exp_name", type=str, default="likeCleanDQN_withEvalEPS", help="Additional string to append to the experiment directory")
     args = parser.parse_args()
