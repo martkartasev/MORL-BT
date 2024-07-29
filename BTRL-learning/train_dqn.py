@@ -462,11 +462,12 @@ def main(args):
     params = {
         "which_env": which_env,
         # "env_id": "SimpleAccEnv-wide-withConveyer-lava-v0",
-        "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
+        # "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
         # "env_id": "SimpleAccEnv-wide-withConveyer-sum-v0",
         # "env_id": "SimpleAccEnv-wide-withConveyer-left-v0",
         # "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
         # "env_id": "flat-acc",  # name of the folder containing the unity scene binaries
+        "env_id": args.env_id,
         "unity_take_screenshots": True,
         "unity_max_ep_len": 1000,
         "unity_task": "fetch_trigger",
@@ -476,8 +477,10 @@ def main(args):
         "lr": 0.0005,
         "buffer_size": 1e6,
         "gamma": 0.99,
-        "tau": 0.001,
-        "target_freq": 1,
+        # "tau": 0.001,
+        # "target_freq": 1,
+        "tau": 1,
+        "target_freq": 10000,
         "batch_size": 2048,
         "hidden_activation": nn.ReLU,
         "start_epsilon": 1.0,
@@ -488,7 +491,7 @@ def main(args):
         "seed": args.seed,
         "with_lava_reward_punish": args.punishACC,
         # "numpy_env_lava_dqn_cp": "",
-        "numpy_env_lava_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-14-23-05_100kRandom_squareReset/avoid_lava_net.pth",
+        "numpy_env_lava_dqn_cp": args.lava_dqn_path,
         "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
         # "numpy_env_lava_dqn_arch": [256, 256],
         "numpy_env_lava_feasibility_dqn_cp": args.lava_constraint_feasibility_path,
@@ -792,7 +795,9 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--seed", type=int, default=0, help="The random seed for this run")
     parser.add_argument("-e", "--exp_name", type=str, default="", help="Additional string to append to the experiment directory")
     parser.add_argument('--punishACC', default=False, action=argparse.BooleanOptionalAction, help="Agent receives reward penalty for ACC violation")
+    parser.add_argument("-ldqnp", "--lava_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-14-23-05_100kRandom_squareReset/avoid_lava_net.pth", help="Path to load the lava avoiding DQN policy from.")
     parser.add_argument("-lfcp", "--lava_constraint_feasibility_path", type=str, default="", help="Path to load Lava feasibility constraint network from.")
+    parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-lava-v0", help="Which gym env to train on.")
     args = parser.parse_args()
     print(args)
 
