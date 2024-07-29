@@ -29,10 +29,7 @@ def setup_numpy_env(params, device, exp_dir):
     state_dim = env.observation_space.shape[0]
     action_dim = env.action_space.n
 
-    obs, info = env.reset(options={
-        "x": env.x_max / 2 + np.random.uniform(-4, 4),
-        "y": 1
-        })
+    obs, info = env.reset()
     episodes_done, ep_len, ep_reward_sum = 0, 0, 0
     loss_hist = []
     avg_q_hist = []
@@ -292,10 +289,7 @@ def env_interaction_numpy_env(
     logging_dict["ep_state_predicates"] += info["state_predicates"]
 
     if (done or trunc):
-        obs, info = env.reset(options={
-            "x": env.x_max / 2 + np.random.uniform(-4, 4),
-            "y": 1
-        })
+        obs, info = env.reset(options={"x": env.x_max / 2 + np.random.uniform(-4, 4), "y": 1} if len(dqns) > 1 else {})
         if not eval_ep:
             # only log non-eval episodes
             writer.add_scalar("episode/length", logging_dict["ep_len"], logging_dict["episodes_done"])
@@ -717,10 +711,7 @@ def main(args):
         rewards = []
         state_predicates = []
         for j in range(100):
-            obs, info = env.reset(options={
-                "x": env.x_max / 2 + np.random.uniform(-4, 4),
-                "y": 1
-            })
+            obs, info = env.reset(options={"x": env.x_max / 2 + np.random.uniform(-4, 4), "y": 1} if len(dqns) > 1 else {})
             done, trunc = False, False
             trajectory = [obs[:2]]
             episodes_done, ep_len, ep_reward_sum = 0, 0, 0
