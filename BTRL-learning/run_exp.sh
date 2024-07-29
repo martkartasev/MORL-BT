@@ -5,6 +5,12 @@ start=1;
 end=5;
 env_interactions=500000;
 
+# train lava DQN
+# for i in $(seq $start $end);
+# do
+#     python3 train_dqn.py -t "$env_interactions" -s "$i" -e "hardTargetFreq:10k_$i" -ldqnp "" -lfcp "" -i "SimpleAccEnv-wide-withConveyer-lava-v0";
+# done
+
 # Baseline 1: no reward punishment, no constraint
 for i in $(seq $start $end);
 do
