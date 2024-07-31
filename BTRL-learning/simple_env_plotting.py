@@ -59,6 +59,9 @@ def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False
         else:
             plt.scatter(obs[0], obs[1])
 
+    plt.scatter(env.goal_x, env.goal_y, c="gold", marker="*")
+    plt.scatter(env.battery_x, env.battery_y,  c="green", marker="+")
+
     plt.title("Env with eval states")
     plt.xlim(env.x_min - 0.1, env.x_max + 0.1)
     plt.ylim(env.y_min - 0.1, env.y_max + 0.1)
@@ -73,8 +76,10 @@ def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False
         output_size=env.action_space.n,
         hidden_arch=params["hidden_arch"],
         hidden_activation=params["hidden_activation"],
+        with_batchNorm=True,
     )
     model.load_state_dict(torch.load(f"{cp_dir}/{cp_file}"))
+    model.eval()
 
     # plot value function with different velocities
     for vel in [
@@ -84,30 +89,32 @@ def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False
         np.array([0.0, 2.0]),
         np.array([0.0, -2.0]),
     ]:
-        agent_x = np.linspace(env.x_min, env.x_max, 100)
-        agent_y = np.linspace(env.y_max, env.y_min, 100)
-        agent_x, agent_y = np.meshgrid(agent_x, agent_y)
-        agent_x = agent_x.flatten()
-        agent_y = agent_y.flatten()
-        agent_vel_x = np.full_like(agent_x, vel[0])
-        agent_vel_y = np.full_like(agent_y, vel[1])
-        states = np.stack([agent_x, agent_y, agent_vel_x, agent_vel_y], axis=1)
+        for batt in [0.01, 0.05, 0.1, 0.15, 0.2, 0.5, 1.0]:
+            agent_x = np.linspace(env.x_min, env.x_max, 100)
+            agent_y = np.linspace(env.y_max, env.y_min, 100)
+            agent_x, agent_y = np.meshgrid(agent_x, agent_y)
+            agent_x = agent_x.flatten()
+            agent_y = agent_y.flatten()
+            agent_vel_x = np.full_like(agent_x, vel[0])
+            agent_vel_y = np.full_like(agent_y, vel[1])
+            battery = np.ones([agent_x.shape[0]]) * batt
+            states = np.stack([agent_x, agent_y, agent_vel_x, agent_vel_y, battery], axis=1)
 
-        q_values = model(torch.Tensor(states).to("cpu"))
+            q_values = model(torch.Tensor(states).to("cpu"))
 
-        for value_function in [torch.min, torch.max]:
-            vf = value_function(q_values, dim=1).values.detach().cpu().numpy()
-            vf = vf.reshape((100, 100))
+            for value_function in [torch.min]:
+                vf = value_function(q_values, dim=1).values.detach().cpu().numpy()
+                vf = vf.reshape((100, 100))
 
-            plt.imshow(vf, extent=[env.x_min, env.x_max, env.y_min, env.y_max])
-            plt.colorbar()
-            plt.title(f"Value function with velocity {vel}, {value_function.__name__}")
-            plt.savefig(f"{cp_dir}/value_function_{vel}_{value_function.__name__}.png")
-            plt.show()
-            plt.close()
+                plt.imshow(vf, extent=[env.x_min, env.x_max, env.y_min, env.y_max], vmin=0, vmax=1)
+                plt.colorbar()
+                plt.title(f"Value function with velocity {vel}, {value_function.__name__}, battery: {batt}")
+                plt.savefig(f"{cp_dir}/value_function_{vel}_{value_function.__name__}_batt{batt}.png")
+                plt.show()
+                plt.close()
 
     for state in env.eval_states:
-        q_values = model(torch.Tensor(state).to("cpu")).detach().cpu().numpy()
+        q_values = model(torch.Tensor(state).unsqueeze(0).to("cpu")).squeeze().detach().cpu().numpy()
         plot_q_state(
             q_values=q_values,
             state=state,
@@ -131,7 +138,8 @@ def plot_rollouts(
         hidden_arch=task_params["numpy_env_goal_dqn_arch"],
         hidden_activation=task_params["hidden_activation"],
     )
-    task_dqn.load_state_dict(torch.load(f"{task_dqn_dir}/reach_goal_net.pth"))
+    task_dqn.load_state_dict(torch.load(f"{task_dqn_dir}/reach_left_net.pth"))
+    task_dqn.eval()
 
     con_dqns = []
     for con_dqn_dir in con_dqn_dirs:
@@ -144,6 +152,7 @@ def plot_rollouts(
                 hidden_activation=con_params["hidden_activation"],
             )
             con_dqn.load_state_dict(torch.load(f"{con_dqn_dir}/feasibility_dqn.pt"))
+            con_dqn.eval()
             con_dqns.append(con_dqn)
 
     for i in range(n_rollouts):
@@ -315,23 +324,27 @@ if __name__ == "__main__":
         env=env,
         # cp_dir=r"runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom/feasibility_2024-07-14-21-50-23",
         # cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-25-10-33-03_lava_feasibilityDiscount:0.99_longTrain_LRDecay:0.9999_WeightDecay:0.0001_batch:256_BEST",
-        cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29",
+        # cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29",
+        cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-40-15_multiLoad_recursive_lessL2_EvenLargerModel_1k_lrDecay_veryLargeBatch",
+        # cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
+        # cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
         cp_file="feasibility_dqn.pt",
         with_conveyer=True,
     )
 
-    plot_rollouts(
-        env=env,
-        task_dqn_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-15-21-11-39",
-        con_dqn_dirs=[
-            r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29",
-            # r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-24-11-57-59_goToLeft_withHighPrioCon_arch:32-32-16-16_batch:256_discount:0.99_L2norm:0.001_feasibilityDiscount"
-        ],
-        con_threshes=[
-            0.1,
-            0.05
-        ],
-        n_rollouts=10,
-        with_conveyer=True
-    )
+    # plot_rollouts(
+    #     env=env,
+    #     task_dqn_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-14-52-57_noPunish_noConstraint_noEval_1",
+    #     con_dqn_dirs=[
+    #         # r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29",
+    #         r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-10-36-22",
+    #         # r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-24-11-57-59_goToLeft_withHighPrioCon_arch:32-32-16-16_batch:256_discount:0.99_L2norm:0.001_feasibilityDiscount"
+    #     ],
+    #     con_threshes=[
+    #         0.1,
+    #         0.05
+    #     ],
+    #     n_rollouts=10,
+    #     with_conveyer=True
+    # )
 
