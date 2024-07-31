@@ -12,6 +12,7 @@ def plot_value_2D(
         env,
         device,
         velocity,
+        battery=None,
         value_function="max",
         x_lim=[0, 6],
         x_steps=7,
@@ -31,10 +32,10 @@ def plot_value_2D(
     agent_vel = torch.from_numpy(velocity).unsqueeze(0).to(device)
     agent_vel = agent_vel.repeat(agent_pos.shape[0], 1)
 
-    if env.observation_space.shape[0] == 6:
-        goal_pos = torch.tensor([[env.goal_x, env.goal_y]])
-        goal_pos = goal_pos.repeat(agent_pos.shape[0], 1)
-        q_inp = np.concatenate([agent_pos, agent_vel, goal_pos], axis=1)
+    if battery is not None:
+        battery_tensor = torch.tensor(battery).unsqueeze(0).to(device)
+        battery_tensor = battery_tensor.repeat(agent_pos.shape[0], 1)
+        q_inp = torch.concatenate([agent_pos, agent_vel, battery_tensor], dim=1)
     else:
         q_inp = torch.concatenate([agent_pos, agent_vel], dim=1)
 
@@ -120,20 +121,22 @@ def create_plots_numpy_env(
             np.array([0.0, 2.0]),
             np.array([0.0, -2.0]),
         ]:
-            for value_function in ["max", "mean", "min"]:
-                # value_function = "min"
-                plot_value_2D(
-                    dqn=dqn.q_net,
-                    velocity=vel,
-                    value_function=value_function,
-                    env=env,
-                    x_lim=env.x_range,
-                    x_steps=env.x_range[-1] + 1,
-                    y_lim=env.y_range,
-                    y_steps=env.y_range[-1] + 1,
-                    device=device,
-                    save_path=f"{save_dir}/vf-{value_function}_vel{vel}.png"
-                )
+            for batt in [0.1, 0.5, 1.0]:
+                for value_function in ["max", "mean", "min"]:
+                    # value_function = "min"
+                    plot_value_2D(
+                        dqn=dqn.q_net,
+                        velocity=vel,
+                        value_function=value_function,
+                        battery=batt,
+                        env=env,
+                        x_lim=env.x_range,
+                        x_steps=env.x_range[-1] + 1,
+                        y_lim=env.y_range,
+                        y_steps=env.y_range[-1] + 1,
+                        device=device,
+                        save_path=f"{save_dir}/vf-{value_function}_vel{vel}_batt{batt}.png"
+                    )
 
     if plot_eval_states:
         # plot Q-function in particular states
@@ -396,6 +399,17 @@ def plot_simple_acc_env(env, ax=None, show=True, save_path="", close=True):
         label="Goal"
     )
 
+    # battery
+    plt.scatter(
+        env.battery_x,
+        env.battery_y,
+        s=200,
+        c='green',
+        zorder=10,
+        marker='+',
+        label="Charger"
+    )
+
     ax.set_xlim(env.x_min - 0.1, env.x_max + 0.1)
     ax.set_ylim(env.y_min - 0.1, env.y_max + 0.1)
 
@@ -538,7 +552,7 @@ def plot_bt_comp_rollouts(
     # create dummy line artists with alpha=1 for legend
     for idx in range(len(method_names)):
         plt.plot([-100, -100], [-100, -100], ls=method_ls[idx], c=method_colors[idx], label=method_names[idx])
-    plt.legend(loc="lower right")
+    plt.legend(loc="lower left")
 
     plt.savefig("runs/2D-lava-con-noCon-rollouts.png", bbox_inches='tight')
     plt.show()
@@ -660,7 +674,7 @@ def plot_bt_comp_metrics(
 def plot_numpy_feasiblity_dqn(
         dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/",
         file_name="feasibility_dqn.pt",
-        state=np.array([6.2, 2.2, 0.8, 1.5]),
+        state=np.array([6.2, 2.2, 0.8, 1.5, 1.0]),
         feasibility_thresh=0.05,
         value_function="min",
         cmap="viridis",
@@ -692,14 +706,21 @@ def plot_numpy_feasiblity_dqn(
     # read dqn params from dir
     params = yaml.load(open(f"{dqn_load_dir}/params.yaml", "r"), Loader=yaml.FullLoader)
 
+    # older feasibility models did not have this...
+    with_batchnorm = False
+    if "with_batchNorm" in params:
+        with_batchnorm = params["with_batchNorm"]
+
     # load trained model
     dqn = MLP(
         input_size=env.observation_space.shape[0],
         output_size=env.action_space.n,
         hidden_arch=params["hidden_arch"],
         hidden_activation=params["hidden_activation"],
+        with_batchNorm=with_batchnorm,
     )
     dqn.load_state_dict(torch.load(f"{dqn_load_dir}/{file_name}"))
+    dqn.eval()
 
     fig = plt.figure(figsize=(10, 5))
 
@@ -721,7 +742,8 @@ def plot_numpy_feasiblity_dqn(
     for vel_idx, vel_arr in enumerate([np.array([0, 0]), np.array([0, 2.0])]):
         agent_vel_x = np.full_like(agent_x, vel_arr[0])
         agent_vel_y = np.full_like(agent_y, vel_arr[1])
-        states = np.stack([agent_x, agent_y, agent_vel_x, agent_vel_y], axis=1)
+        battery = np.full_like(agent_y, 1.0)
+        states = np.stack([agent_x, agent_y, agent_vel_x, agent_vel_y, battery], axis=1)
 
         q_values = dqn(torch.Tensor(states).to("cpu"))
 
@@ -857,7 +879,8 @@ if __name__ == "__main__":
 
     plot_numpy_feasiblity_dqn(
         # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/",
-        dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29",
+        # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29",
+        dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
     )
 
 
