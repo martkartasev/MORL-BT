@@ -2,6 +2,7 @@ import gymnasium as gym
 import yaml
 import matplotlib.pyplot as plt
 import numpy as np
+from minigrid.manual_control import ManualControl
 
 from envs.minigrid_wrapper import FlattenedMinigrid
 from envs.simple_acc_env import SimpleAccEnv, action_to_acc
@@ -311,26 +312,29 @@ def play_minigrid(cp_dir, cp_file, env_id):
     model.load_state_dict(torch.load(f"{cp_dir}/{cp_file}"))
 
     obs, _ = env.reset()
+    ind = 0
     for i in range(100000000):
         task_q_vals = model(torch.from_numpy(obs).float()).detach().cpu().numpy()
         action = np.argmax(task_q_vals)
         obs, reward, done, trunc, _ = env.step(action)
         env.render()
+        ind += 1
         if done:
             obs, _ = env.reset()
+            ind = 0
 
 
 if __name__ == "__main__":
-    env = SimpleAccEnv(
-        with_conveyer=True,
-        x_max=20,
-        conveyer_x_min=2,
-        conveyer_x_max=10,
-        lava_x_min=10,
-        lava_x_max=18,
-        goal_x=10,
-        max_ep_len=150
-    )
+    # env = SimpleAccEnv(
+    #     with_conveyer=True,
+    #     x_max=20,
+    #     conveyer_x_min=2,
+    #     conveyer_x_max=10,
+    #     lava_x_min=10,
+    #     lava_x_max=18,
+    #     goal_x=10,
+    #     max_ep_len=150
+    # )
     # plot_cp(
     #    env=env,
     #    # cp_dir=r"runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom/feasibility_2024-07-14-21-50-23",
@@ -347,7 +351,11 @@ if __name__ == "__main__":
     #    con_thresh=0.05,
     #    n_rollouts=10,
     #    with_conveyer=True
-    # )
-    play_minigrid(cp_dir=r"runs/MiniGrid-PutNear-6x6-N2-v0/2024-07-24-09-30-01_",
-                  cp_file="end_to_end_net.pth",
-                  env_id="MiniGrid-PutNear-6x6-N2-v0")
+    ## )
+    #play_minigrid(cp_dir=r"runs/MiniGrid-PutNear-6x6-N2-v0/2024-07-29-10-47-50_likeCleanDQN_withEvalEPS",
+    #              cp_file="end_to_end_net.pth",
+    #              env_id="MiniGrid-PutNear-6x6-N2-v0")
+    #
+    make = gym.make("MiniGrid-ObstructedMaze-Full-v1", render_mode="human")
+    manual_control = ManualControl(make, seed=42)
+    manual_control.start()

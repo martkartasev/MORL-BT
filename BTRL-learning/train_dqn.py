@@ -555,11 +555,11 @@ def main(args):
     which_env = "minigrid"
     params = {
         "which_env": which_env,
-        "env_id": "MiniGrid-LavaCrossingS9N1-v0",
+        #"env_id": "MiniGrid-LavaCrossingS9N1-v0",
         # "env_id": "MiniGrid-LavaCrossingS9N2-v0",
         # "env_id": "MiniGrid-LavaCrossingS9N3-v0",
         # "env_id": "MiniGrid-LavaCrossingS11N5-v0",
-        # "env_id": "MiniGrid-PutNear-6x6-N2-v0",
+        "env_id": "MiniGrid-PutNear-6x6-N2-v0",
         # "env_id": "MiniGrid-PutNear-8x8-N3-v0",
         # "env_id": "LavaGoalConveyerAcceleration-lava-v0",
         # "env_id": "LavaGoalConveyerAcceleration-lava-noConveyer-v0",
@@ -581,7 +581,7 @@ def main(args):
         "buffer_size": 1e6,
         "gamma": 0.99,
         "tau": 1,
-        "target_freq": 500,
+        "target_freq": 5000,
         "train_freq": 10,
         "batch_size": 9128,
         "hidden_activation": nn.ReLU,
@@ -927,9 +927,9 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--total_steps", type=int, default=3000_000, help="Total number of training steps")
+    parser.add_argument("-t", "--total_steps", type=int, default=6000_000, help="Total number of training steps")
     parser.add_argument("-s", "--seed", type=int, default=0, help="The random seed for this run")
-    parser.add_argument("-e", "--exp_name", type=str, default="likeCleanDQN_withEvalEPS", help="Additional string to append to the experiment directory")
+    parser.add_argument("-e", "--exp_name", type=str, default="newParams", help="Additional string to append to the experiment directory")
     args = parser.parse_args()
     print(args)
 
