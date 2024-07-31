@@ -62,6 +62,8 @@ class SimpleAccEnv(gym.Env):
             goal_x=5,
             goal_y=9,
             task_sum_weight=0.5,
+            battery_x=15,
+            battery_y=2,
     ):
         self.x_min = x_min
         self.x_max = x_max
@@ -89,29 +91,42 @@ class SimpleAccEnv(gym.Env):
             self.lava_y_max = lava_y_max
         self.task = task
         self.task_sum_weight = task_sum_weight
-        assert task in ["lava", "goal", "lava_goal_sum", "left"]
+        assert task in ["lava", "goal", "lava_goal_sum", "left", "battery"]
         assert 0 <= self.task_sum_weight <= 1
 
         self.goal_x = goal_x
         self.goal_y = goal_y
+        self.battery_x = battery_x
+        self.battery_y = battery_y
 
         self.eval_states = [
-            np.array([5.0, 5.0, 0.0, 0.0]),  # in lava
-            np.array([5.0, 2.5, 0.0, 0.0]),  # beneath lava, no velocity
-            np.array([5.0, 2.5, 0.0, 2.0]),  # beneath lava but upwards velocity, lava unavailable
-            np.array([5.0, 7.5, 0.0, 0.0]),  # above lava, no velocity
-            np.array([5.0, 7.5, 0.0, -2.0]),  # above lava but downwards velocity, lava unavailable
-            np.array([1.5, 5.0, 0.0, 0.0]),  # left of lava, no velocity
-            np.array([1.5, 5.0, 2.0, 0.0]),  # left of lava but rightwards velocity, lava unavailable
-            np.array([8.5, 5.0, 0.0, 0.0]),  # right of lava, no velocity
-            np.array([8.5, 5.0, -2.0, 0.0]),  # right of lava but leftwards velocity, lava unavailable
-            np.array([9.75, 1, 0.0, 0.0]),  # underneath lava, at x middle, no velocity
-            np.array([9.75, 1, 2.0, 0.0]),  # underneath lava, at x middle, velocity towards the right
-            np.array([18.5, 4, 0.0, 0.0]),  # right of lava, at y slightly lower than middle, no velocity
-            np.array([18.5, 6, 0.0, 0.0]),  # right of lava, at y slightly higher than, no velocity
-            np.array([18.5, 1, 0.0, 0.0]),  # right of lava, low at bottom, no velocity
-            np.array([self.lava_x_max - 0.05, 5, 0, 0]),  # can step out of lava
-            np.array([self.lava_x_max + 0.05, 5, 0, 0]),  # can step into of lava
+            np.array([5.0, 5.0, 0.0, 0.0, 0.1]),  # in lava
+            np.array([5.0, 2.5, 0.0, 0.0, 0.1]),  # beneath lava, no velocity
+            np.array([5.0, 2.5, 0.0, 2.0, 0.1]),  # beneath lava but upwards velocity, lava unavailable
+            np.array([5.0, 7.5, 0.0, 0.0, 0.1]),  # above lava, no velocity
+            np.array([5.0, 7.5, 0.0, -2.0, 0.1]),  # above lava but downwards velocity, lava unavailable
+            np.array([1.5, 5.0, 0.0, 0.0, 0.1]),  # left of lava, no velocity
+            np.array([1.5, 5.0, 2.0, 0.0, 0.1]),  # left of lava but rightwards velocity, lava unavailable
+            np.array([8.5, 5.0, 0.0, 0.0, 0.1]),  # right of lava, no velocity
+            np.array([8.5, 5.0, -2.0, 0.0, 0.1]),  # right of lava but leftwards velocity, lava unavailable
+            np.array([9.75, 1, 0.0, 0.0, 0.1]),  # underneath lava, at x middle, no velocity
+            np.array([9.75, 1, 2.0, 0.0, 0.1]),  # underneath lava, at x middle, velocity towards the right
+            np.array([18.05, 4, 0.0, 0.0, 0.1]),  # right of lava, at y slightly lower than middle, no velocity
+            np.array([18.05, 6, 0.0, 0.0, 0.1]),  # right of lava, at y slightly higher than, no velocity
+            np.array([18.05, 1, 0.0, 0.0, 0.1]),  # right of lava, low at bottom, no velocity
+            np.array([18.05, 4, 0.0, 0.0, 0.5]),  # right of lava, at y slightly lower than middle, no velocity
+            np.array([18.05, 6, 0.0, 0.0, 0.5]),  # right of lava, at y slightly higher than, no velocity
+            np.array([18.05, 1, 0.0, 0.0, 0.5]),  # right of lava, low at bottom, no velocity
+            np.array([18.05, 4, 0.0, 0.0, 0.1]),  # right of lava, at y slightly lower than middle, no velocity
+            np.array([18.05, 6, 0.0, 0.0, 0.1]),  # right of lava, at y slightly higher than, no velocity
+            np.array([18.05, 1, 0.0, 0.0, 0.1]),  # right of lava, low at bottom, no velocity
+            np.array([15, 7.05, 0.0, 0.0, 0.1]),  # above lava
+            np.array([15, 7.05, 0.0, 0.0, 0.15]),  # above lava
+            np.array([15, 7.05, 0.0, 0.0, 0.2]),  # above lava
+            np.array([15, 7.05, 0.0, 0.0, 0.25]),  # above lava
+            np.array([15, 7.05, 0.0, 0.0, 0.5]),  # above lava
+            np.array([15, 7.05, 0.0, 0.0, 1.0]),  # above lava
+            np.array([self.lava_x_max + 0.05, 5, 0, 0, 1.0]),  # can step into of lava
         ]
 
         self.action_space = gym.spaces.Discrete(25)
@@ -121,26 +136,29 @@ class SimpleAccEnv(gym.Env):
                 self.y_min,
                 -self.max_velocity,
                 -self.max_velocity,
+                0
             ]),
             high=np.array([
                 self.x_max,
                 self.y_max,
                 self.max_velocity,
                 self.max_velocity,
+                1
             ])
         )
 
-        self.state_predicate_names = ["in_unsafe", "at_goal", "on_conveyer"]
+        self.state_predicate_names = ["in_unsafe", "at_goal", "on_conveyer", "battery_empty", "at_battery"]
 
         # episode variables, need to be reset
         self.x = None
         self.y = None
         self.vel_x = None
         self.vel_y = None
+        self.battery_charge = None
         self.ep_len = 0
 
     def _get_obs(self):
-        return np.array([self.x, self.y, self.vel_x, self.vel_y])
+        return np.array([self.x, self.y, self.vel_x, self.vel_y, self.battery_charge])
 
     def _in_lava(self):
         return self.lava_x_min <= self.x <= self.lava_x_max and self.lava_y_min <= self.y <= self.lava_y_max
@@ -151,8 +169,14 @@ class SimpleAccEnv(gym.Env):
     def _at_goal(self):
         return np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y]) < 0.5
 
+    def _battery_empty(self):
+        return self.battery_charge <= 0
+
+    def _at_batterty(self):
+        return np.linalg.norm([self.battery_x - self.x, self.battery_y - self.y]) < 0.5
+
     def check_state_predicates(self):
-        predicates = [self._in_lava(), self._at_goal(), self._on_conveyer()]
+        predicates = [self._in_lava(), self._at_goal(), self._on_conveyer(), self._battery_empty(), self._at_batterty()]
         assert len(predicates) == len(self.state_predicate_names)
         return predicates
 
@@ -173,6 +197,8 @@ class SimpleAccEnv(gym.Env):
         )
         self.x = p[0]
         self.y = p[1]
+
+        self.battery_charge = np.random.uniform(0, 1)
 
         # ---
         # when training without a BT, the feasibility constrained goal-reach DQN must not be initialized in the
@@ -200,6 +226,8 @@ class SimpleAccEnv(gym.Env):
                 self.vel_x = options["vel_x"]
             if "vel_y" in options:
                 self.vel_y = options["vel_y"]
+            if "battery" in options:
+                self.battery_charge = options["battery"]
 
         return self._get_obs(), {}
 
@@ -208,10 +236,13 @@ class SimpleAccEnv(gym.Env):
         agent_in_lava = self._in_lava()
         agent_at_goal = self._at_goal()
         agent_on_conveyer = self._on_conveyer()
+        battery_empty = self._battery_empty()
+        agent_at_battery = self._at_batterty()
 
         lava_reward = -1 if agent_in_lava else 0
         goal_rewad = -1 * np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y])
         left_reward = 0 if self.x < (self.x_max * (2/3)) else -1
+        battery_reward = -1 if battery_empty else 0
 
         if self.task == "lava":
             reward = lava_reward
@@ -221,6 +252,8 @@ class SimpleAccEnv(gym.Env):
             reward = self.task_sum_weight * lava_reward + (1 - self.task_sum_weight) * goal_rewad
         elif self.task == "left":
             reward = left_reward
+        elif self.task == "battery":
+            reward = battery_reward
         else:
             raise NotImplementedError(f"Task {self.task} not imlpemented")
 
@@ -251,6 +284,13 @@ class SimpleAccEnv(gym.Env):
         # clamp position
         self.x = np.clip(self.x, self.x_min, self.x_max)
         self.y = np.clip(self.y, self.y_min, self.y_max)
+
+        # update battery
+        self.battery_charge -= 0.01
+        self.battery_charge = np.clip(self.battery_charge, 0, 1)
+
+        if agent_at_battery:
+            self.battery_charge = 1.0
 
         new_obs = self._get_obs()
         done = False
