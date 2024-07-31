@@ -832,6 +832,218 @@ def plot_numpy_feasiblity_dqn(
     plt.rcParams.update({'font.size': 12})
 
 
+def plot_multi_feasibility_comparison(
+        unsafe_feasibility_dir="",
+        unsafe_feasibility_thresh=0.125,
+        standard_battery_feasibility_dir="",
+        standard_battery_thresh=0.05,
+        recursive_battery_feasibility_dir="",
+        recursive_battery_thresh=0.1,
+        or_feasibility_dir="",
+        or_feasibility_thresh=0.1,
+        fontsize=15,
+        state=np.array([15, 7.05, 0, 0, 0.1]),
+        cross_lw=1,
+):
+    # set fontsize
+    plt.rcParams.update({'font.size': fontsize})
+
+    # setup wide env
+    env = SimpleAccEnv(
+        with_conveyer=True,
+        x_max=20,
+        conveyer_x_min=2,
+        conveyer_x_max=10,
+        lava_x_min=10,
+        lava_x_max=18,
+        goal_x=10,
+    )
+
+    fig, axs = plt.subplots(figsize=(25, 5), nrows=1, ncols=5)
+
+    # lava rect
+    lava_rect = plt.Rectangle(
+        (env.lava_x_min, env.lava_y_min),
+        env.lava_x_max - env.lava_x_min,
+        env.lava_y_max - env.lava_y_min,
+        fill=True,
+        color='orange',
+        alpha=0.5
+    )
+    axs[0].add_patch(lava_rect)
+    axs[0].text(
+        env.lava_x_min + (env.lava_x_max - env.lava_x_min) / 2,
+        env.lava_y_min + (env.lava_y_max - env.lava_y_min) / 2,
+        "Unsafe region",
+        fontsize=15,
+        horizontalalignment='center',
+        verticalalignment='center',
+        )
+
+    # plot goal
+    axs[0].scatter(
+        env.goal_x + 0.5,
+        env.goal_y - 0.5,
+        c="gold",
+        marker="*",
+        s=200,
+        label="Goal"
+    )
+
+    # plot battery
+    axs[0].scatter(
+        env.battery_x,
+        env.battery_y,
+        c="green",
+        marker="+",
+        s=200,
+        label="Charger"
+    )
+
+    # plot agent
+    axs[0].scatter(
+        state[0],
+        state[1],
+        c="magenta",
+        marker="v",
+        s=200,
+        label="Agent"
+    )
+
+    axs[0].legend(loc="lower right")
+    axs[0].set_xlim(10, 20)
+    axs[0].set_ylim(1, 9)
+    axs[0].set_xticks([], [])
+    axs[0].set_yticks([], [])
+    axs[0].set_title(f"Environment, battery: {state[4]}")
+
+    def plot_feasibility(
+            dir,
+            ax,
+            state,
+            threshold,
+            higher_prio_forbidden_mask=None,
+            higher_prio_allowed_mask=None,
+            use_higher_prio_threshold_calc=True,
+            ylabel="Acceleration Y",
+            xlabel="Acceleration X",
+            title="Safety feasibility",
+            own_cross_marker="x",
+            own_cross_color="r",
+            own_cross_scale=800,
+    ):
+        params = yaml.load(open(f"{dir}/params.yaml", "r"), Loader=yaml.FullLoader)
+
+        f_dqn = MLP(
+            input_size=env.observation_space.shape[0],
+            output_size=env.action_space.n,
+            hidden_arch=params["hidden_arch"],
+            hidden_activation=params["hidden_activation"],
+            with_batchNorm=True,
+        )
+        f_dqn.load_state_dict(torch.load(f"{dir}/feasibility_dqn.pt"))
+        f_dqn.eval()
+
+        q_vals = f_dqn(torch.Tensor(state).unsqueeze(0)).detach().cpu().numpy().flatten()
+        own_forbidden_mask = torch.zeros(q_vals.shape, dtype=torch.bool)
+        own_allowed_mask = torch.ones(q_vals.shape, dtype=torch.bool)
+
+        if higher_prio_allowed_mask is not None and use_higher_prio_threshold_calc:
+            allowed_q_vals = q_vals.squeeze()[higher_prio_allowed_mask]
+            best_allowed_q_val = allowed_q_vals.min()
+        else:
+            best_allowed_q_val = q_vals.min()
+
+        for a_idx in range(len(q_vals)):
+            acceleration = action_to_acc(a_idx)
+            point = ax.scatter(
+                acceleration[0],
+                acceleration[1],
+                s=800,
+                c=q_vals[a_idx],
+                cmap="viridis",
+                vmin=min(q_vals),
+                vmax=max(q_vals),
+            )
+
+            if q_vals[a_idx] > best_allowed_q_val + threshold:
+                ax.scatter(acceleration[0], acceleration[1], s=own_cross_scale, c=own_cross_color, marker=own_cross_marker, linewidths=cross_lw)
+                own_forbidden_mask[a_idx] = True
+                own_allowed_mask[a_idx] = False
+
+            if higher_prio_forbidden_mask is not None and higher_prio_forbidden_mask[a_idx]:
+                ax.scatter(acceleration[0], acceleration[1], s=800, c="r", marker="x", linewidths=cross_lw)
+
+        ax.set_xlim(-2.4, 2.4)
+        ax.set_ylim(-2.4, 2.4)
+        ax.set_title(title)
+        ax.set_ylabel(ylabel)
+        ax.set_xlabel(xlabel)
+        plt.colorbar(point, ax=ax, format="%.2f")
+
+        return own_forbidden_mask, own_allowed_mask
+
+    unsafe_forbidden_mask, unsafe_allowed_mask = plot_feasibility(
+        dir=unsafe_feasibility_dir,
+        ax=axs[1],
+        state=state,
+        threshold=unsafe_feasibility_thresh,
+        ylabel="Acceleration Y",
+        xlabel="",
+        title="Safety feasibility",
+    )
+
+    _, _ = plot_feasibility(
+        dir=standard_battery_feasibility_dir,
+        ax=axs[2],
+        state=state,
+        threshold=standard_battery_thresh,
+        higher_prio_forbidden_mask=unsafe_forbidden_mask,
+        higher_prio_allowed_mask=unsafe_allowed_mask,
+        use_higher_prio_threshold_calc=False,
+        ylabel="",
+        xlabel="Acceleration X",
+        title="Battery feasibility (naive)",
+        own_cross_color="magenta",
+        own_cross_marker="+",
+    )
+
+    _, _ = plot_feasibility(
+        dir=recursive_battery_feasibility_dir,
+        ax=axs[3],
+        state=state,
+        threshold=recursive_battery_thresh,
+        higher_prio_forbidden_mask=unsafe_forbidden_mask,
+        higher_prio_allowed_mask=unsafe_allowed_mask,
+        ylabel="",
+        xlabel="",
+        title="Batter feasibility (recursive)",
+        own_cross_color="magenta",
+        own_cross_marker="+",
+        own_cross_scale=1200
+    )
+
+    _, _ = plot_feasibility(
+        dir=or_feasibility_dir,
+        ax=axs[4],
+        state=state,
+        threshold=or_feasibility_thresh,
+        higher_prio_forbidden_mask=unsafe_forbidden_mask,
+        higher_prio_allowed_mask=unsafe_allowed_mask,
+        ylabel="",
+        xlabel="",
+        title="Batter feasibility (OR)",
+        own_cross_color="magenta",
+        own_cross_marker="+",
+        own_cross_scale=1200
+    )
+
+    plt.tight_layout()
+    plt.savefig(f"runs/recursive-feasibility-compare_battery:{state[4]}.png", bbox_inches="tight")
+    plt.show()
+    plt.close()
+
+
 if __name__ == "__main__":
     # env_actuator = EnvActuatorGrid5x5()
     # env_actuator.plot_action_acceleration_mapping()
@@ -839,6 +1051,20 @@ if __name__ == "__main__":
     method_names = ["BT-DQN", "BT-Penalty", "CBTRL (Ours)"]
     method_colors = ["magenta", "red", "cyan"]
     method_ls = ["--", ":", "-"]
+
+    plot_multi_feasibility_comparison(
+        unsafe_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
+        unsafe_feasibility_thresh=0.05,
+        standard_battery_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-29-13-45-07_500k/feasibility_2024-07-29-15-36-24_best",
+        standard_battery_thresh=0.075,
+        or_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-06-58_multiLoad_OR_lessL2_EvenLargerModel_6k_lrDecay_veryLargeBatch_goodManualStopEarly",
+        # or_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-16-53_multiLoad_OR_lessL2_EvenLargerModel_1k_lrDecay_veryLargeBatch",
+        # recursive_battery_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-30-19-06-28_multiLoad_recursive_lessL2_EvenLargerModel_5k_lrDecay",
+        recursive_battery_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-40-15_multiLoad_recursive_lessL2_EvenLargerModel_1k_lrDecay_veryLargeBatch",
+        recursive_battery_thresh=0.06,
+        state=np.array([17.5, 7.1, 0, 0, 0.16]),
+        cross_lw=3,
+    )
 
     plot_bt_comp_rollouts(
         con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
