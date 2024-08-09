@@ -1,42 +1,65 @@
 import os
+import time
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import time
 # from mlagents_envs.environment import UnityEnvironment
 import yaml
 
 from envs import LavaGoalConveyerAccelerationEnv, SimpleAccEnv
 from networks import MLP
 from plotting import plot_value_2D, plot_discrete_actions
+import envs
+import gymnasium as gym
 
 
-def load_data_from_rb(rb_path, n_obs, n_actions):
-    print(f"Loading replay buffer from {rb_path}...")
-    data = np.load(rb_path, allow_pickle=True)
+def load_data_from_rb(load_dirs, n_obs, n_actions):
+    obs = None
+    actions = None
+    next_obs = None
+    dones = None
+    for load_rb_dir in load_dirs:
+        rb_path = f"{load_rb_dir}/replay_buffer.npz"
+        print(f"Loading replay buffer from {rb_path}...")
+        data = np.load(rb_path, allow_pickle=True)
 
-    obs = data["all_states"]
-    actions = data["all_actions"]
-    next_obs = data["all_next_states"]
-    dones = data["all_dones"]
+        load_obs = data["all_states"]
+        load_actions = data["all_actions"]
+        load_next_obs = data["all_next_states"]
+        load_dones = data["all_dones"]
 
-    # shuffle the data obs, actions, next_obs, dones in the same way
-    shuffle_idx = np.random.permutation(obs.shape[0])
-    obs = obs[shuffle_idx]
-    actions = actions[shuffle_idx]
-    next_obs = next_obs[shuffle_idx]
-    dones = dones[shuffle_idx]
+        # shuffle the data obs, actions, next_obs, dones in the same way
+        shuffle_idx = np.random.permutation(load_obs.shape[0])
+        load_obs = load_obs[shuffle_idx]
+        load_actions = load_actions[shuffle_idx]
+        load_next_obs = load_next_obs[shuffle_idx]
+        load_dones = load_dones[shuffle_idx]
 
-    if len(obs.shape) == 3:
-        obs = obs.squeeze(1)
-        actions = actions.squeeze(1)
-        next_obs = next_obs.squeeze(1)
+        if len(load_obs.shape) == 3:
+            load_obs = load_obs.squeeze(1)
+            load_actions = load_actions.squeeze(1)
+            load_next_obs = load_next_obs.squeeze(1)
 
-    assert obs.shape[0] == actions.shape[0] == next_obs.shape[0] == dones.shape[0]
-    assert obs.shape[1] == n_obs
-    assert actions.shape[1] == 1
-    assert next_obs.shape[1] == n_obs
-    assert dones.shape[1] == 1
+        assert load_obs.shape[0] == load_actions.shape[0] == load_next_obs.shape[0] == load_dones.shape[0]
+        assert load_obs.shape[1] == n_obs
+        assert load_actions.shape[1] == 1
+        assert load_next_obs.shape[1] == n_obs
+        assert load_dones.shape[1] == 1
+
+        if obs is None:
+            obs = load_obs
+            actions = load_actions
+            next_obs = load_next_obs
+            dones = load_dones
+        else:
+            obs = np.append(obs, load_obs, axis=0)
+            actions = np.append(actions, load_actions, axis=0)
+            next_obs = np.append(next_obs, load_next_obs, axis=0)
+            dones = np.append(dones, load_dones, axis=0)
+
+    # normalize data
+
 
     print(f""
           f"Done: obs.shape: {obs.shape}, "
@@ -180,8 +203,8 @@ def train_model(
 
                 for idx, net in enumerate(higher_prio_constraint_nets):
                     high_prio_vals = net(next_state_batch.float())
-                    best_high_prio_vals = high_prio_vals.min(dim=1).values  # TODO, consider higher prio when finding best?
-                    high_prio_forbidden = high_prio_vals > best_high_prio_vals.unsqueeze(1) + higher_prio_constraint_thresholds[idx]
+                    best_high_prio_vals = high_prio_vals.min(dim=1, keepdim=True)[0]  # TODO, consider higher prio when finding best?
+                    high_prio_forbidden = high_prio_vals > best_high_prio_vals + higher_prio_constraint_thresholds[idx]
 
                     target_q_values[high_prio_forbidden] = torch.inf
 
@@ -249,20 +272,17 @@ def train_model(
 
 
 def main():
-    # load_rb_dir = "runs/LavaGoalConveyerAcceleration-lava-v0/2024-07-05-09-56-06_veryGood_afterRefactor"
-    # load_rb_dir = "runs/LavaGoalConveyerAcceleration-lava-noConveyer-v0/2024-07-05-14-53-05"
-    # load_rb_dir = "runs/flat-acc-button_fetch_trigger/2024-07-05-11-46-34"
-    # load_rb_dir = "runs/SimpleAccEnv-lava-v0/2024-07-07-11-18-06"
-    # load_rb_dir = "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-08-17-45-38"
-    # load_rb_dir = "runs/flat-acc_reach_goal/2024-07-05-19-37-30"
-    # load_rb_dir = "runs/flat-acc-button_fetch_trigger/2024-07-09-20-42-07_trainAgain"
-    # load_rb_dir = "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-11-20-12-40_250k"
-    # load_rb_dir = "runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom"
-    # load_rb_dir = "runs/SimpleAccEnv-withConveyer-goal-v0/2024-07-11-11-06-24_250k"
-    load_rb_dir = "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings"
-    rb_path = f"{load_rb_dir}/replay_buffer.npz"
+    load_rb_dirs = [
+        ## nice results with those two: vvvvv
+        # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery",
+        # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M"
+        ## ^^^^^^^^^^
+        # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-08-03-19-53-26_withBattery_refactorMLP_maxVel:1.5_200kRandom_200epLen",
+        "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-08-11-27-00_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom"
+        
+    ]
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
-    exp_dir = f"{load_rb_dir}/feasibility_{timestamp}"
+    exp_dir = f"{load_rb_dirs[-1]}/feasibility_{timestamp}_1k_lrDecay_singleLoad_veryLargeBatch_recursive_thresh:005_modelEval"
     os.makedirs(exp_dir, exist_ok=True)
 
     # for numpy env
@@ -272,27 +292,22 @@ def main():
     # def label_fun(state):
     #     return env.lava_x_range[0] < state[0] < env.lava_x_range[-1] and env.lava_y_range[0] < state[1] < env.lava_y_range[-1]
 
-    env = SimpleAccEnv(
-        with_conveyer=True,
-        x_max=20,
-        conveyer_x_min=2,
-        conveyer_x_max=10,
-        lava_x_min=10,
-        lava_x_max=18,
-        goal_x=10,
-    )
+    env = gym.make("SimpleAccEnv-wide-withConveyer-lava-v0")
     
-    n_obs = 4
+    n_obs = 5
     n_actions = 25
     def label_fun(state):
         # only lava
-        return env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max
+        # return env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max
 
         # only left
         # return state[0] > (env.x_max / 2)
 
-        # combined estimator for right side of env OR being inside lava region
-        # return (state[0] > (env.x_max / 2)) or (env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max)
+        # only battery
+        return state[4] <= 0
+        
+        # battery and lava
+        # return (state[4] <= 0) or (env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max)
 
     # unity env
     # env = None
@@ -303,7 +318,7 @@ def main():
     #     return state[0] > 0.0
 
     print("Loading data...")
-    data, obs, actions, next_obs, dones = load_data_from_rb(rb_path, n_obs, n_actions)
+    data, obs, actions, next_obs, dones = load_data_from_rb(load_rb_dirs, n_obs, n_actions)
 
     print("Labeling transitions...")
     labels = label_data(all_obs=obs, label_fun=label_fun)
@@ -311,20 +326,26 @@ def main():
     params = {
         "optimizer_initial_lr": 0.001,
         "optimizer_weight_decay": 0.0001,
-        "exponential_lr_decay": 1.0,
-        "batch_size": 2048,
+        "exponential_lr_decay": 0.9995,
+        "batch_size": 16384,
+        # "batch_size": 4096,
         "epochs": 1000,
         "nuke_layer_every": 1e9,
         "hidden_activation": torch.nn.ReLU,
-        "hidden_arch": [32, 32, 32, 16],
+        "hidden_arch": [64, 64, 32, 32],
         "criterion": torch.nn.MSELoss,
+        "with_batchNorm": True,
         # "criterion": torch.nn.L1Loss,
         # "discount_gamma": 1.0,  # unlike traditional finite-horizon TD, feasibility discount must always be <1!
         "discount_gamma": 0.995,
-        # "higher_prio_load_path": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-23-10-54-38_lava_repr",
-        "higher_prio_load_path": "",
-        "higher_prio_arch": [32, 32, 16, 16],
-        "higher_prio_threshold": 0.1,
+        # "higher_prio_load_path": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
+        # "higher_prio_load_path": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-31-17-15-32_withBattery_refactorMLP/feasibility_2024-07-31-19-37-15_1k_lrDecay_veryLargeBatch",
+        "higher_prio_load_path": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-08-03-19-53-26_withBattery_refactorMLP_maxVel:1.5_200kRandom_200epLen/feasibility_2024-08-04-09-41-43_1k_lrDecay",
+        # "higher_prio_load_path": "",
+        "higher_prio_batchnorm": True,
+        # "higher_prio_load_path": "",
+        "higher_prio_arch": [64, 64, 32, 32],
+        "higher_prio_threshold": 0.05,
         "polyak_tau": 0.01
     }
 
