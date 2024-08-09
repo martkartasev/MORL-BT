@@ -1158,11 +1158,15 @@ if __name__ == "__main__":
     method_ls = ["--", ":", "-"]
     
     plot_feasibility_value_function_comparison(
-        safety_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
+        # safety_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
+        safety_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-31-17-15-32_withBattery_refactorMLP/feasibility_2024-07-31-19-37-15_1k_lrDecay_veryLargeBatch",
         battery_feasibility_dirs=[
-            "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-29-13-45-07_500k/feasibility_2024-07-29-15-36-24_best",
-            "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-40-15_multiLoad_recursive_lessL2_EvenLargerModel_1k_lrDecay_veryLargeBatch",
-            "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-06-58_multiLoad_OR_lessL2_EvenLargerModel_6k_lrDecay_veryLargeBatch_goodManualStopEarly",
+            # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-29-13-45-07_500k/feasibility_2024-07-29-15-36-24_best",
+            # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-40-15_multiLoad_recursive_lessL2_EvenLargerModel_1k_lrDecay_veryLargeBatch",
+            # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-06-58_multiLoad_OR_lessL2_EvenLargerModel_6k_lrDecay_veryLargeBatch_goodManualStopEarly"
+            "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-31-19-48-25_withBattery_refactorMLP/feasibility_2024-08-01-09-26-24_naive_1k_lrDecay_veryLargeBatch",
+            "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-31-19-48-25_withBattery_refactorMLP/feasibility_2024-08-01-09-10-48_multiLoad_recursive_1k_lrDecay_veryLargeBatch",
+            "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-31-19-48-25_withBattery_refactorMLP/feasibility_2024-08-01-08-57-40_multiLoad_OR_1k_lrDecay_veryLargeBatch"
         ],
         battery_feasibility_names=[
             "Battery\nNaive",

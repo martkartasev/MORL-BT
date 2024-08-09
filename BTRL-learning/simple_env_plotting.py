@@ -312,7 +312,7 @@ if __name__ == "__main__":
         lava_x_min=10,
         lava_x_max=18,
         goal_x=10,
-        max_ep_len=150
+        max_ep_len=200
     )
     # plot_cp(
     #     env=env,
@@ -322,12 +322,7 @@ if __name__ == "__main__":
     # )
     plot_cp(
         env=env,
-        # cp_dir=r"runs/SimpleAccEnv-withConveyer-lava-v0/2024-07-14-19-08-39_250k_50krandom/feasibility_2024-07-14-21-50-23",
-        # cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-25-10-33-03_lava_feasibilityDiscount:0.99_longTrain_LRDecay:0.9999_WeightDecay:0.0001_batch:256_BEST",
-        # cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29",
-        cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-40-15_multiLoad_recursive_lessL2_EvenLargerModel_1k_lrDecay_veryLargeBatch",
-        # cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
-        # cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
+        cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-08-11-27-00_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom/feasibility_2024-08-08-17-56-11_1k_lrDecay_singleLoad_veryLargeBatch_recursive_thresh:005_modelEval",
         cp_file="feasibility_dqn.pt",
         with_conveyer=True,
     )
