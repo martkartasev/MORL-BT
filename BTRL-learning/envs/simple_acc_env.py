@@ -46,9 +46,10 @@ class SimpleAccEnv(gym.Env):
             x_max=10,
             y_min=0,
             y_max=10,
-            max_velocity=2,
+            max_velocity=1.5,
+            lava_max_velocity=1.5,
             dt=0.2,
-            max_ep_len=50,
+            max_ep_len=200,
             lava_x_min=2,
             lava_x_max=8,
             lava_y_min=3,
@@ -72,6 +73,7 @@ class SimpleAccEnv(gym.Env):
         self.x_range = [x_min, x_max]
         self.y_range = [y_min, y_max]
         self.max_velocity = max_velocity
+        self.lava_max_velocity = lava_max_velocity
         self.dt = dt
         self.max_ep_len = max_ep_len
         self.with_conveyer = with_conveyer
@@ -240,7 +242,7 @@ class SimpleAccEnv(gym.Env):
         agent_at_battery = self._at_batterty()
 
         lava_reward = -1 if agent_in_lava else 0
-        goal_rewad = -1 * np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y])
+        goal_rewad = -0.1 * np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y])
         left_reward = 0 if self.x < (self.x_max * (2/3)) else -1
         battery_reward = -1 if battery_empty else 0
 
@@ -270,9 +272,8 @@ class SimpleAccEnv(gym.Env):
         # clamp velocity
         if agent_in_lava:
             # agent is slower in lava
-            lava_max_vel = 0.5
-            self.vel_x = np.clip(self.vel_x, -lava_max_vel, lava_max_vel)
-            self.vel_y = np.clip(self.vel_y, -lava_max_vel, lava_max_vel)
+            self.vel_x = np.clip(self.vel_x, -self.lava_max_velocity, self.lava_max_velocity)
+            self.vel_y = np.clip(self.vel_y, -self.lava_max_velocity, self.lava_max_velocity)
         else:
             self.vel_x = np.clip(self.vel_x, -self.max_velocity, self.max_velocity)
             self.vel_y = np.clip(self.vel_y, -self.max_velocity, self.max_velocity)
@@ -332,7 +333,7 @@ def plot_trajectories(env, n=3, fixed_action=None, reset_options={}):
         obs, _ = env.reset(options=reset_options)
         trajectory = [obs[:2]]
         ep_reward = 0
-        for _ in range(20):
+        for _ in range(env.max_ep_len):
             if fixed_action is None:
                 action = np.random.randint(25)
             else:
@@ -375,6 +376,9 @@ if __name__ == "__main__":
         lava_x_min=10,
         lava_x_max=18,
         goal_x=10,
+        max_velocity=1.5,
+        lava_max_velocity=1.5,
+        task="lava"
     )
 
     # plot accelerations

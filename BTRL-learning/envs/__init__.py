@@ -70,7 +70,7 @@ gym.envs.register(
 gym.envs.register(
     id="SimpleAccEnv-wide-withConveyer-lava-v0",
     entry_point="envs:SimpleAccEnv",
-    max_episode_steps=100,
+    max_episode_steps=200,
     reward_threshold=0,
     kwargs={
         "task": "lava",
@@ -81,14 +81,14 @@ gym.envs.register(
         "lava_x_min":  10,
         "lava_x_max":  18,
         "goal_x": 10,
-        "max_ep_len": 25,
+        "max_ep_len": 200,
     },
 )
 
 gym.envs.register(
     id="SimpleAccEnv-wide-withConveyer-goal-v0",
     entry_point="envs:SimpleAccEnv",
-    max_episode_steps=100,
+    max_episode_steps=200,
     reward_threshold=0,
     kwargs={
         "task": "goal",
@@ -99,7 +99,7 @@ gym.envs.register(
         "lava_x_min":  10,
         "lava_x_max":  18,
         "goal_x": 10,
-        "max_ep_len": 100,
+        "max_ep_len": 200,
     },
 )
 
@@ -144,7 +144,7 @@ gym.envs.register(
 gym.envs.register(
     id="SimpleAccEnv-wide-withConveyer-battery-v0",
     entry_point="envs:SimpleAccEnv",
-    max_episode_steps=100,
+    max_episode_steps=200,
     reward_threshold=0,
     kwargs={
         "task": "battery",
@@ -155,6 +155,6 @@ gym.envs.register(
         "lava_x_min":  10,
         "lava_x_max":  18,
         "goal_x": 10,
-        "max_ep_len": 100,
+        "max_ep_len": 200,
     },
 )

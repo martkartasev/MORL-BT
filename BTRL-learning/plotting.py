@@ -116,10 +116,10 @@ def create_plots_numpy_env(
         # plot value function with different velocities
         for vel in [
             np.array([0.0, 0.0]),
-            np.array([2.0, 0.0]),
-            np.array([-2.0, 0.0]),
-            np.array([0.0, 2.0]),
-            np.array([0.0, -2.0]),
+            np.array([env.max_velocity, 0.0]),
+            np.array([-env.max_velocity, 0.0]),
+            np.array([0.0, env.max_velocity]),
+            np.array([0.0, -env.max_velocity]),
         ]:
             for batt in [0.1, 0.5, 1.0]:
                 for value_function in ["max", "mean", "min"]:

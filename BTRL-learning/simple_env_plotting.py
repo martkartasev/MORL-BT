@@ -84,10 +84,10 @@ def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False
     # plot value function with different velocities
     for vel in [
         np.array([0.0, 0.0]),
-        np.array([2.0, 0.0]),
-        np.array([-2.0, 0.0]),
-        np.array([0.0, 2.0]),
-        np.array([0.0, -2.0]),
+        np.array([env.max_velocity, 0.0]),
+        np.array([-env.max_velocity, 0.0]),
+        np.array([0.0, env.max_velocity]),
+        np.array([0.0, -env.max_velocity]),
     ]:
         for batt in [0.01, 0.05, 0.1, 0.15, 0.2, 0.5, 1.0]:
             agent_x = np.linspace(env.x_min, env.x_max, 100)
