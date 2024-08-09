@@ -22,6 +22,8 @@ class DQN:
             con_threshes=[],
             model_name="q",
             con_model_arches=[],
+            con_batch_norms=[],
+            batch_norm=False,
     ):
         self.action_dim = action_dim
         self.state_dim = state_dim
@@ -35,21 +37,24 @@ class DQN:
         self.con_threshes = con_threshes
         self.model_name = model_name
         self.con_model_arches = con_model_arches
+        self.batch_norm = batch_norm
+        self.con_batch_norms = con_batch_norms
 
         self.con_models = []
         for con_idx, con_model_load_cp in enumerate(con_model_load_cps):
             if con_model_load_cp != "":
-                con_model = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.con_model_arches[con_idx])
+                con_model = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.con_model_arches[con_idx], with_batchNorm=con_batch_norms[con_idx])
                 con_model.load_state_dict(torch.load(con_model_load_cp))
                 con_model.to(self.device)
+                con_model.eval()
                 self.con_models.append(con_model)
 
-        self.q_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.hidden_arch)
+        self.q_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.hidden_arch, with_batchNorm=self.batch_norm)
 
         if self.load_cp:
             self.q_net.load_state_dict(torch.load(self.load_cp))
 
-        self.q_target_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.hidden_arch)
+        self.q_target_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.hidden_arch, with_batchNorm=self.batch_norm)
         self.q_target_net.load_state_dict(self.q_net.state_dict())
 
         for model in [self.q_net, self.q_target_net]:
@@ -134,7 +139,7 @@ class DQN:
 
         self.optimizer.zero_grad()
         loss.backward()
-        # torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), 1.0)
+        torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), 1.0)
         self.optimizer.step()
 
         return loss.item(), pred.mean().item()

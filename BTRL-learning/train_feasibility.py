@@ -335,9 +335,9 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("Setting up model...")
-    model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["hidden_arch"])
+    model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["hidden_arch"], with_batchNorm=params["with_batchNorm"])
     model.to(device)
-    target_model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["hidden_arch"])
+    target_model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["hidden_arch"], with_batchNorm=params["with_batchNorm"])
     target_model.load_state_dict(model.state_dict())
     target_model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=params["optimizer_initial_lr"], weight_decay=params["optimizer_weight_decay"])
@@ -347,9 +347,10 @@ def main():
     higher_prio_nets = []
     higher_prio_threshes = []
     if params["higher_prio_load_path"]:
-        higher_prio_model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["higher_prio_arch"])
+        higher_prio_model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["higher_prio_arch"], with_batchNorm=params["higher_prio_batchnorm"])
         higher_prio_model.load_state_dict(torch.load(f"{params['higher_prio_load_path']}/feasibility_dqn.pt"))
         higher_prio_model.to(device)
+        higher_prio_model.eval()
         higher_prio_nets.append(higher_prio_model)
         higher_prio_threshes.append(params["higher_prio_threshold"])
 

@@ -67,6 +67,7 @@ def setup_numpy_env(params, device, exp_dir):
         load_cp=params["numpy_env_lava_dqn_cp"],
         con_model_load_cps=[],  # highest prio, no constraint...
         model_name="avoid_lava",
+        batch_norm=params["numpy_env_lava_dqn_batchNorm"],
     )
     
     reach_goal_dqn = DQN(
@@ -87,12 +88,16 @@ def setup_numpy_env(params, device, exp_dir):
         con_threshes=[
             params["numpy_env_lava_feasibility_thresh"]
         ],
+        con_batch_norms=[
+            params["numpy_env_lava_feasibility_batchNorm"]
+        ],
         model_name="reach_goal",
+        batch_norm=params["numpy_env_goal_dqn_batchNorm"],
     )
 
     if "lava" in env_id:
         dqns = [avoid_lava_dqn]
-    elif "goal" in env_id:
+    elif "goal" in env_id or "battery" in env_id:
         assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
         avoid_lava_dqn.save_model(exp_dir)
         dqns = [avoid_lava_dqn, reach_goal_dqn]
@@ -230,7 +235,8 @@ def env_interaction_numpy_env(
                 subplot_idx += 1
 
                 for con_plt_idx, con_model in enumerate(dqn.con_models):
-                    con_q_vals = con_model(torch.tensor(obs).float().to(device)).detach().cpu().numpy()
+                    con_model.eval()
+                    con_q_vals = con_model(torch.tensor(obs).unsqueeze(0).float().to(device)).squeeze().detach().cpu().numpy()
                     con_mask = dqns[dqn_plt_idx].compute_mask(torch.tensor(obs).unsqueeze(0).float().to(device))
                     # plot con_q_vals
                     for a in range(env.action_space.n):
@@ -289,7 +295,10 @@ def env_interaction_numpy_env(
     logging_dict["ep_state_predicates"] += info["state_predicates"]
 
     if (done or trunc):
-        obs, info = env.reset(options={"x": env.x_max / 2 + np.random.uniform(-4, 4), "y": 1} if len(dqns) > 1 else {})
+        obs, info = env.reset(
+            options={"x": env.x_max / 2 + np.random.uniform(-8, 8), "y": 1} if 'goal' in params["env_id"] else {}
+            # options={}
+        )
         if not eval_ep:
             # only log non-eval episodes
             writer.add_scalar("episode/length", logging_dict["ep_len"], logging_dict["episodes_done"])
@@ -305,6 +314,7 @@ def env_interaction_numpy_env(
             f"Episode {logging_dict['episodes_done']} | "
             f"Length: {logging_dict['ep_len']} | "
             f"Reward: {logging_dict['ep_reward_sum']} | "
+            f"Loss: {logging_dict['loss_hist'][-1] if len(logging_dict['loss_hist']) > 0 else None} | "
             f"{global_step} / {params['total_timesteps']} steps")
 
         logging_dict["ep_len"] = 0
@@ -711,7 +721,7 @@ def main(args):
         rewards = []
         state_predicates = []
         for j in range(100):
-            obs, info = env.reset(options={"x": env.x_max / 2 + np.random.uniform(-4, 4), "y": 1} if len(dqns) > 1 else {})
+            obs, info = env.reset(options={"x": env.x_max / 2 + np.random.uniform(-4, 4), "y": 1} if 'goal' in params["env_id"] else {})
             done, trunc = False, False
             trajectory = [obs[:2]]
             episodes_done, ep_len, ep_reward_sum = 0, 0, 0
