@@ -281,13 +281,26 @@ def env_interaction_numpy_env(
 
     if dqn_idx == len(dqns) - 1 and not eval_ep:
         # only add transition to the replay buffer when the DQN we are currently learning is used and we are not doing eval run
-        replay_buffer.add(
-            obs=obs,
-            action=action,
-            reward=punish_reward,  # use reward with punishment for learning
-            next_obs=next_obs,
-            done=done,
-            infos=info)
+
+        min_con_val = np.inf
+        for con_model in dqns[dqn_idx].con_models:
+            con_model.eval()
+            con_q_vals = con_model(torch.tensor(obs).unsqueeze(0).float().to(device)).squeeze()
+            con_state_value = con_q_vals.mean().item()
+
+            if con_state_value < min_con_val:
+                min_con_val = con_state_value
+
+        if min_con_val < 0.9:
+        # only add feasible transitions to the replay buffer
+        # if True:
+            replay_buffer.add(
+                obs=obs,
+                action=action,
+                reward=punish_reward,  # use reward with punishment for learning
+                next_obs=next_obs,
+                done=done,
+                infos=info)
 
     obs = next_obs
     logging_dict["ep_len"] += 1
