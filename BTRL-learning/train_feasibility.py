@@ -283,11 +283,13 @@ def main():
         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M"
         ## ^^^^^^^^^^
         # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-08-03-19-53-26_withBattery_refactorMLP_maxVel:1.5_200kRandom_200epLen",
-        "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-08-11-27-00_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom"
-        
+        # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-08-11-27-00_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom"  # <-- good
+        # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-10-14-33-16_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom"
+        # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-12-11-29-56_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom"
+        "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions"
     ]
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
-    exp_dir = f"{load_rb_dirs[-1]}/feasibility_{timestamp}_1k_lrDecay_singleLoad_veryLargeBatch_recursive_thresh:005_modelEval"
+    exp_dir = f"{load_rb_dirs[-1]}/feasibility_{timestamp}_singleLoad_batch:4k_OR_thresh:005_modelEval_gamma:0.999"
     os.makedirs(exp_dir, exist_ok=True)
 
     # for numpy env
@@ -332,8 +334,10 @@ def main():
         "optimizer_initial_lr": 0.001,
         "optimizer_weight_decay": 0.0001,
         "exponential_lr_decay": 0.9995,
-        "batch_size": 16384,
-        # "batch_size": 4096,
+        # "batch_size": 16384,
+        # "batch_size": 8192,
+        "batch_size": 4096,
+        # "batch_size": 2048,
         "epochs": 1000,
         "nuke_layer_every": 1e9,
         "hidden_activation": torch.nn.ReLU,
@@ -342,13 +346,13 @@ def main():
         "with_batchNorm": True,
         # "criterion": torch.nn.L1Loss,
         # "discount_gamma": 1.0,  # unlike traditional finite-horizon TD, feasibility discount must always be <1!
-        "discount_gamma": 0.995,
+        # "discount_gamma": 0.995,
+        "discount_gamma": 0.999,
+        "higher_prio_load_path": "",
         # "higher_prio_load_path": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
         # "higher_prio_load_path": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-31-17-15-32_withBattery_refactorMLP/feasibility_2024-07-31-19-37-15_1k_lrDecay_veryLargeBatch",
-        "higher_prio_load_path": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-08-03-19-53-26_withBattery_refactorMLP_maxVel:1.5_200kRandom_200epLen/feasibility_2024-08-04-09-41-43_1k_lrDecay",
-        # "higher_prio_load_path": "",
+        # "higher_prio_load_path": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-08-03-19-53-26_withBattery_refactorMLP_maxVel:1.5_200kRandom_200epLen/feasibility_2024-08-04-09-41-43_1k_lrDecay",
         "higher_prio_batchnorm": True,
-        # "higher_prio_load_path": "",
         "higher_prio_arch": [64, 64, 32, 32],
         "higher_prio_threshold": 0.05,
         "polyak_tau": 0.01
