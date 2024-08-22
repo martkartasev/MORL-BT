@@ -76,7 +76,7 @@ def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False
         output_size=env.action_space.n,
         hidden_arch=params["hidden_arch"],
         hidden_activation=params["hidden_activation"],
-        with_batchNorm=True,
+        with_batchNorm=params["with_batchNorm"],
     )
     model.load_state_dict(torch.load(f"{cp_dir}/{cp_file}"))
     model.eval()
@@ -84,12 +84,12 @@ def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False
     # plot value function with different velocities
     for vel in [
         np.array([0.0, 0.0]),
-        np.array([env.max_velocity, 0.0]),
-        np.array([-env.max_velocity, 0.0]),
-        np.array([0.0, env.max_velocity]),
-        np.array([0.0, -env.max_velocity]),
+        # np.array([env.max_velocity, 0.0]),
+        # np.array([-env.max_velocity, 0.0]),
+        # np.array([0.0, env.max_velocity]),
+        # np.array([0.0, -env.max_velocity]),
     ]:
-        for batt in [0.01, 0.05, 0.1, 0.15, 0.2, 0.5, 1.0]:
+        for batt in [0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 1.0]:
             agent_x = np.linspace(env.x_min, env.x_max, 100)
             agent_y = np.linspace(env.y_max, env.y_min, 100)
             agent_x, agent_y = np.meshgrid(agent_x, agent_y)
@@ -106,7 +106,8 @@ def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False
                 vf = value_function(q_values, dim=1).values.detach().cpu().numpy()
                 vf = vf.reshape((100, 100))
 
-                plt.imshow(vf, extent=[env.x_min, env.x_max, env.y_min, env.y_max], vmin=0, vmax=1)
+                # plt.imshow(vf, extent=[env.x_min, env.x_max, env.y_min, env.y_max], vmin=0, vmax=1)
+                plt.imshow(vf, extent=[env.x_min, env.x_max, env.y_min, env.y_max], vmin=vf.min(), vmax=vf.max())
                 plt.colorbar()
                 plt.title(f"Value function with velocity {vel}, {value_function.__name__}, battery: {batt}")
                 plt.savefig(f"{cp_dir}/value_function_{vel}_{value_function.__name__}_batt{batt}.png")
@@ -322,7 +323,7 @@ if __name__ == "__main__":
     # )
     plot_cp(
         env=env,
-        cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-08-11-27-00_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom/feasibility_2024-08-08-17-56-11_1k_lrDecay_singleLoad_veryLargeBatch_recursive_thresh:005_modelEval",
+        cp_dir=r"runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-12-11-29-56_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom/feasibilityRealValueDouble_2024-08-13-11-05-02_singleLoad_veryLargeBatch_greedy_thresh:005_modelEval_gamma:0.99",
         cp_file="feasibility_dqn.pt",
         with_conveyer=True,
     )
