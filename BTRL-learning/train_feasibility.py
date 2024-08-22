@@ -10,6 +10,7 @@ import yaml
 from envs import LavaGoalConveyerAccelerationEnv, SimpleAccEnv
 from networks import MLP
 from plotting import plot_value_2D, plot_discrete_actions
+from simple_env_plotting import plot_cp
 import envs
 import gymnasium as gym
 
@@ -406,6 +407,12 @@ def main():
         lr_hist=lr_hist,
         exp_dir=exp_dir,
         pred_mean_hist=pred_mean_hist,
+    )
+    plot_cp(
+        env=env,
+        cp_dir=exp_dir,
+        cp_file="feasibility_dqn.pt",
+        with_conveyer=True,
     )
 
 
