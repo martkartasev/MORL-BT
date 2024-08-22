@@ -623,6 +623,7 @@ def main(args):
     # TRAINING
     epsilon_vals = np.linspace(params["start_epsilon"], params["end_epsilon"], int(params["exp_fraction"] * (params["total_timesteps"] - params["learning_start"])))
     episodes_since_eval = 1_000_000
+    train_steps_since_target_update = 0
     # episodes_since_eval = 5
     for global_step in range(params["total_timesteps"]):
         if params["no_train_only_plot"]:
@@ -665,7 +666,7 @@ def main(args):
         else:
             raise ValueError(f"which_env must be 'numpy' or 'unity' but got '{params['which_env']}'")
 
-        if global_step > params["learning_start"]:
+        if global_step > params["learning_start"] and global_step % params["train_freq"] == 0:
             batch = replay_buffer.sample(params["batch_size"])
             loss, avg_q = learn_dqn.update(
                 state_batch=batch.observations,
@@ -678,8 +679,10 @@ def main(args):
             writer.add_scalar("train/avg_q", avg_q, global_step)
             logging_dict["loss_hist"].append(loss)
             logging_dict["avg_q_hist"].append(avg_q)
+            train_steps_since_target_update += 1
 
-            if global_step % params["target_freq"] == 0:
+            if train_steps_since_target_update >= params["target_freq"]:
+                train_steps_since_target_update = 0
                 learn_dqn.target_update(params["tau"])
 
         if global_step % 10_000 == 0:
@@ -792,7 +795,9 @@ def main(args):
         rewards = []
         state_predicates = []
         for j in range(100):
-            obs, info = env.reset(options={"x": env.x_max / 2 + np.random.uniform(-4, 4), "y": 1} if 'goal' in params["env_id"] else {})
+            battery = 0.1 if j % 2 == 0 else 0.9  # alternate between low and high battery episodes for plotting
+            obs, info = env.reset(
+                options={"x": env.x_max / 2 + np.random.uniform(-4, 4), "y": 1, "battery": battery} if 'goal' in params["env_id"] else {})
             done, trunc = False, False
             trajectory = [obs[:2]]
             episodes_done, ep_len, ep_reward_sum = 0, 0, 0
@@ -826,7 +831,7 @@ def main(args):
                     global_step=global_step,
                     params=params,
                     logging_dict=eval_logging_dict,
-                    with_plot=True if j < 3 else False,
+                    with_plot=True if j < 4 else False,
                     save_plot_path=f"{exp_dir}/bt_rollouts/{j}/{eval_logging_dict['ep_len']}.png",
                     device=device,
                     eval_ep=True
