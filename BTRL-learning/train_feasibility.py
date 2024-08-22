@@ -198,6 +198,7 @@ def train_model(
             with torch.no_grad():
                 target_q_values = target_model(next_state_batch.float())
                 # target_q_values = model(next_state_batch.float())
+                # double_q_values = model(next_state_batch.float())
 
                 # target_max = target_q_values.max(dim=1, keepdim=True)[0]
                 # td_target = reward_batch + gamma * target_max * (1 - done_batch)
@@ -208,6 +209,7 @@ def train_model(
                     high_prio_forbidden = high_prio_vals > best_high_prio_vals + higher_prio_constraint_thresholds[idx]
 
                     target_q_values[high_prio_forbidden] = torch.inf
+                    # double_q_values[high_prio_forbidden] = torch.inf
 
                 assert torch.all(target_q_values.min(dim=1).values < torch.inf)
 
@@ -215,6 +217,8 @@ def train_model(
                 # current_state_val = reward_batch
                 target_min = target_q_values.min(dim=1, keepdim=True)[0]
                 future_val = torch.max(target_min.to(device), reward_batch)
+                # future_val = target_q_values.min(dim=1, keepdim=True)[0]
+                # future_val = target_q_values.gather(dim=1, index=double_q_values.argmin(dim=1, keepdim=True))
                 td_target = current_state_val + gamma * future_val
 
             q_values = model(state_batch.float().to(device))
