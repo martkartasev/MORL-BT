@@ -479,13 +479,13 @@ def main(args):
         "no_train_only_plot": False,
         "total_timesteps": args.total_steps,
         "lr": 0.0005,
-        "buffer_size": 1e6,
+        "buffer_size": 10e6,
         "gamma": 0.995,
         # "tau": 0.001,
         # "target_freq": 1,
         "tau": 1,
         "target_freq": 10000,
-        "batch_size": 2048,
+        "batch_size": 1024,
         "hidden_activation": nn.ReLU,
         "start_epsilon": 1.0,
         "end_epsilon": 0.05,
@@ -493,19 +493,28 @@ def main(args):
         "learning_start": args.learning_starts,
         "seed": args.seed,
         "with_lava_reward_punish": args.punishACC,
-        # "numpy_env_lava_dqn_cp": "",
+        "train_freq": 3,
+
         "numpy_env_lava_dqn_cp": args.lava_dqn_path,
         "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
         "numpy_env_lava_dqn_batchNorm": False,
-        # "numpy_env_lava_dqn_arch": [256, 256],
+
         "numpy_env_lava_feasibility_dqn_cp": args.lava_constraint_feasibility_path,
         "numpy_env_lava_feasibility_dqn_arch": [64, 64, 32, 32],
         "numpy_env_lava_feasibility_thresh": 0.05,
         "numpy_env_lava_feasibility_batchNorm": True,
-        "numpy_env_goal_dqn_cp": "",
-        # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-24-22-19-06_withLavaFeasibility/reach_left_net.pth",
-        # "numpy_env_goal_dqn_cp": "runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-16-27-29_slowLava_trainedWithoutCon/reach_goal_net.pth",
-        "numpy_env_goal_dqn_arch": [32, 32, 16, 16],
+
+        "numpy_env_battery_dqn_cp": args.battery_dqn_path,
+        "numpy_env_battery_dqn_arch": [32, 32, 16, 16],
+        "numpy_env_battery_dqn_batchNorm": False,
+
+        "numpy_env_battery_feasibility_dqn_cp": args.battery_constraint_feasibility_path,
+        "numpy_env_battery_feasibility_dqn_arch": [64, 64, 32, 32],
+        "numpy_env_battery_feasibility_thresh": 0.05,
+        "numpy_env_battery_feasibility_batchNorm": True,
+
+        "numpy_env_goal_dqn_cp": args.goal_dqn_path,
+        "numpy_env_goal_dqn_arch": [16, 16, 16],
         "numpy_env_goal_dqn_batchNorm": False,
     }
 
@@ -803,10 +812,10 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--total_steps", type=int, default=1_000_000, help="Total number of training steps")
+    parser.add_argument("-t", "--total_steps", type=int, default=3_000_000, help="Total number of training steps")
     parser.add_argument("-s", "--seed", type=int, default=0, help="The random seed for this run")
     parser.add_argument("-l", "--learning_starts", type=int, default=200_000, help="Do this many random actions before learning starts")
-    parser.add_argument("-e", "--exp_name", type=str, default="refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom", help="Additional string to append to the experiment directory")
+    parser.add_argument("-e", "--exp_name", type=str, default="maxVel:1.5_200epLen_batch:1024_3M_200kRandom_trainFreq3_allTransitions_feasibility:OR_withDone_arch:16x16x16", help="Additional string to append to the experiment directory")
     parser.add_argument('--punishACC', default=False, action=argparse.BooleanOptionalAction, help="Agent receives reward penalty for ACC violation")
 
     # parser.add_argument("-ldqnp", "--lava_dqn_path", type=str, default="", help="Path to load the lava avoiding DQN policy from.")
@@ -819,9 +828,20 @@ if __name__ == "__main__":
     # parser.add_argument("-lfcp", "--lava_constraint_feasibility_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-08-01-14-52-27_withBattery_refactorMLP_slowAlways_500epLength_200kRandom/feasibility_2024-08-01-15-25-20_1k_lrDecay/feasibility_dqn.pt", help="Path to load Lava feasibility constraint network from.")
     parser.add_argument("-lfcp", "--lava_constraint_feasibility_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-08-03-19-53-26_withBattery_refactorMLP_maxVel:1.5_200kRandom_200epLen/feasibility_2024-08-04-09-41-43_1k_lrDecay/feasibility_dqn.pt", help="Path to load Lava feasibility constraint network from.")
 
-    # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-goal-v0", help="Which gym env to train on.")
-    parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-battery-v0", help="Which gym env to train on.")
+    # parser.add_argument("-bdqnp", "--battery_dqn_path", type=str, default="", help="Path to load the battery charging DQN policy from.")
+    # parser.add_argument("-bdqnp", "--battery_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-08-11-27-00_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom/reach_goal_net.pth", help="Path to load the battery charging DQN policy from.")
+    parser.add_argument("-bdqnp", "--battery_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions/battery_net.pth", help="Path to load the battery charging DQN policy from.")
+
+    # parser.add_argument("-bfcp", "--battery_constraint_feasibility_path", type=str, default="", help="Path to load Battery feasibility constraint network from.")
+    # parser.add_argument("-bfcp", "--battery_constraint_feasibility_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-08-11-27-00_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom/feasibility_2024-08-08-12-58-17_1k_lrDecay_MultiLoad_veryLargeBatch_OR/feasibility_dqn.pt", help="Path to load Battery feasibility constraint network from.")
+    parser.add_argument("-bfcp", "--battery_constraint_feasibility_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions/feasibility_2024-08-13-14-57-09_multiLoad_smallerBatch_OR_thresh:005_modelEval_gamma:0.999/feasibility_dqn.pt", help="Path to load Battery feasibility constraint network from.")
+
+    parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="", help="Path to load the goal reaching DQN policy from.")
+    # parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-08-19-13-52-21_maxVel:1.5_200epLen_batch:1024_3M_200kRandom_trainFreq3_onlyFeasibleTransitions_feasibility:OR_withDone_arch:16x16x16x16/reach_goal_net.pth", help="Path to load the goal reaching DQN policy from.")
+
     # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-lava-v0", help="Which gym env to train on.")
+    # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-battery-v0", help="Which gym env to train on.")
+    parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-goal-v0", help="Which gym env to train on.")
 
     args = parser.parse_args()
     print(args)
