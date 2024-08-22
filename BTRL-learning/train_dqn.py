@@ -770,7 +770,15 @@ def main(args):
             rewards.append(eval_logging_dict["ep_reward_hist"][-1])
             state_predicates.append(eval_logging_dict["ep_state_predicate_hist"][-1])
 
-        trajectory_data = np.array(trajectory_data)
+        # append last obs to each trajectory to make them all the same length
+        max_len = max([len(traj) for traj in trajectory_data])
+        trajectory_data_same_len = []
+        for traj in trajectory_data:
+            while len(traj) < max_len:
+                traj = np.vstack([traj, traj[-1]])
+            trajectory_data_same_len.append(traj)
+        trajectory_data = np.array(trajectory_data_same_len)
+
         rewards = np.array(rewards)
         state_predicates = np.array(state_predicates)
 
