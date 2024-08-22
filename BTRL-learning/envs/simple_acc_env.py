@@ -126,6 +126,9 @@ class SimpleAccEnv(gym.Env):
             np.array([15, 7.05, 0.0, 0.0, 0.15]),  # above lava
             np.array([15, 7.05, 0.0, 0.0, 0.2]),  # above lava
             np.array([15, 7.05, 0.0, 0.0, 0.25]),  # above lava
+            np.array([15, 7.05, 0.0, 0.0, 0.3]),  # above lava
+            np.array([15, 7.05, 0.0, 0.0, 0.35]),  # above lava
+            np.array([15, 7.05, 0.0, 0.0, 0.4]),  # above lava
             np.array([15, 7.05, 0.0, 0.0, 0.5]),  # above lava
             np.array([15, 7.05, 0.0, 0.0, 1.0]),  # above lava
             np.array([self.lava_x_max + 0.05, 5, 0, 0, 1.0]),  # can step into of lava
@@ -202,21 +205,6 @@ class SimpleAccEnv(gym.Env):
 
         self.battery_charge = np.random.uniform(0, 1)
 
-        # ---
-        # when training without a BT, the feasibility constrained goal-reach DQN must not be initialized in the
-        # infeasible region, i.e. in lava or on conveyer, since it would learn to go to those states, which are closer
-        # to the goal...
-        # ---
-        # in_lava = True
-        # on_conveyer = True
-        # while (in_lava or on_conveyer):
-        #     self.x = np.random.uniform(self.x_min, self.x_max)
-        #     self.y = np.random.uniform(self.y_min, self.y_max)
-        #     self.vel_x = np.random.uniform(-self.max_velocity, self.max_velocity)
-        #     self.vel_y = np.random.uniform(-self.max_velocity, self.max_velocity)
-        #     in_lava = self._in_lava()
-        #     on_conveyer = self._on_conveyer()
-
         self.ep_len = 0
 
         if options is not None:
@@ -244,7 +232,8 @@ class SimpleAccEnv(gym.Env):
         lava_reward = -1 if agent_in_lava else 0
         goal_rewad = -0.1 * np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y])
         left_reward = 0 if self.x < (self.x_max * (2/3)) else -1
-        battery_reward = -1 if battery_empty else 0
+        # battery_reward = -1 if battery_empty else 0
+        battery_reward = -0.1 * np.linalg.norm([self.battery_x - self.x, self.battery_y - self.y]) if battery_empty else 0
 
         if self.task == "lava":
             reward = lava_reward
@@ -295,6 +284,9 @@ class SimpleAccEnv(gym.Env):
 
         new_obs = self._get_obs()
         done = False
+        if self.task == "goal":
+            if agent_at_goal:
+                done = True
         trunc = self.ep_len > self.max_ep_len
         info = {}
         info["state_predicates"] = self.check_state_predicates()
