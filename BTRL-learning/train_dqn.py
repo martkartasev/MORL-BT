@@ -70,15 +70,15 @@ def setup_numpy_env(params, device, exp_dir):
         batch_norm=params["numpy_env_lava_dqn_batchNorm"],
     )
     
-    reach_goal_dqn = DQN(
+    battery_dqn = DQN(
         action_dim=action_dim,
         state_dim=state_dim,
-        hidden_arch=params["numpy_env_goal_dqn_arch"],
+        hidden_arch=params["numpy_env_battery_dqn_arch"],
         hidden_activation=params["hidden_activation"],
         device=device,
         lr=params["lr"],
         gamma=params["gamma"],
-        load_cp=params["numpy_env_goal_dqn_cp"],
+        load_cp=params["numpy_env_battery_dqn_cp"],
         con_model_load_cps=[
             params["numpy_env_lava_feasibility_dqn_cp"]
         ],
@@ -91,16 +91,47 @@ def setup_numpy_env(params, device, exp_dir):
         con_batch_norms=[
             params["numpy_env_lava_feasibility_batchNorm"]
         ],
+        model_name="battery",
+        batch_norm=params["numpy_env_battery_dqn_batchNorm"],
+    )
+    
+    reach_goal_dqn = DQN(
+        action_dim=action_dim,
+        state_dim=state_dim,
+        hidden_arch=params["numpy_env_goal_dqn_arch"],
+        hidden_activation=params["hidden_activation"],
+        device=device,
+        lr=params["lr"],
+        gamma=params["gamma"],
+        load_cp=params["numpy_env_goal_dqn_cp"],
+        con_model_load_cps=[
+            params["numpy_env_battery_feasibility_dqn_cp"]
+        ],
+        con_model_arches=[
+            params["numpy_env_battery_feasibility_dqn_arch"]
+        ],
+        con_threshes=[
+            params["numpy_env_battery_feasibility_thresh"]
+        ],
+        con_batch_norms=[
+            params["numpy_env_battery_feasibility_batchNorm"]
+        ],
         model_name="reach_goal",
         batch_norm=params["numpy_env_goal_dqn_batchNorm"],
     )
 
     if "lava" in env_id:
         dqns = [avoid_lava_dqn]
-    elif "goal" in env_id or "battery" in env_id:
+    elif "battery" in env_id:
         assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
         avoid_lava_dqn.save_model(exp_dir)
-        dqns = [avoid_lava_dqn, reach_goal_dqn]
+        dqns = [avoid_lava_dqn, battery_dqn]
+    elif "goal" in env_id:
+        assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
+        avoid_lava_dqn.save_model(exp_dir)
+        assert params["numpy_env_battery_dqn_cp"] != "", "Pre-trained battery DQN load path must be given"
+        battery_dqn.save_model(exp_dir)
+        dqns = [avoid_lava_dqn, battery_dqn, reach_goal_dqn]
     else:
         raise ValueError(f"Unknown env-id '{env_id}', not sure which DQNs to use...")
 
@@ -189,17 +220,33 @@ def env_interaction_numpy_env(
         eval_ep=False
 ):
 
-    # BT is just if-else, and only active if we are training the goal reach DQN
+    # BTs are just if-else statements for which DQN to use, each DQNs has its own constraints
     agent_x = obs[0]
     agent_y = obs[1]
+    agent_battery = obs[4]
     if len(dqns) == 1:
+        # we only have one DQN, always use that one
         dqn_idx = 0
-    elif len(dqns) == 2:  # avoid lava and next task (reach goal, or go left)
+    
+    elif len(dqns) == 2:
+        # two DQNs, first one is avoid lava, second one is battery
         if env.lava_x_min < agent_x < env.lava_x_max and env.lava_y_min < agent_y < env.lava_y_max:
             print("Agent in lava, using avoid DQN")
             dqn_idx = 0
         else:
             dqn_idx = 1
+            
+    elif len(dqns) == 3:
+        # three DQNs, first one is avoid lava, second one is battery, third one is reach goal
+        if env.lava_x_min < agent_x < env.lava_x_max and env.lava_y_min < agent_y < env.lava_y_max:
+            print("Agent in lava, using avoid DQN")
+            dqn_idx = 0
+        elif agent_battery <= 0:
+            print("Agent battery empty, using battery DQN")
+            dqn_idx = 1
+        else:
+            dqn_idx = 2
+    
     else:
         raise NotImplementedError("More than 2 DQNs given, Implement BT here!")
 
@@ -270,7 +317,7 @@ def env_interaction_numpy_env(
             state_axs[-1].quiver(obs[0], obs[1], obs[2], obs[3], color="r")  # current state
             state_axs[-1].set_xlim(env.x_min - 0.1, env.x_max + 0.1)
             state_axs[-1].set_ylim(env.y_min - 0.1, env.y_max + 0.1)
-            state_axs[-1].set_title(f"Env: {obs}")
+            state_axs[-1].set_title(f"Env: {np.around(obs, 2)}")
 
             if save_plot_path:
                 if not os.path.exists(os.path.dirname(save_plot_path)):
