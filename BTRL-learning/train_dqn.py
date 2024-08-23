@@ -778,7 +778,7 @@ def main(args):
             plt.plot(y_data_smoothed, label=state_predicate, color=colors[i])
             plt.plot(y_data, alpha=0.1, color=colors[i])
             plt.title(f"{state_predicate} Occurances")
-            plt.savefig(f"{exp_dir}/state_predicate_{state_predicate}.png")
+            plt.savefig(f"{img_dir}/state_predicate_{state_predicate}.png")
             plt.close()
 
     if params["which_env"] == "numpy":
@@ -860,7 +860,7 @@ def main(args):
 
         plot_multiple_rollouts(
             traj_data=trajectory_data,
-            save_path=f"{exp_dir}/trajectories.png",
+            save_path=f"{img_dir}/trajectories.png",
             xlim=[env.x_min - 0.1, env.x_max + 0.1],
             ylim=[env.y_min - 0.1, env.y_max + 0.1],
             show=False
