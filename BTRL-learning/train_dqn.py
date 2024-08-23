@@ -257,8 +257,6 @@ def env_interaction_numpy_env(
         if (env.lava_x_min < agent_x < env.lava_x_max and env.lava_y_min < agent_y < env.lava_y_max) or min_lava_feasibility_val > 0.9:
             print("Agent in lava or lava infeasibility val too high, using avoid DQN")
             dqn_idx = 0
-        elif agent_battery <= 0:
-            print("Agent battery empty, using battery DQN")
         elif agent_battery <= 0 or min_battery_feasibility_val > 0.9:
             print("Agent battery empty or battery infeasibility too high, using battery DQN")
             dqn_idx = 1
@@ -888,7 +886,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--total_steps", type=int, default=3_000_000, help="Total number of training steps")
     parser.add_argument("-s", "--seed", type=int, default=0, help="The random seed for this run")
     parser.add_argument("-l", "--learning_starts", type=int, default=200_000, help="Do this many random actions before learning starts")
-    parser.add_argument("-e", "--exp_name", type=str, default="maxVel:1.5_200epLen_batch:1024_3M_200kRandom_trainFreq3_allTransitions_feasibility:OR_withDone_arch:16x16x16", help="Additional string to append to the experiment directory")
+    parser.add_argument("-e", "--exp_name", type=str, default="withFeasibilityAwareBT_twoConstraints", help="Additional string to append to the experiment directory")
     parser.add_argument('--punishACC', default=False, action=argparse.BooleanOptionalAction, help="Agent receives reward penalty for ACC violation")
 
     # parser.add_argument("-ldqnp", "--lava_dqn_path", type=str, default="", help="Path to load the lava avoiding DQN policy from.")
@@ -903,11 +901,13 @@ if __name__ == "__main__":
 
     # parser.add_argument("-bdqnp", "--battery_dqn_path", type=str, default="", help="Path to load the battery charging DQN policy from.")
     # parser.add_argument("-bdqnp", "--battery_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-08-11-27-00_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom/reach_goal_net.pth", help="Path to load the battery charging DQN policy from.")
-    parser.add_argument("-bdqnp", "--battery_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions/battery_net.pth", help="Path to load the battery charging DQN policy from.")
+    # parser.add_argument("-bdqnp", "--battery_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions/battery_net.pth", help="Path to load the battery charging DQN policy from.")
+    parser.add_argument("-bdqnp", "--battery_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/battery_net.pth", help="Path to load the battery charging DQN policy from.")
 
     # parser.add_argument("-bfcp", "--battery_constraint_feasibility_path", type=str, default="", help="Path to load Battery feasibility constraint network from.")
     # parser.add_argument("-bfcp", "--battery_constraint_feasibility_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-08-11-27-00_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom/feasibility_2024-08-08-12-58-17_1k_lrDecay_MultiLoad_veryLargeBatch_OR/feasibility_dqn.pt", help="Path to load Battery feasibility constraint network from.")
-    parser.add_argument("-bfcp", "--battery_constraint_feasibility_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions/feasibility_2024-08-13-14-57-09_multiLoad_smallerBatch_OR_thresh:005_modelEval_gamma:0.999/feasibility_dqn.pt", help="Path to load Battery feasibility constraint network from.")
+    # parser.add_argument("-bfcp", "--battery_constraint_feasibility_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions/feasibility_2024-08-13-14-57-09_multiLoad_smallerBatch_OR_thresh:005_modelEval_gamma:0.999/feasibility_dqn.pt", help="Path to load Battery feasibility constraint network from.")
+    parser.add_argument("-bfcp", "--battery_constraint_feasibility_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-49-30_singleLoad_batch:4k_recursive/feasibility_dqn.pt", help="Path to load Battery feasibility constraint network from.")
 
     parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="", help="Path to load the goal reaching DQN policy from.")
     # parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-08-19-13-52-21_maxVel:1.5_200epLen_batch:1024_3M_200kRandom_trainFreq3_onlyFeasibleTransitions_feasibility:OR_withDone_arch:16x16x16x16/reach_goal_net.pth", help="Path to load the goal reaching DQN policy from.")
