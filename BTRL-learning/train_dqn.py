@@ -220,6 +220,22 @@ def env_interaction_numpy_env(
         eval_ep=False
 ):
 
+    # compute lava feasiblity values if we have that constraint
+    min_lava_feasibility_val = 0
+    if len(dqns) > 1:
+        lava_feasibility_estimator = dqns[1].con_models[0]
+        lava_feasibility_estimator.eval()
+        lava_feasibility_q_vals = lava_feasibility_estimator(torch.tensor(obs).unsqueeze(0).float().to(device)).squeeze()
+        min_lava_feasibility_val = lava_feasibility_q_vals.min().item()
+
+    # compute battery feasiblity values if we have that constraint
+    min_battery_feasibility_val = 0
+    if len(dqns) > 2:
+        battery_feasibility_estimator = dqns[2].con_models[0]
+        battery_feasibility_estimator.eval()
+        battery_feasibility_q_vals = battery_feasibility_estimator(torch.tensor(obs).unsqueeze(0).float().to(device)).squeeze()
+        min_battery_feasibility_val = battery_feasibility_q_vals.min().item()
+
     # BTs are just if-else statements for which DQN to use, each DQNs has its own constraints
     agent_x = obs[0]
     agent_y = obs[1]
@@ -230,19 +246,21 @@ def env_interaction_numpy_env(
     
     elif len(dqns) == 2:
         # two DQNs, first one is avoid lava, second one is battery
-        if env.lava_x_min < agent_x < env.lava_x_max and env.lava_y_min < agent_y < env.lava_y_max:
-            print("Agent in lava, using avoid DQN")
+        if (env.lava_x_min < agent_x < env.lava_x_max and env.lava_y_min < agent_y < env.lava_y_max) or min_lava_feasibility_val > 0.9:
+            print("Agent in lava or lava infeasibility val too high, using avoid DQN")
             dqn_idx = 0
         else:
             dqn_idx = 1
             
     elif len(dqns) == 3:
         # three DQNs, first one is avoid lava, second one is battery, third one is reach goal
-        if env.lava_x_min < agent_x < env.lava_x_max and env.lava_y_min < agent_y < env.lava_y_max:
-            print("Agent in lava, using avoid DQN")
+        if (env.lava_x_min < agent_x < env.lava_x_max and env.lava_y_min < agent_y < env.lava_y_max) or min_lava_feasibility_val > 0.9:
+            print("Agent in lava or lava infeasibility val too high, using avoid DQN")
             dqn_idx = 0
         elif agent_battery <= 0:
             print("Agent battery empty, using battery DQN")
+        elif agent_battery <= 0 or min_battery_feasibility_val > 0.9:
+            print("Agent battery empty or battery infeasibility too high, using battery DQN")
             dqn_idx = 1
         else:
             dqn_idx = 2
@@ -329,25 +347,13 @@ def env_interaction_numpy_env(
     if dqn_idx == len(dqns) - 1 and not eval_ep:
         # only add transition to the replay buffer when the DQN we are currently learning is used and we are not doing eval run
 
-        min_con_val = np.inf
-        for con_model in dqns[dqn_idx].con_models:
-            con_model.eval()
-            con_q_vals = con_model(torch.tensor(obs).unsqueeze(0).float().to(device)).squeeze()
-            con_state_value = con_q_vals.mean().item()
-
-            if con_state_value < min_con_val:
-                min_con_val = con_state_value
-
-        if min_con_val < 0.9:
-        # only add feasible transitions to the replay buffer
-        # if True:
-            replay_buffer.add(
-                obs=obs,
-                action=action,
-                reward=punish_reward,  # use reward with punishment for learning
-                next_obs=next_obs,
-                done=done,
-                infos=info)
+        replay_buffer.add(
+            obs=obs,
+            action=action,
+            reward=punish_reward,  # use reward with punishment for learning
+            next_obs=next_obs,
+            done=done,
+            infos=info)
 
     obs = next_obs
     logging_dict["ep_len"] += 1
