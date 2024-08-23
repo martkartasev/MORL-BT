@@ -753,6 +753,8 @@ def main(args):
     )
 
     # PLOT TRAINING CURVES
+    img_dir = f"{exp_dir}/imgs"
+    os.makedirs(img_dir, exist_ok=True)
     if not params["no_train_only_plot"]:
         titles = ["Loss Q", "Avg Q", "Episode Reward", "Episode Length"]
         graphs = [
@@ -764,7 +766,7 @@ def main(args):
         for y_data, title in zip(graphs, titles):
             plt.plot(y_data)
             plt.title(title)
-            plt.savefig(f"{exp_dir}/{title}.png")
+            plt.savefig(f"{img_dir}/{title}.png")
             plt.close()
 
         state_predicate_occurances = np.asarray(logging_dict["ep_state_predicate_hist"])
@@ -784,7 +786,7 @@ def main(args):
             dqns=dqns,
             env=env,
             device=device,
-            save_dir=f"{exp_dir}",
+            save_dir=f"{img_dir}",
             plot_eval_states=True,
             plot_value_function=True,
             n_rollouts=10

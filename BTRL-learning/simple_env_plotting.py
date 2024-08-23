@@ -106,8 +106,8 @@ def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False
                 vf = value_function(q_values, dim=1).values.detach().cpu().numpy()
                 vf = vf.reshape((100, 100))
 
-                # plt.imshow(vf, extent=[env.x_min, env.x_max, env.y_min, env.y_max], vmin=0, vmax=1)
-                plt.imshow(vf, extent=[env.x_min, env.x_max, env.y_min, env.y_max], vmin=vf.min(), vmax=vf.max())
+                plt.imshow(vf, extent=[env.x_min, env.x_max, env.y_min, env.y_max], vmin=0, vmax=1)
+                # plt.imshow(vf, extent=[env.x_min, env.x_max, env.y_min, env.y_max], vmin=vf.min(), vmax=vf.max())
                 plt.colorbar()
                 plt.title(f"Value function with velocity {vel}, {value_function.__name__}, battery: {batt}")
                 plt.savefig(f"{cp_dir}/value_function_{vel}_{value_function.__name__}_batt{batt}.png")
