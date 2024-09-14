@@ -230,7 +230,7 @@ class SimpleAccEnv(gym.Env):
         agent_at_battery = self._at_batterty()
 
         lava_reward = -1 if agent_in_lava else 0
-        goal_rewad = -0.1 * np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y])
+        goal_rewad = -1 - 0.1 * np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y])
         left_reward = 0 if self.x < (self.x_max * (2/3)) else -1
         # battery_reward = -1 if battery_empty else 0
         battery_reward = -0.1 * np.linalg.norm([self.battery_x - self.x, self.battery_y - self.y]) if battery_empty else 0
