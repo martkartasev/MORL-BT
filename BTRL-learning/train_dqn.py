@@ -235,7 +235,8 @@ def env_interaction_numpy_env(
     # compute battery feasiblity values if we have that constraint
     min_battery_feasibility_val = 0
     if len(dqns) > 2:
-        battery_feasibility_estimator = dqns[2].con_models[0]
+        # TODO, we should apply higher prio mask before checking?!
+        battery_feasibility_estimator = dqns[2].con_models[1]
         battery_feasibility_estimator.eval()
         battery_feasibility_q_vals = battery_feasibility_estimator(torch.tensor(obs).unsqueeze(0).float().to(device)).squeeze()
         min_battery_feasibility_val = battery_feasibility_q_vals.min().item()
