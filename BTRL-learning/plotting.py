@@ -1157,38 +1157,49 @@ if __name__ == "__main__":
     method_colors = ["magenta", "red", "cyan"]
     method_ls = ["--", ":", "-"]
     
-    plot_feasibility_value_function_comparison(
-        # safety_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
-        safety_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-31-17-15-32_withBattery_refactorMLP/feasibility_2024-07-31-19-37-15_1k_lrDecay_veryLargeBatch",
-        battery_feasibility_dirs=[
-            # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-29-13-45-07_500k/feasibility_2024-07-29-15-36-24_best",
-            # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-40-15_multiLoad_recursive_lessL2_EvenLargerModel_1k_lrDecay_veryLargeBatch",
-            # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-06-58_multiLoad_OR_lessL2_EvenLargerModel_6k_lrDecay_veryLargeBatch_goodManualStopEarly"
-            # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-31-19-48-25_withBattery_refactorMLP/feasibility_2024-08-01-09-26-24_naive_1k_lrDecay_veryLargeBatch",
-            # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-31-19-48-25_withBattery_refactorMLP/feasibility_2024-08-01-09-10-48_multiLoad_recursive_1k_lrDecay_veryLargeBatch",
-            # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-31-19-48-25_withBattery_refactorMLP/feasibility_2024-08-01-08-57-40_multiLoad_OR_1k_lrDecay_veryLargeBatch"
-            "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions/feasibility_2024-08-16-13-33-12_singleLoad_smallerBatch_greedy_thresh:005_modelEval_gamma:0.999",
-            "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions/feasibility_2024-08-13-14-38-19_singleLoad_smallerBatch_recursive_thresh:005_modelEval_gamma:0.999",
-            "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions/feasibility_2024-08-16-14-21-46_multiLoad_batch:8k_OR_thresh:005_modelEval_gamma:0.999"
-        ],
-        battery_feasibility_names=[
-            "Battery\nNaive",
-            "Battery\nRecursive",
-            "Battery\nOR",
-        ]
-    )
+    # plot_feasibility_value_function_comparison(
+    #     # safety_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
+    #     safety_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-31-17-15-32_withBattery_refactorMLP/feasibility_2024-07-31-19-37-15_1k_lrDecay_veryLargeBatch",
+    #     battery_feasibility_dirs=[
+    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-29-13-45-07_500k/feasibility_2024-07-29-15-36-24_best",
+    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-40-15_multiLoad_recursive_lessL2_EvenLargerModel_1k_lrDecay_veryLargeBatch",
+    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-06-58_multiLoad_OR_lessL2_EvenLargerModel_6k_lrDecay_veryLargeBatch_goodManualStopEarly"
+    #         # ---
+    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-31-19-48-25_withBattery_refactorMLP/feasibility_2024-08-01-09-26-24_naive_1k_lrDecay_veryLargeBatch",
+    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-31-19-48-25_withBattery_refactorMLP/feasibility_2024-08-01-09-10-48_multiLoad_recursive_1k_lrDecay_veryLargeBatch",
+    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-31-19-48-25_withBattery_refactorMLP/feasibility_2024-08-01-08-57-40_multiLoad_OR_1k_lrDecay_veryLargeBatch"
+    #         # ---
+    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions/feasibility_2024-08-16-13-33-12_singleLoad_smallerBatch_greedy_thresh:005_modelEval_gamma:0.999",
+    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions/feasibility_2024-08-13-14-38-19_singleLoad_smallerBatch_recursive_thresh:005_modelEval_gamma:0.999",
+    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions/feasibility_2024-08-16-14-21-46_multiLoad_batch:8k_OR_thresh:005_modelEval_gamma:0.999"
+    #         "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-31-24_singleLoad_batch:4k_greedy",
+    #         "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-49-30_singleLoad_batch:4k_recursive",
+    #         "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-14-16-27_singleLoad_batch:4k_OR"
+    #     ],
+    #     battery_feasibility_names=[
+    #         "Battery\nNaive",
+    #         "Battery\nRecursive",
+    #         "Battery\nOR",
+    #     ]
+    # )
 
     plot_multi_feasibility_comparison(
-        unsafe_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
-        unsafe_feasibility_thresh=0.05,
-        standard_battery_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-29-13-45-07_500k/feasibility_2024-07-29-15-36-24_best",
-        standard_battery_thresh=0.075,
-        or_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-06-58_multiLoad_OR_lessL2_EvenLargerModel_6k_lrDecay_veryLargeBatch_goodManualStopEarly",
-        recursive_battery_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-40-15_multiLoad_recursive_lessL2_EvenLargerModel_1k_lrDecay_veryLargeBatch",
-        recursive_battery_thresh=0.06,
-        state=np.array([17.5, 7.1, 0, 0, 0.16]),
+        # unsafe_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
+        unsafe_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-31-17-15-32_withBattery_refactorMLP/feasibility_2024-07-31-19-37-15_1k_lrDecay_veryLargeBatch",
+        unsafe_feasibility_thresh=0.1,
+        # standard_battery_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-29-13-45-07_500k/feasibility_2024-07-29-15-36-24_best",
+        standard_battery_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-31-24_singleLoad_batch:4k_greedy",
+        standard_battery_thresh=0.05,
+        # or_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-06-58_multiLoad_OR_lessL2_EvenLargerModel_6k_lrDecay_veryLargeBatch_goodManualStopEarly",
+        or_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-14-16-27_singleLoad_batch:4k_OR",
+        or_feasibility_thresh=0.02,
+        # recursive_battery_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-40-15_multiLoad_recursive_lessL2_EvenLargerModel_1k_lrDecay_veryLargeBatch",
+        recursive_battery_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-49-30_singleLoad_batch:4k_recursive",
+        recursive_battery_thresh=0.05,
+        state=np.array([16.5, 7.1, 0, 0, 0.25]),
         cross_lw=3,
     )
+    exit(0)
 
     plot_bt_comp_rollouts(
         con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
