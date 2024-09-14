@@ -105,15 +105,19 @@ def setup_numpy_env(params, device, exp_dir):
         gamma=params["gamma"],
         load_cp=params["numpy_env_goal_dqn_cp"],
         con_model_load_cps=[
-            params["numpy_env_battery_feasibility_dqn_cp"]
+            params["numpy_env_lava_feasibility_dqn_cp"],
+            params["numpy_env_battery_feasibility_dqn_cp"],
         ],
         con_model_arches=[
+            params["numpy_env_lava_feasibility_dqn_arch"],
             params["numpy_env_battery_feasibility_dqn_arch"]
         ],
         con_threshes=[
+            params["numpy_env_lava_feasibility_thresh"],
             params["numpy_env_battery_feasibility_thresh"]
         ],
         con_batch_norms=[
+            params["numpy_env_lava_feasibility_batchNorm"],
             params["numpy_env_battery_feasibility_batchNorm"]
         ],
         model_name="reach_goal",
@@ -294,7 +298,7 @@ def env_interaction_numpy_env(
                     point = state_axs[subplot_idx].scatter(acc[0], acc[1], s=800, c=q_vals[a], vmin=q_vals.min(), vmax=q_vals.max())
                 plt.colorbar(point, ax=state_axs[subplot_idx])
 
-                state_axs[subplot_idx].set_title(f"Q-values {dqn_plt_idx}: ({'active' if dqn_idx == dqn_plt_idx else 'inactive'})")
+                state_axs[subplot_idx].set_title(f"Q-values {dqn_plt_idx}: ({'active' if dqn_idx == dqn_plt_idx else ''})")
                 subplot_idx += 1
 
                 for con_plt_idx, con_model in enumerate(dqn.con_models):
@@ -549,7 +553,7 @@ def main(args):
         # "target_freq": 1,
         "tau": 1,
         "target_freq": 10000,
-        "batch_size": 1024,
+        "batch_size": 4096,
         "hidden_activation": nn.ReLU,
         "start_epsilon": 1.0,
         "end_epsilon": 0.05,
@@ -557,7 +561,7 @@ def main(args):
         "learning_start": args.learning_starts,
         "seed": args.seed,
         "with_lava_reward_punish": args.punishACC,
-        "train_freq": 3,
+        "train_freq": 2,
 
         "numpy_env_lava_dqn_cp": args.lava_dqn_path,
         "numpy_env_lava_dqn_arch": [32, 32, 16, 16],
@@ -578,7 +582,7 @@ def main(args):
         "numpy_env_battery_feasibility_batchNorm": True,
 
         "numpy_env_goal_dqn_cp": args.goal_dqn_path,
-        "numpy_env_goal_dqn_arch": [16, 16, 16],
+        "numpy_env_goal_dqn_arch": [64, 64, 32, 32],
         "numpy_env_goal_dqn_batchNorm": False,
     }
 
@@ -883,10 +887,10 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--total_steps", type=int, default=3_000_000, help="Total number of training steps")
-    parser.add_argument("-s", "--seed", type=int, default=0, help="The random seed for this run")
+    parser.add_argument("-t", "--total_steps", type=int, default=4_000_000, help="Total number of training steps")
+    parser.add_argument("-s", "--seed", type=int, default=1, help="The random seed for this run")
     parser.add_argument("-l", "--learning_starts", type=int, default=200_000, help="Do this many random actions before learning starts")
-    parser.add_argument("-e", "--exp_name", type=str, default="withFeasibilityAwareBT_twoConstraints", help="Additional string to append to the experiment directory")
+    parser.add_argument("-e", "--exp_name", type=str, default="withFeasibilityAwareBT_twoConstraints_trainFreq2_always-1reward_arch:[64x64x32x32]_4M", help="Additional string to append to the experiment directory")
     parser.add_argument('--punishACC', default=False, action=argparse.BooleanOptionalAction, help="Agent receives reward penalty for ACC violation")
 
     # parser.add_argument("-ldqnp", "--lava_dqn_path", type=str, default="", help="Path to load the lava avoiding DQN policy from.")
