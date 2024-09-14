@@ -84,8 +84,8 @@ class DQN:
         if up_to_idx == -1:
             up_to_idx = len(self.con_models)
 
-        if len(self.con_models) > 1:
-            print("Mask computation for multiple constraints has not been tested yet!")
+        # if len(self.con_models) > 1:
+        #     print("Mask computation for multiple constraints has not been tested yet!")
 
         n_states = state_batch.shape[0]
         mask_forbidden_global = torch.zeros(n_states, self.action_dim, device=self.device)
