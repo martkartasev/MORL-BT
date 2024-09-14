@@ -282,43 +282,50 @@ def env_interaction_numpy_env(
     if with_plot:
         with torch.no_grad():
             # figure out how many subplots we need
-            n_dqns = len(dqns)
-            n_con_models = 0
-            for dqn in dqns:
-                n_con_models += len(dqn.con_models)
-            n_subplots = n_dqns + n_con_models + 1
+            # n_dqns = len(dqns)
+            # n_con_models = 0
+            # for dqn in dqns:
+            #     n_con_models += len(dqn.con_models)
+            # n_subplots = n_dqns + n_con_models + 1
 
-            state_fig, state_axs = plt.subplots(nrows=1, ncols=n_subplots, figsize=(20, 5))
+            # state_fig, state_axs = plt.subplots(nrows=1, ncols=n_subplots, figsize=(20, 5))
 
-            subplot_idx = 0
+            # hardcode for now: at most 3 cols (dqn, con1, con2), at most 3 rows (lava + env, battery + con_lava, goal + con_lava + con_battery)
+            state_fig, state_axs = plt.subplots(nrows=3, ncols=3, figsize=(10, 10))
+
+            subplot_row_idx = 0
+            subplot_col_idx = 0
             for dqn_plt_idx, dqn in enumerate(dqns):
                 q_vals = dqn.q_net(torch.tensor(obs).float().to(device)).detach().cpu().numpy()
                 # plot q_vals
                 for a in range(env.action_space.n):
                     acc = action_to_acc(a)
-                    point = state_axs[subplot_idx].scatter(acc[0], acc[1], s=800, c=q_vals[a], vmin=q_vals.min(), vmax=q_vals.max())
-                plt.colorbar(point, ax=state_axs[subplot_idx])
+                    point = state_axs[subplot_row_idx, subplot_col_idx].scatter(acc[0], acc[1], s=800, c=q_vals[a], vmin=q_vals.min(), vmax=q_vals.max())
+                plt.colorbar(point, ax=state_axs[subplot_row_idx, subplot_col_idx])
 
-                state_axs[subplot_idx].set_title(f"Q-values {dqn_plt_idx}: ({'active' if dqn_idx == dqn_plt_idx else ''})")
-                subplot_idx += 1
+                state_axs[subplot_row_idx, subplot_col_idx].set_title(f"Q-values {dqn_plt_idx}: ({'active' if dqn_idx == dqn_plt_idx else ''})")
+                subplot_col_idx += 1
 
                 for con_plt_idx, con_model in enumerate(dqn.con_models):
                     con_model.eval()
                     con_q_vals = con_model(torch.tensor(obs).unsqueeze(0).float().to(device)).squeeze().detach().cpu().numpy()
-                    con_mask = dqns[dqn_plt_idx].compute_mask(torch.tensor(obs).unsqueeze(0).float().to(device))
+                    con_mask = dqn.compute_mask(torch.tensor(obs).unsqueeze(0).float().to(device), up_to_idx=con_plt_idx + 1)
                     # plot con_q_vals
                     for a in range(env.action_space.n):
                         acc = action_to_acc(a)
-                        point = state_axs[subplot_idx].scatter(acc[0], acc[1], s=800, c=con_q_vals[a], vmin=con_q_vals.min(), vmax=con_q_vals.max())
+                        point = state_axs[subplot_row_idx, subplot_col_idx].scatter(acc[0], acc[1], s=800, c=con_q_vals[a], vmin=con_q_vals.min(), vmax=con_q_vals.max())
                         if con_mask[a]:
-                            state_axs[subplot_idx].scatter(acc[0], acc[1], s=800, c="r", marker="x")
+                            state_axs[subplot_row_idx, subplot_col_idx].scatter(acc[0], acc[1], s=800, c="r", marker="x")
 
-                    plt.colorbar(point, ax=state_axs[subplot_idx])
+                    plt.colorbar(point, ax=state_axs[subplot_row_idx, subplot_col_idx])
 
-                    state_axs[subplot_idx].set_title(f"Q-values {dqn_plt_idx}, con: {con_plt_idx}")
-                    subplot_idx += 1
+                    state_axs[subplot_row_idx, subplot_col_idx].set_title(f"Q-values {dqn_plt_idx}, con: {con_plt_idx}")
+                    subplot_col_idx += 1
 
-            # plot env
+                subplot_row_idx += 1
+                subplot_col_idx = 0
+
+            # plot env, always at first row, last col
             lava_rect = plt.Rectangle(
                 (env.lava_x_min, env.lava_y_min),
                 env.lava_x_max - env.lava_x_min,
@@ -326,7 +333,7 @@ def env_interaction_numpy_env(
                 color="orange",
                 alpha=1
             )
-            state_axs[-1].add_patch(lava_rect)
+            state_axs[0, 2].add_patch(lava_rect)
             conveyer_rect = plt.Rectangle(
                 (env.conveyer_x_min, env.conveyer_y_min),
                 env.conveyer_x_max - env.conveyer_x_min,
@@ -334,11 +341,11 @@ def env_interaction_numpy_env(
                 color="gray",
                 alpha=1
             )
-            state_axs[-1].add_patch(conveyer_rect)
-            state_axs[-1].quiver(obs[0], obs[1], obs[2], obs[3], color="r")  # current state
-            state_axs[-1].set_xlim(env.x_min - 0.1, env.x_max + 0.1)
-            state_axs[-1].set_ylim(env.y_min - 0.1, env.y_max + 0.1)
-            state_axs[-1].set_title(f"Env: {np.around(obs, 2)}")
+            state_axs[0, 2].add_patch(conveyer_rect)
+            state_axs[0, 2].quiver(obs[0], obs[1], obs[2], obs[3], color="r")  # current state
+            state_axs[0, 2].set_xlim(env.x_min - 0.1, env.x_max + 0.1)
+            state_axs[0, 2].set_ylim(env.y_min - 0.1, env.y_max + 0.1)
+            state_axs[0, 2].set_title(f"Env: {np.around(obs, 2)}")
 
             if save_plot_path:
                 if not os.path.exists(os.path.dirname(save_plot_path)):
@@ -915,7 +922,7 @@ if __name__ == "__main__":
     parser.add_argument("-bfcp", "--battery_constraint_feasibility_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-49-30_singleLoad_batch:4k_recursive/feasibility_dqn.pt", help="Path to load Battery feasibility constraint network from.")
 
     parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="", help="Path to load the goal reaching DQN policy from.")
-    # parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-08-19-13-52-21_maxVel:1.5_200epLen_batch:1024_3M_200kRandom_trainFreq3_onlyFeasibleTransitions_feasibility:OR_withDone_arch:16x16x16x16/reach_goal_net.pth", help="Path to load the goal reaching DQN policy from.")
+    # parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-04-22-10-22_withFeasibilityAwareBT_twoConstraints_trainFreq2_always-1reward_arch:[64x64x32x32]_4M/reach_goal_net.pth", help="Path to load the goal reaching DQN policy from.")
 
     # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-lava-v0", help="Which gym env to train on.")
     # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-battery-v0", help="Which gym env to train on.")
