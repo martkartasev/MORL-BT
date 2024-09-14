@@ -282,14 +282,15 @@ def main():
         # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery",
         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M"
         ## ^^^^^^^^^^
-        # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-08-03-19-53-26_withBattery_refactorMLP_maxVel:1.5_200kRandom_200epLen",
+        "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-08-03-19-53-26_withBattery_refactorMLP_maxVel:1.5_200kRandom_200epLen",
         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-08-11-27-00_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom"  # <-- good
         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-10-14-33-16_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom"
         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-12-11-29-56_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom"
-        "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions"
+        # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions"
+        "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT"
     ]
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
-    exp_dir = f"{load_rb_dirs[-1]}/feasibility_{timestamp}_singleLoad_batch:4k_OR_thresh:005_modelEval_gamma:0.999"
+    exp_dir = f"{load_rb_dirs[-1]}/feasibility_{timestamp}_multiLoad_batch:4k_OR"
     os.makedirs(exp_dir, exist_ok=True)
 
     # for numpy env
@@ -311,10 +312,10 @@ def main():
         # return state[0] > (env.x_max / 2)
 
         # only battery
-        return state[4] <= 0
+        # return state[4] <= 0
         
         # battery and lava
-        # return (state[4] <= 0) or (env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max)
+        return (state[4] <= 0) or (env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max)
 
     # unity env
     # env = None
@@ -338,7 +339,8 @@ def main():
         # "batch_size": 8192,
         "batch_size": 4096,
         # "batch_size": 2048,
-        "epochs": 1000,
+        # "epochs": 1000,
+        "epochs": 200,
         "nuke_layer_every": 1e9,
         "hidden_activation": torch.nn.ReLU,
         "hidden_arch": [64, 64, 32, 32],
