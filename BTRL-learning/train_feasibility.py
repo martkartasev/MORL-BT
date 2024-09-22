@@ -282,12 +282,10 @@ def main():
         # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery",
         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M"
         ## ^^^^^^^^^^
-        "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-08-03-19-53-26_withBattery_refactorMLP_maxVel:1.5_200kRandom_200epLen",
-        # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-08-11-27-00_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom"  # <-- good
-        # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-10-14-33-16_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom"
-        # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-12-11-29-56_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom"
-        # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions"
-        "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT"
+        # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-08-03-19-53-26_withBattery_refactorMLP_maxVel:1.5_200kRandom_200epLen",
+        # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT"
+        "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-21-11-06-22_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget",
+        "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-21-12-02-49_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget"
     ]
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
     exp_dir = f"{load_rb_dirs[-1]}/feasibility_{timestamp}_multiLoad_batch:4k_OR"

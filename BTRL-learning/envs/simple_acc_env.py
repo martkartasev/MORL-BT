@@ -172,13 +172,13 @@ class SimpleAccEnv(gym.Env):
         return self.conveyer_x_min <= self.x <= self.conveyer_x_max and self.conveyer_y_min <= self.y <= self.conveyer_y_max
 
     def _at_goal(self):
-        return np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y]) < 0.5
+        return np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y]) < 1
 
     def _battery_empty(self):
         return self.battery_charge <= 0
 
     def _at_batterty(self):
-        return np.linalg.norm([self.battery_x - self.x, self.battery_y - self.y]) < 0.5
+        return np.linalg.norm([self.battery_x - self.x, self.battery_y - self.y]) < 1
 
     def check_state_predicates(self):
         predicates = [self._in_lava(), self._at_goal(), self._on_conveyer(), self._battery_empty(), self._at_batterty()]
@@ -230,7 +230,8 @@ class SimpleAccEnv(gym.Env):
         agent_at_battery = self._at_batterty()
 
         lava_reward = -1 if agent_in_lava else 0
-        goal_rewad = -1 - 0.1 * np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y])
+        # goal_rewad = -1 - 0.1 * np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y])
+        goal_rewad = - np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y]) / 13  # 13 is the max distance
         left_reward = 0 if self.x < (self.x_max * (2/3)) else -1
         # battery_reward = -1 if battery_empty else 0
         battery_reward = -0.1 * np.linalg.norm([self.battery_x - self.x, self.battery_y - self.y]) if battery_empty else 0
@@ -276,7 +277,7 @@ class SimpleAccEnv(gym.Env):
         self.y = np.clip(self.y, self.y_min, self.y_max)
 
         # update battery
-        self.battery_charge -= 0.01
+        self.battery_charge -= 0.0075
         self.battery_charge = np.clip(self.battery_charge, 0, 1)
 
         if agent_at_battery:
