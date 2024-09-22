@@ -54,10 +54,11 @@ class DQN:
         if self.load_cp:
             self.q_net.load_state_dict(torch.load(self.load_cp))
 
-        # self.q_target_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.hidden_arch, with_batchNorm=self.batch_norm)
-        # self.q_target_net.load_state_dict(self.q_net.state_dict())
+        self.q_target_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.hidden_arch, with_batchNorm=self.batch_norm)
+        self.q_target_net.load_state_dict(self.q_net.state_dict())
 
         self.q_ensemble = [self.q_net]
+        self.q_ensemble_target = [self.q_target_net]
         for _ in range(3):  # ensemble size - 1
             q_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.hidden_arch, with_batchNorm=self.batch_norm)
             # q_net.load_state_dict(self.q_net.state_dict())
@@ -66,9 +67,15 @@ class DQN:
             if self.load_cp:
                 q_net.load_state_dict(torch.load(self.load_cp))
 
+            q_net_target = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.hidden_arch, with_batchNorm=self.batch_norm)
+            q_net_target.load_state_dict(q_net.state_dict())
+            self.q_ensemble_target.append(q_net_target)
+
         # for model in [self.q_net, self.q_target_net]:
         for model in self.q_ensemble:
-                model.to(self.device)
+            model.to(self.device)
+        for model in self.q_ensemble_target:
+            model.to(self.device)
 
         # self.optimizer = optim.Adam(self.q_net.parameters(), lr=self.lr)
         # all models in the ensemble share the same optimizer
@@ -141,41 +148,41 @@ class DQN:
 
             # ensemble dqn
             # choose random ensemble member and use it for selecting next action
-            ensemble_idx = np.random.randint(0, len(self.q_ensemble))
-            target_q_values = self.q_ensemble[ensemble_idx](next_state_batch)
+            ensemble_update_idx = np.random.randint(0, len(self.q_ensemble))
+            target_q_values = self.q_ensemble_target[ensemble_update_idx](next_state_batch)
             target_q_values[forbidden_mask] = -torch.inf
             next_state_action = torch.argmax(target_q_values, dim=1, keepdim=True)
 
             # compute the average of the remaining ensemble members in the next state
             next_state_values = torch.zeros_like(target_q_values)
             for q_ensemble_idx in range(len(self.q_ensemble)):
-                if q_ensemble_idx != ensemble_idx:
-                    next_state_values += self.q_ensemble[q_ensemble_idx](next_state_batch)
+                if q_ensemble_idx != ensemble_update_idx:
+                    next_state_values += self.q_ensemble_target[q_ensemble_idx](next_state_batch)
             next_state_values /= len(self.q_ensemble) - 1
             target_max = next_state_values.gather(1, next_state_action).squeeze()
 
             td_target = reward_batch.squeeze() + self.gamma * target_max * (1 - done_batch.squeeze())
 
         # pred = self.q_net(state_batch).gather(1, action_batch).squeeze()
-        pred = self.q_ensemble[ensemble_idx](state_batch).gather(1, action_batch).squeeze()
+        pred = self.q_ensemble[ensemble_update_idx](state_batch).gather(1, action_batch).squeeze()
 
         loss = F.mse_loss(pred, td_target)
 
         self.optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), 1.0)
+        # torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), 1.0)
+        for q_net in self.q_ensemble:
+            torch.nn.utils.clip_grad_norm_(q_net.parameters(), 1.0)
         self.optimizer.step()
 
         return loss.item(), pred.mean().item()
 
     def target_update(self, tau):
-        # for target_param, q_param in zip(self.q_target_net.parameters(), self.q_net.parameters()):
-        #     target_param.data.copy_(
-        #         tau * q_param.data + (1.0 - tau) * target_param.data
-        #     )
-
-        # no extra target update with ensemble, we always update one of the ensemble members at random
-        pass
+        for ensemble_idx in range(len(self.q_ensemble)):
+            for target_param, q_param in zip(self.q_ensemble_target[ensemble_idx].parameters(), self.q_ensemble[ensemble_idx].parameters()):
+                target_param.data.copy_(
+                    tau * q_param.data + (1.0 - tau) * target_param.data
+                )
 
     def act(self, state, epsilon, ret_vals=False):
         state = torch.from_numpy(state).float().to(self.device)
