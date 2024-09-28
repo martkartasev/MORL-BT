@@ -23,7 +23,7 @@ def plot_q_state(q_values, state, env, cp_dir):
     plt.title(f"State: {state}")
     plt.colorbar()
     plt.savefig(f"{cp_dir}/eval_state_{state}.png")
-    plt.show()
+    # plt.show()
     plt.close()
 
 
@@ -66,7 +66,8 @@ def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False
     plt.xlim(env.x_min - 0.1, env.x_max + 0.1)
     plt.ylim(env.y_min - 0.1, env.y_max + 0.1)
     plt.savefig(f"{cp_dir}/eval_states.png")
-    plt.show()
+    # plt.show()
+    plt.close()
 
     # load CP
     params = yaml.load(open(f"{cp_dir}/params.yaml", "r"), Loader=yaml.FullLoader)
@@ -111,7 +112,7 @@ def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False
                 plt.colorbar()
                 plt.title(f"Value function with velocity {vel}, {value_function.__name__}, battery: {batt}")
                 plt.savefig(f"{cp_dir}/value_function_{vel}_{value_function.__name__}_batt{batt}.png")
-                plt.show()
+                # plt.show()
                 plt.close()
 
     for state in env.eval_states:
