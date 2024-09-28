@@ -382,6 +382,7 @@ def env_interaction_numpy_env(
     logging_dict["ep_state_predicates"] += info["state_predicates"]
 
     if (done or trunc):
+        # TODO: run exp to check the unsafe border reset is still needed for good feasibility model...
         # reset_options={  # to get random xy starts and override the starting points close to unsafe border...
         #     "x": np.random.uniform(env.x_min, env.x_max),
         #     "y": np.random.uniform(env.y_min, env.y_max),
