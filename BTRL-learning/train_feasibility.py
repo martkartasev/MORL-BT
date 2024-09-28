@@ -13,6 +13,7 @@ from plotting import plot_value_2D, plot_discrete_actions
 from simple_env_plotting import plot_cp
 import envs
 import gymnasium as gym
+import argparse
 
 
 def load_data_from_rb(load_dirs, n_obs, n_actions):
@@ -276,19 +277,20 @@ def train_model(
     return model, train_loss_hist, lr_hist, pred_mean_hist
 
 
-def main():
-    load_rb_dirs = [
-        ## nice results with those two: vvvvv
-        # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery",
-        # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M"
-        ## ^^^^^^^^^^
-        # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-08-03-19-53-26_withBattery_refactorMLP_maxVel:1.5_200kRandom_200epLen",
-        # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT"
-        "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-21-11-06-22_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget",
-        "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-21-12-02-49_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget"
-    ]
+def main(args):
+    # load_rb_dirs = [
+    #     ## nice results with those two: vvvvv
+    #     # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery",
+    #     # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M"
+    #     ## ^^^^^^^^^^
+    #     # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-08-03-19-53-26_withBattery_refactorMLP_maxVel:1.5_200kRandom_200epLen",
+    #     # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT"
+    #     "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-21-11-06-22_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget",
+    #     "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-21-12-02-49_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget"
+    # ]
+    load_rb_dirs = args.rb_dirs
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
-    exp_dir = f"{load_rb_dirs[-1]}/feasibility_{timestamp}_multiLoad_batch:4k_OR"
+    exp_dir = f"{load_rb_dirs[-1]}/feasibility_{timestamp}_{args.exp_str}"
     os.makedirs(exp_dir, exist_ok=True)
 
     # for numpy env
@@ -313,7 +315,19 @@ def main():
         # return state[4] <= 0
         
         # battery and lava
-        return (state[4] <= 0) or (env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max)
+        # return (state[4] <= 0) or (env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max)
+        assert args.feasibility_label in ["lava", "left", "battery", "or"], f"Feasibility label {args.feasibility_label} not supported"
+
+        if args.feasibility_label == "lava":
+            return env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max
+        elif args.feasibility_label == "left":
+            return state[0] > (env.x_max / 2)
+        elif args.feasibility_label == "battery":
+            return state[4] <= 0
+        elif args.feasibility_label == "or":
+            return (state[4] <= 0) or (env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max)
+        else:
+            raise NotImplementedError(f"Feasibility label {args.feasibility_label} not supported")
 
     # unity env
     # env = None
@@ -338,7 +352,7 @@ def main():
         "batch_size": 4096,
         # "batch_size": 2048,
         # "epochs": 1000,
-        "epochs": 200,
+        "epochs": args.epochs,
         "nuke_layer_every": 1e9,
         "hidden_activation": torch.nn.ReLU,
         "hidden_arch": [64, 64, 32, 32],
@@ -348,14 +362,16 @@ def main():
         # "discount_gamma": 1.0,  # unlike traditional finite-horizon TD, feasibility discount must always be <1!
         # "discount_gamma": 0.995,
         "discount_gamma": 0.999,
-        "higher_prio_load_path": "",
+        "higher_prio_load_path": args.higher_prio_feasibility_estimator,
         # "higher_prio_load_path": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
         # "higher_prio_load_path": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-31-17-15-32_withBattery_refactorMLP/feasibility_2024-07-31-19-37-15_1k_lrDecay_veryLargeBatch",
         # "higher_prio_load_path": "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-08-03-19-53-26_withBattery_refactorMLP_maxVel:1.5_200kRandom_200epLen/feasibility_2024-08-04-09-41-43_1k_lrDecay",
         "higher_prio_batchnorm": True,
         "higher_prio_arch": [64, 64, 32, 32],
         "higher_prio_threshold": 0.05,
-        "polyak_tau": 0.01
+        "polyak_tau": 0.01,
+        "feasibility_label": args.feasibility_label,
+        "rb_dirs": load_rb_dirs,
     }
 
     # save params as yaml
@@ -423,7 +439,28 @@ def main():
         with_conveyer=True,
     )
 
+    return exp_dir
+
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=[
+        # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-21-11-06-22_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget",
+        # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-21-12-02-49_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget"
+        # ---
+        "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-11-28-07_feasibilityAwareBT:False_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget_3M_batch4096"
+    ])
+    parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
+    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="singleLoad_randomXYResets")
+    parser.add_argument("--feasibility_label", type=str, help="String to append to the experiment directory", default="lava")
+    parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=200)
+
+    args = parser.parse_args()
+
+    exp_dir = main(args)
+
+    # EXTREMELY IMPORTANT: Last line of the script must print the experiment directory such that the bash script can capture it!
+    print(exp_dir)
+
+
 

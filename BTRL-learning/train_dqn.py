@@ -382,15 +382,13 @@ def env_interaction_numpy_env(
     logging_dict["ep_state_predicates"] += info["state_predicates"]
 
     if (done or trunc):
-        # TODO: run exp to check the unsafe border reset is still needed for good feasibility model...
-        # reset_options={  # to get random xy starts and override the starting points close to unsafe border...
-        #     "x": np.random.uniform(env.x_min, env.x_max),
-        #     "y": np.random.uniform(env.y_min, env.y_max),
-        # }
         if "goal" in params["env_id"]:
             reset_options = {"x": env.x_max / 2 + np.random.uniform(-8, 8), "y": 1}
         else:
-            reset_options = {}
+            reset_options = {  # randomly sample start points and override points close to unsafe area border
+                "x": np.random.uniform(env.x_min, env.x_max),
+                "y": np.random.uniform(env.y_min, env.y_max),
+            }
 
         obs, info = env.reset(
             options=reset_options
@@ -560,6 +558,7 @@ def main(args):
     which_env = "numpy"  # "unity" or "numpy
     # which_env = "unity"  # "unity" or "numpy
     params = {
+        "exp_base_dir": args.exp_base_dir,
         "which_env": which_env,
         # "env_id": "SimpleAccEnv-wide-withConveyer-lava-v0",
         # "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
@@ -616,7 +615,7 @@ def main(args):
     }
 
     # DIR FOR LOGGING
-    exp_dir = f"runs/{params['env_id']}"
+    exp_dir = f"{params['exp_base_dir']}/{params['env_id']}"
     if params["which_env"] == "unity":
         exp_dir += f"_{params['unity_task']}"
 
@@ -914,6 +913,8 @@ def main(args):
     env.close()
     writer.close()
 
+    return exp_dir
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -922,17 +923,18 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--learning_starts", type=int, default=200_000, help="Do this many random actions before learning starts")
     parser.add_argument('--punishACC', default=False, action=argparse.BooleanOptionalAction, help="Agent receives reward penalty for ACC violation")
     parser.add_argument('--feasibility_aware_bt', default=False, action=argparse.BooleanOptionalAction, help="Wether BT selects higher prio based on feasibility even if constraint is not violated yet")
-    parser.add_argument("-e", "--exp_name", type=str, default="feasibilityAwareBT:False_underLavaReset_withEnsemble4_clipAllGrads_withEnsembleTarget_3M_batch4096_NoConstraints", help="Additional string to append to the experiment directory")
+    parser.add_argument("-e", "--exp_name", type=str, default="feasibilityAwareBT:False_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget_3M_batch4096_NoConstraints", help="Additional string to append to the experiment directory")
+    parser.add_argument("-d", "--exp_base_dir", type=str, default="runs", help="Base directory for all experiments")
 
     # TODO: Properly load ensemble DQN instead of just one of the ensemble members...
-    # parser.add_argument("-ldqnp", "--lava_dqn_path", type=str, default="", help="Path to load the lava avoiding DQN policy from.")
-    parser.add_argument("-ldqnp", "--lava_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-21-11-06-22_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget/avoid_lava_q_net_0.pth", help="Path to load the lava avoiding DQN policy from.")
+    parser.add_argument("-ldqnp", "--lava_dqn_path", type=str, default="", help="Path to load the lava avoiding DQN policy from.")
+    # parser.add_argument("-ldqnp", "--lava_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-21-11-06-22_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget/avoid_lava_q_net_0.pth", help="Path to load the lava avoiding DQN policy from.")
 
     parser.add_argument("-lfcp", "--lava_constraint_feasibility_path", type=str, default="", help="Path to load Lava feasibility constraint network from.")
     # parser.add_argument("-lfcp", "--lava_constraint_feasibility_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-21-11-06-22_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget/feasibility_2024-09-21-11-56-43_batch:4k/feasibility_dqn.pt", help="Path to load Lava feasibility constraint network from.")
 
-    # parser.add_argument("-bdqnp", "--battery_dqn_path", type=str, default="", help="Path to load the battery charging DQN policy from.")
-    parser.add_argument("-bdqnp", "--battery_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-21-12-02-49_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget/battery_q_net_0.pth", help="Path to load the battery charging DQN policy from.")
+    parser.add_argument("-bdqnp", "--battery_dqn_path", type=str, default="", help="Path to load the battery charging DQN policy from.")
+    # parser.add_argument("-bdqnp", "--battery_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-21-12-02-49_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget/battery_q_net_0.pth", help="Path to load the battery charging DQN policy from.")
 
     parser.add_argument("-bfcp", "--battery_constraint_feasibility_path", type=str, default="", help="Path to load Battery feasibility constraint network from.")
     # parser.add_argument("-bfcp", "--battery_constraint_feasibility_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-21-12-02-49_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget/feasibility_2024-09-21-13-13-08_multiLoad_batch:4k_OR/feasibility_dqn.pt", help="Path to load Battery feasibility constraint network from.")
@@ -940,11 +942,14 @@ if __name__ == "__main__":
     parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="", help="Path to load the goal reaching DQN policy from.")
     # parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-04-22-10-22_withFeasibilityAwareBT_twoConstraints_trainFreq2_always-1reward_arch:[64x64x32x32]_4M/reach_goal_net.pth", help="Path to load the goal reaching DQN policy from.")
 
-    # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-lava-v0", help="Which gym env to train on.")
+    parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-lava-v0", help="Which gym env to train on.")
     # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-battery-v0", help="Which gym env to train on.")
-    parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-goal-v0", help="Which gym env to train on.")
+    # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-goal-v0", help="Which gym env to train on.")
 
     args = parser.parse_args()
     print(args)
 
-    main(args)
+    exp_dir = main(args)
+
+    # EXTREMELY IMPORTANT: Last print statement must be the experiment directory, so that the bash script can read it!
+    print(exp_dir)
