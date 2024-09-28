@@ -77,7 +77,7 @@ class MLP(nn.Module):
 
         self.network = nn.Sequential(*layers)
 
-        print(self.network)
+        # print(self.network)
 
     def forward(self, x):
         return self.network(x)
