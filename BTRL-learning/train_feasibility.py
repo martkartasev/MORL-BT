@@ -240,7 +240,7 @@ def train_model(
                 target_param.data.copy_(polyak_tau * param.data + (1.0 - polyak_tau) * target_param.data)
 
             if i % 100 == 0:
-                print(f"Epoch {epoch}, batch {i} / {batches_per_episode}, loss: {np.around(loss.item(), 5)}, avg. q-values: {np.around(q_values.mean().item(), 3)}, lr={np.around(optimizer.param_groups[0]['lr'], 5)}")
+                print(f"Epoch {epoch}, batch {i} / {batches_per_episode}, loss: {np.around(loss.item(), 5)}, avg. q-values: {np.around(q_values.mean().item(), 3)}, lr={np.around(optimizer.param_groups[0]['lr'], 5)}", flush=True)
 
         # train_loss_hist.append(train_loss / batches_done)
         lr_hist.append(optimizer.param_groups[0]["lr"])

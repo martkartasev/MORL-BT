@@ -258,7 +258,7 @@ def env_interaction_numpy_env(
     elif len(dqns) == 2:
         # two DQNs, first one is avoid lava, second one is battery
         if (env.lava_x_min < agent_x < env.lava_x_max and env.lava_y_min < agent_y < env.lava_y_max) or min_lava_feasibility_val > 0.9:
-            print("Agent in lava or lava infeasibility val too high, using avoid DQN")
+            # print("Agent in lava or lava infeasibility val too high, using avoid DQN")
             dqn_idx = 0
         else:
             dqn_idx = 1
@@ -283,11 +283,11 @@ def env_interaction_numpy_env(
     punish_reward = reward
     if params["reward_punish"]:
         if env.lava_x_min < next_obs[0] < env.lava_x_max and env.lava_y_min < next_obs[1] < env.lava_y_max:
-            print("Reward penalty for bein in lave")
+            # print("Reward penalty for being in lave")
             punish_reward -= 100
 
         if next_obs[4] <= 0:
-            print("Reward penalty for empty battery")
+            # print("Reward penalty for empty battery")
             punish_reward -= 100
 
     if with_plot:
@@ -411,7 +411,7 @@ def env_interaction_numpy_env(
             f"Length: {logging_dict['ep_len']} | "
             f"Reward: {logging_dict['ep_reward_sum']} | "
             f"Loss: {logging_dict['loss_hist'][-1] if len(logging_dict['loss_hist']) > 0 else None} | "
-            f"{global_step} / {params['total_timesteps']} steps")
+            f"{global_step} / {params['total_timesteps']} steps", flush=True)
 
         logging_dict["ep_len"] = 0
         logging_dict["ep_reward_sum"] = 0
