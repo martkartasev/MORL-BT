@@ -835,8 +835,22 @@ def main(args):
         state_predicates = []
         for j in range(100):
             battery = 0.1 if j % 2 == 0 else 0.9  # alternate between low and high battery episodes for plotting
+            if "goal" in params["env_id"]:
+                reset_options = {
+                    "x": env.x_max / 2 + np.random.uniform(-4, 4),
+                    "y": 1,
+                    "battery": battery
+                }
+            else:
+                reset_options = {  # randomly sample start points and override points close to unsafe area border
+                    "x": np.random.uniform(env.x_min, env.x_max),
+                    "y": np.random.uniform(env.y_min, env.y_max),
+                    "battery": battery
+                }
+
             obs, info = env.reset(
-                options={"x": env.x_max / 2 + np.random.uniform(-4, 4), "y": 1, "battery": battery} if 'goal' in params["env_id"] else {})
+                options=reset_options
+            )
             done, trunc = False, False
             trajectory = [obs[:2]]
             episodes_done, ep_len, ep_reward_sum = 0, 0, 0
