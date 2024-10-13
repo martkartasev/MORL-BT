@@ -1041,6 +1041,7 @@ def plot_multi_feasibility_comparison(
         threshold=recursive_battery_thresh,
         higher_prio_forbidden_mask=unsafe_forbidden_mask,
         higher_prio_allowed_mask=unsafe_allowed_mask,
+        use_higher_prio_threshold_calc=False,
         ylabel="",
         xlabel="",
         title="Batter feasibility (recursive)",
@@ -1056,6 +1057,7 @@ def plot_multi_feasibility_comparison(
         threshold=or_feasibility_thresh,
         higher_prio_forbidden_mask=unsafe_forbidden_mask,
         higher_prio_allowed_mask=unsafe_allowed_mask,
+        use_higher_prio_threshold_calc=False,
         ylabel="",
         xlabel="",
         title="Batter feasibility (OR)",
@@ -1075,6 +1077,7 @@ def plot_feasibility_value_function_comparison(
         battery_feasibility_dirs=[],
         battery_feasibility_names=[],
         value_resolution=500,
+        battery_levels=[0.05, 0.1, 0.15, 0.2, 0.5],
 ):
     assert len(battery_feasibility_dirs) == len(battery_feasibility_names)
 
@@ -1109,21 +1112,20 @@ def plot_feasibility_value_function_comparison(
     safety_feasbility_dqn.eval()
 
     row_idx = 0
-    fixed_battery = 1.0
-    for vel_idx, vel_arr in enumerate([np.array([0, 0]), np.array([2.0, 0]), np.array([-2.0, 0]), np.array([0, 2.0]), np.array([0, -2.0])]):
-        agent_vel_x = np.full_like(xs, vel_arr[0])
-        agent_vel_y = np.full_like(ys, vel_arr[1])
-        battery = np.full_like(ys, fixed_battery)
+    for battery_col_idx, battery_lvl in enumerate(battery_levels):
+        agent_vel_x = np.full_like(xs, np.array([0]))
+        agent_vel_y = np.full_like(ys, np.array([0]))
+        battery = np.full_like(ys, battery_lvl)
         states = np.stack([xs, ys, agent_vel_x, agent_vel_y, battery], axis=1)
 
         q_values = safety_feasbility_dqn(torch.Tensor(states)).detach().cpu().numpy()
         state_values = q_values.min(axis=1).reshape(value_resolution, value_resolution)
 
-        img = axs[row_idx, vel_idx].imshow(state_values, cmap="viridis", interpolation="nearest", extent=[0, env.x_max, 0, env.y_max], vmin=0, vmax=1)
-        axs[row_idx, vel_idx].set_title(f"Velocity: {vel_arr}")
-        axs[row_idx, vel_idx].set_xticks([], [])
-        axs[row_idx, vel_idx].set_yticks([], [])
-        plt.colorbar(img, ax=axs[row_idx, vel_idx], format="%.1f")
+        img = axs[row_idx, battery_col_idx].imshow(state_values, cmap="viridis", interpolation="nearest", extent=[0, env.x_max, 0, env.y_max], vmin=0, vmax=1)
+        axs[row_idx, battery_col_idx].set_title(f"Battery: {battery_lvl}")
+        axs[row_idx, battery_col_idx].set_xticks([], [])
+        axs[row_idx, battery_col_idx].set_yticks([], [])
+        plt.colorbar(img, ax=axs[row_idx, battery_col_idx], format="%.1f", fraction=0.046, pad=0.04)
     axs[0, 0].set_ylabel("Safety")
 
     # plot battery feasibility functions
@@ -1141,7 +1143,7 @@ def plot_feasibility_value_function_comparison(
 
         row_idx = battery_row_idx + 1
         fixed_vel = np.array([0, 0])
-        for battery_col_idx, battery_lvl in enumerate([0.05, 0.1, 0.15, 0.2, 0.5]):
+        for battery_col_idx, battery_lvl in enumerate(battery_levels):
             agent_vel_x = np.full_like(xs, fixed_vel[0])
             agent_vel_y = np.full_like(ys, fixed_vel[1])
             battery = np.full_like(ys, battery_lvl)
@@ -1151,28 +1153,18 @@ def plot_feasibility_value_function_comparison(
             state_values = q_values.min(axis=1).reshape(value_resolution, value_resolution)
 
             img = axs[row_idx, battery_col_idx].imshow(state_values, cmap="viridis", interpolation="nearest", extent=[0, env.x_max, 0, env.y_max], vmin=0, vmax=1)
-            axs[row_idx, battery_col_idx].set_title(f"Battery: {battery_lvl}")
+            # axs[row_idx, battery_col_idx].set_title(f"Battery: {battery_lvl}")
             axs[row_idx, battery_col_idx].set_xticks([], [])
             axs[row_idx, battery_col_idx].set_yticks([], [])
-            plt.colorbar(img, ax=axs[row_idx, battery_col_idx], format="%.1f")
+            plt.colorbar(img, ax=axs[row_idx, battery_col_idx], format="%.1f", fraction=0.046, pad=0.04)
 
             if battery_col_idx == 0:
                 axs[row_idx, battery_col_idx].set_ylabel(battery_feasibility_name)
-
-    axs[0, 1].set_xlabel("Env. x")
-    axs[0, 1].set_ylabel("Env. y")
-    axs[1, 2].set_xlabel("Env. x")
-    axs[1, 2].set_ylabel("Env. y")
-    axs[2, 3].set_xlabel("Env. x")
-    axs[2, 3].set_ylabel("Env. y")
-    axs[3, 4].set_xlabel("Env. x")
-    axs[3, 4].set_ylabel("Env. y")
 
     plt.tight_layout()
     plt.savefig(f"runs/feasibility_stateSpace_comparison.png", bbox_inches="tight", dpi=300)
     plt.show()
     plt.close()
-
 
 
 if __name__ == "__main__":
@@ -1183,31 +1175,24 @@ if __name__ == "__main__":
     method_colors = ["magenta", "red", "cyan"]
     method_ls = ["--", ":", "-"]
     
-    # plot_feasibility_value_function_comparison(
-    #     # safety_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
-    #     safety_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-31-17-15-32_withBattery_refactorMLP/feasibility_2024-07-31-19-37-15_1k_lrDecay_veryLargeBatch",
-    #     battery_feasibility_dirs=[
-    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-29-13-45-07_500k/feasibility_2024-07-29-15-36-24_best",
-    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-40-15_multiLoad_recursive_lessL2_EvenLargerModel_1k_lrDecay_veryLargeBatch",
-    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-06-58_multiLoad_OR_lessL2_EvenLargerModel_6k_lrDecay_veryLargeBatch_goodManualStopEarly"
-    #         # ---
-    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-31-19-48-25_withBattery_refactorMLP/feasibility_2024-08-01-09-26-24_naive_1k_lrDecay_veryLargeBatch",
-    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-31-19-48-25_withBattery_refactorMLP/feasibility_2024-08-01-09-10-48_multiLoad_recursive_1k_lrDecay_veryLargeBatch",
-    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-31-19-48-25_withBattery_refactorMLP/feasibility_2024-08-01-08-57-40_multiLoad_OR_1k_lrDecay_veryLargeBatch"
-    #         # ---
-    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions/feasibility_2024-08-16-13-33-12_singleLoad_smallerBatch_greedy_thresh:005_modelEval_gamma:0.999",
-    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions/feasibility_2024-08-13-14-38-19_singleLoad_smallerBatch_recursive_thresh:005_modelEval_gamma:0.999",
-    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-13-12-43-19_refactorMLP_maxVel:1.5_200epLen_batch:2048_200kRandom_denseReward_trainFreq2_onlyFeasibleTransitions/feasibility_2024-08-16-14-21-46_multiLoad_batch:8k_OR_thresh:005_modelEval_gamma:0.999"
-    #         "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-31-24_singleLoad_batch:4k_greedy",
-    #         "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-49-30_singleLoad_batch:4k_recursive",
-    #         "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-14-16-27_singleLoad_batch:4k_OR"
-    #     ],
-    #     battery_feasibility_names=[
-    #         "Battery\nNaive",
-    #         "Battery\nRecursive",
-    #         "Battery\nOR",
-    #     ]
-    # )
+    plot_feasibility_value_function_comparison(
+        # safety_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-31-17-15-32_withBattery_refactorMLP/feasibility_2024-07-31-19-37-15_1k_lrDecay_veryLargeBatch",
+        safety_feasibility_dir="final_experiments/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-15-08-46_debug_seed:1/feasibility_2024-09-28-18-05-50_lava",
+        battery_feasibility_dirs=[
+            # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-31-24_singleLoad_batch:4k_greedy",
+            # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-49-30_singleLoad_batch:4k_recursive",
+            # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-14-16-27_singleLoad_batch:4k_OR"
+            "final_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-28-18-13-59_debug_seed:1/feasibility_2024-09-28-22-23-20_battery_naive",
+            "final_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-28-18-13-59_debug_seed:1/feasibility_2024-09-28-22-30-41_battery_recursive",
+            "final_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-28-18-13-59_debug_seed:1/feasibility_2024-09-28-22-38-46_lava_OR_battery"
+        ],
+        battery_feasibility_names=[
+            "Battery\nNaive",
+            "Battery\nRecursive",
+            "Battery\nOR",
+        ],
+        battery_levels=[0.01, 0.05, 0.1, 0.15, 0.5]
+    )
 
     # plot_multi_feasibility_comparison(
     #     # unsafe_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
@@ -1226,19 +1211,33 @@ if __name__ == "__main__":
     #     cross_lw=3,
     # )
 
-    plot_bt_comp_rollouts(
-        # con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
-        # no_con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-13-12_noPunish_noConstraint_noEval_2",
-        # sum_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-53-56_withPunish_noConstraint_noEval_2",
-        con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-04-53-21_debug_feasibilityAwareBT_seed:1",
-        # no_con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-28-22-54-23_debug_noConstraints_seed:1",
-        # no_con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-18-11-28_debug_noConstraints_seed:2",
-        no_con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-13-14-12_debug_noConstraints_seed:3",
-        sum_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-01-53-13_debug_rewardPenalty_seed:1",
-        method_names=method_names,
-        method_colors=method_colors,
-        method_ls=method_ls
-    )
+    # plot_bt_comp_rollouts(
+    #     # con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
+    #     # no_con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-13-12_noPunish_noConstraint_noEval_2",
+    #     # sum_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-53-56_withPunish_noConstraint_noEval_2",
+    #     con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-04-53-21_debug_feasibilityAwareBT_seed:1",
+    #     # no_con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-28-22-54-23_debug_noConstraints_seed:1",
+    #     # no_con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-18-11-28_debug_noConstraints_seed:2",
+    #     no_con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-13-14-12_debug_noConstraints_seed:3",
+    #     sum_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-01-53-13_debug_rewardPenalty_seed:1",
+    #     method_names=method_names,
+    #     method_colors=method_colors,
+    #     method_ls=method_ls
+    # )
+
+    # plot_bt_comp_rollouts(
+    #     # con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
+    #     # no_con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-13-12_noPunish_noConstraint_noEval_2",
+    #     # sum_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-53-56_withPunish_noConstraint_noEval_2",
+    #     con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-04-53-21_debug_feasibilityAwareBT_seed:1",
+    #     # no_con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-28-22-54-23_debug_noConstraints_seed:1",
+    #     # no_con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-18-11-28_debug_noConstraints_seed:2",
+    #     no_con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-13-14-12_debug_noConstraints_seed:3",
+    #     sum_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-01-53-13_debug_rewardPenalty_seed:1",
+    #     method_names=method_names,
+    #     method_colors=method_colors,
+    #     method_ls=method_ls
+    # )
 
     # plot_bt_comp_metrics(
     #     which_data="train",
