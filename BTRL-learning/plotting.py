@@ -392,23 +392,28 @@ def plot_simple_acc_env(env, ax=None, show=True, save_path="", close=True):
     plt.scatter(
         env.goal_x,
         env.goal_y,
-        s=200,
+        s=800,
         c='gold',
         zorder=10,
         marker='*',
         label="Goal"
     )
+    circle = plt.Circle((env.goal_x, env.goal_y), 0.75, color="gold", fill=False, lw=3)
+    plt.gca().add_artist(circle)
 
     # battery
     plt.scatter(
         env.battery_x,
         env.battery_y,
-        s=200,
-        c='green',
+        s=600,
+        c='k',
         zorder=10,
         marker='+',
-        label="Charger"
+        label="Charger",
+        lw=3,
     )
+    circle = plt.Circle((env.battery_x, env.battery_y), 0.75, color="k", fill=False, lw=3, zorder=10)
+    plt.gca().add_artist(circle)
 
     ax.set_xlim(env.x_min - 0.1, env.x_max + 0.1)
     ax.set_ylim(env.y_min - 0.1, env.y_max + 0.1)
@@ -1221,14 +1226,19 @@ if __name__ == "__main__":
     #     cross_lw=3,
     # )
 
-    # plot_bt_comp_rollouts(
-    #     con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
-    #     no_con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-13-12_noPunish_noConstraint_noEval_2",
-    #     sum_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-53-56_withPunish_noConstraint_noEval_2",
-    #     method_names=method_names,
-    #     method_colors=method_colors,
-    #     method_ls=method_ls
-    # )
+    plot_bt_comp_rollouts(
+        # con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
+        # no_con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-13-12_noPunish_noConstraint_noEval_2",
+        # sum_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-53-56_withPunish_noConstraint_noEval_2",
+        con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-04-53-21_debug_feasibilityAwareBT_seed:1",
+        # no_con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-28-22-54-23_debug_noConstraints_seed:1",
+        # no_con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-18-11-28_debug_noConstraints_seed:2",
+        no_con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-13-14-12_debug_noConstraints_seed:3",
+        sum_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-01-53-13_debug_rewardPenalty_seed:1",
+        method_names=method_names,
+        method_colors=method_colors,
+        method_ls=method_ls
+    )
 
     # plot_bt_comp_metrics(
     #     which_data="train",
@@ -1273,12 +1283,12 @@ if __name__ == "__main__":
     #     method_ls=method_ls
     # )
 
-    plot_numpy_feasiblity_dqn(
-        # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/",
-        # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29",
-        # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
-        dqn_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-29-10-29-42_debug_seed:2/feasibility_2024-09-29-13-25-13_lava",
-        cross_lw=3
-    )
+    # plot_numpy_feasiblity_dqn(
+    #     # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/",
+    #     # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29",
+    #     # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
+    #     dqn_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-29-10-29-42_debug_seed:2/feasibility_2024-09-29-13-25-13_lava",
+    #     cross_lw=3
+    # )
 
 
