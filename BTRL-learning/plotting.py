@@ -610,50 +610,70 @@ def plot_bt_comp_metrics(
             reward_hists = np.array(eval_reward_hists)
             predicate_hists = np.array(eval_predicate_hists)
         else:
+            # truncate training data to the length of the shortest
+            shortest_reward_hist = min([len(hist) for hist in train_reward_hists])
+            train_reward_hists = [hist[:shortest_reward_hist] for hist in train_reward_hists]
             reward_hists = np.array(train_reward_hists)
+
+            shortest_predicate_hist = min([len(hist) for hist in train_predicate_hists])
+            train_predicate_hists = [hist[:shortest_predicate_hist] for hist in train_predicate_hists]
             predicate_hists = np.array(train_predicate_hists)
 
         print(method_dirs)
         in_lava = predicate_hists[:, :, 0]
         at_goal = predicate_hists[:, :, 1]
+        battery_empty = predicate_hists[:, :, 3]
 
         # compute mean and std for across repetitions
+        # apply smoothing
+        reward_hists = np.array([np.convolve(hist, np.ones(10) / 10, mode="valid") for hist in reward_hists])
         mean_reward = np.mean(reward_hists, axis=0)
         std_reward = np.std(reward_hists, axis=0)
 
+        in_lava = np.array([np.convolve(hist, np.ones(10) / 10, mode="valid") for hist in in_lava])
         mean_in_lava = np.mean(in_lava, axis=0)
         std_in_lava = np.std(in_lava, axis=0)
 
+        at_goal = np.array([np.convolve(hist, np.ones(10) / 10, mode="valid") for hist in at_goal])
         mean_at_goal = np.mean(at_goal, axis=0)
         std_at_goal = np.std(at_goal, axis=0)
 
+        battery_empty = np.array([np.convolve(hist, np.ones(10) / 10, mode="valid") for hist in battery_empty])
+        mean_battery_empty = np.mean(battery_empty, axis=0)
+        std_battery_empty = np.std(battery_empty, axis=0)
+
         # plot metrics
         n_x_ticks = 3
-        lw = 1
-        axs[0].plot(mean_reward, color=method_colors[idx], ls=method_ls[idx], lw=lw)
-        axs[0].fill_between(range(len(mean_reward)), mean_reward - std_reward, mean_reward + std_reward, color=method_colors[idx], alpha=0.2)
-        axs[0].set_ylabel("Reward")
-        axs[0].set_xlabel("Episodes")
-        axs[0].set_xlim(0, len(mean_reward) - 1)
-        axs[0].set_ylim(-1200, -250)
-        axs[0].set_xticks(np.linspace(0, len(mean_reward), n_x_ticks, dtype=np.int64))
+        lw = 0.5
+        upper_x_lim = 26000
+        # the number of episodes is different for different methods (due to finishing more or less episodes with same number of interactions)
+        # to make all plots of same length we scale x to fit the length of the longest method...
+        x_scaled = np.linspace(0, upper_x_lim, len(mean_reward))
 
-        axs[1].plot(mean_in_lava, color=method_colors[idx], label=method_names[idx], ls=method_ls[idx], lw=lw)
-        axs[1].fill_between(range(len(mean_in_lava)), mean_in_lava - std_in_lava, mean_in_lava + std_in_lava, color=method_colors[idx], alpha=0.2)
+        axs[0].plot(x_scaled, mean_reward, color=method_colors[idx], ls=method_ls[idx], lw=lw, alpha=0.75)
+        axs[0].fill_between(x_scaled, mean_reward - std_reward, mean_reward + std_reward, color=method_colors[idx], alpha=0.2)
+        axs[0].set_ylabel("Goal reward")
+        axs[0].set_xlabel("Episodes")
+        axs[0].set_xlim(0, upper_x_lim)
+        axs[0].set_ylim(-200, 0)
+        # axs[0].set_xticks(np.linspace(0, len(mean_reward), n_x_ticks, dtype=np.int64))
+
+        axs[1].plot(x_scaled, mean_in_lava, color=method_colors[idx], label=method_names[idx], ls=method_ls[idx], lw=lw)
+        axs[1].fill_between(x_scaled, mean_in_lava - std_in_lava, mean_in_lava + std_in_lava, color=method_colors[idx], alpha=0.2)
         axs[1].set_ylabel("Steps " + predicate_names[0].replace("_", " "))
         axs[1].set_xlabel("Episodes")
         axs[1].legend(loc="upper center", bbox_to_anchor=(0.5, 1.25), ncol=len(method_names))
-        axs[1].set_xlim(0, len(mean_in_lava) - 1)
-        axs[1].set_ylim(-1, 100)
-        axs[1].set_xticks(np.linspace(0, len(mean_in_lava), n_x_ticks, dtype=np.int64))
+        axs[1].set_xlim(0, upper_x_lim)
+        axs[1].set_ylim(-5, 100)
+        # axs[1].set_xticks(np.linspace(0, len(mean_in_lava), n_x_ticks, dtype=np.int64))
 
-        axs[2].plot(mean_at_goal, color=method_colors[idx], ls=method_ls[idx], lw=lw)
-        axs[2].fill_between(range(len(mean_at_goal)), mean_at_goal - std_at_goal, mean_at_goal + std_at_goal, color=method_colors[idx], alpha=0.2)
-        axs[2].set_ylabel("Steps " + predicate_names[1].replace("_", " "))
+        axs[2].plot(x_scaled, mean_battery_empty, color=method_colors[idx], ls=method_ls[idx], lw=lw)
+        axs[2].fill_between(x_scaled, mean_battery_empty - std_battery_empty, mean_battery_empty + std_battery_empty, color=method_colors[idx], alpha=0.2)
+        axs[2].set_ylabel("Steps " + predicate_names[3].replace("_", " "))
         axs[2].set_xlabel("Episodes")
-        axs[2].set_xlim(0, len(mean_at_goal) - 1)
-        axs[2].set_ylim(-1, 60)
-        axs[2].set_xticks(np.linspace(0, len(mean_at_goal), n_x_ticks, dtype=np.int64))
+        axs[2].set_xlim(0, upper_x_lim)
+        axs[2].set_ylim(-5, 100)
+        # axs[2].set_xticks(np.linspace(0, len(mean_at_goal), n_x_ticks, dtype=np.int64))
 
     plt.tight_layout()
     plt.subplots_adjust(
@@ -1183,65 +1203,79 @@ if __name__ == "__main__":
     #     ]
     # )
 
-    plot_multi_feasibility_comparison(
-        # unsafe_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
-        unsafe_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-31-17-15-32_withBattery_refactorMLP/feasibility_2024-07-31-19-37-15_1k_lrDecay_veryLargeBatch",
-        unsafe_feasibility_thresh=0.1,
-        # standard_battery_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-29-13-45-07_500k/feasibility_2024-07-29-15-36-24_best",
-        standard_battery_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-31-24_singleLoad_batch:4k_greedy",
-        standard_battery_thresh=0.05,
-        # or_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-06-58_multiLoad_OR_lessL2_EvenLargerModel_6k_lrDecay_veryLargeBatch_goodManualStopEarly",
-        or_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-14-16-27_singleLoad_batch:4k_OR",
-        or_feasibility_thresh=0.02,
-        # recursive_battery_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-40-15_multiLoad_recursive_lessL2_EvenLargerModel_1k_lrDecay_veryLargeBatch",
-        recursive_battery_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-49-30_singleLoad_batch:4k_recursive",
-        recursive_battery_thresh=0.05,
-        state=np.array([16.5, 7.1, 0, 0, 0.25]),
-        cross_lw=3,
-    )
-    exit(0)
+    # plot_multi_feasibility_comparison(
+    #     # unsafe_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
+    #     unsafe_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-31-17-15-32_withBattery_refactorMLP/feasibility_2024-07-31-19-37-15_1k_lrDecay_veryLargeBatch",
+    #     unsafe_feasibility_thresh=0.1,
+    #     # standard_battery_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-29-13-45-07_500k/feasibility_2024-07-29-15-36-24_best",
+    #     standard_battery_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-31-24_singleLoad_batch:4k_greedy",
+    #     standard_battery_thresh=0.05,
+    #     # or_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-06-58_multiLoad_OR_lessL2_EvenLargerModel_6k_lrDecay_veryLargeBatch_goodManualStopEarly",
+    #     or_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-14-16-27_singleLoad_batch:4k_OR",
+    #     or_feasibility_thresh=0.02,
+    #     # recursive_battery_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-07-30-12-08-57_1M/feasibility_2024-07-31-15-40-15_multiLoad_recursive_lessL2_EvenLargerModel_1k_lrDecay_veryLargeBatch",
+    #     recursive_battery_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-49-30_singleLoad_batch:4k_recursive",
+    #     recursive_battery_thresh=0.05,
+    #     state=np.array([16.5, 7.1, 0, 0, 0.25]),
+    #     cross_lw=3,
+    # )
 
-    plot_bt_comp_rollouts(
-        con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
-        no_con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-13-12_noPunish_noConstraint_noEval_2",
-        sum_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-53-56_withPunish_noConstraint_noEval_2",
-        method_names=method_names,
-        method_colors=method_colors,
-        method_ls=method_ls
-    )
+    # plot_bt_comp_rollouts(
+    #     con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
+    #     no_con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-13-12_noPunish_noConstraint_noEval_2",
+    #     sum_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-53-56_withPunish_noConstraint_noEval_2",
+    #     method_names=method_names,
+    #     method_colors=method_colors,
+    #     method_ls=method_ls
+    # )
 
     plot_bt_comp_metrics(
         which_data="train",
         no_con_load_dirs=[
-            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-14-52-57_noPunish_noConstraint_noEval_1",
-            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-13-12_noPunish_noConstraint_noEval_2",
-            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-33-37_noPunish_noConstraint_noEval_3",
-            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-53-56_noPunish_noConstraint_noEval_4",
-            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-14-18_noPunish_noConstraint_noEval_5",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-14-52-57_noPunish_noConstraint_noEval_1",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-13-12_noPunish_noConstraint_noEval_2",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-33-37_noPunish_noConstraint_noEval_3",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-53-56_noPunish_noConstraint_noEval_4",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-14-18_noPunish_noConstraint_noEval_5",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-28-22-54-23_debug_noConstraints_seed:1",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-18-11-28_debug_noConstraints_seed:2",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-13-14-12_debug_noConstraints_seed:3",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-01-08-15-17_debug_noConstraints_seed:4",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-02-03-10-46_debug_noConstraints_seed:5"
         ],
         con_load_dirs=[
-            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
-            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-35-40_noPunish_withConstraint_noEval_2",
-            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-01-19_noPunish_withConstraint_noEval_3",
-            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-27-03_noPunish_withConstraint_noEval_4",
-            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-52-26_noPunish_withConstraint_noEval_5",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-35-40_noPunish_withConstraint_noEval_2",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-01-19_noPunish_withConstraint_noEval_3",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-27-03_noPunish_withConstraint_noEval_4",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-52-26_noPunish_withConstraint_noEval_5",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-04-53-21_debug_feasibilityAwareBT_seed:1",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-00-10-33_debug_feasibilityAwareBT_seed:2",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-19-14-47_debug_feasibilityAwareBT_seed:3",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-01-14-17-29_debug_feasibilityAwareBT_seed:4",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-02-09-07-39_debug_feasibilityAwareBT_seed:5"
         ],
         sum_load_dir=[
-            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-34-46_withPunish_noConstraint_noEval_1",
-            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-53-56_withPunish_noConstraint_noEval_2",
-            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-13-07_withPunish_noConstraint_noEval_3",
-            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-32-10_withPunish_noConstraint_noEval_4",
-            "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-51-14_withPunish_noConstraint_noEval_5",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-34-46_withPunish_noConstraint_noEval_1",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-53-56_withPunish_noConstraint_noEval_2",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-13-07_withPunish_noConstraint_noEval_3",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-32-10_withPunish_noConstraint_noEval_4",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-51-14_withPunish_noConstraint_noEval_5",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-01-53-13_debug_rewardPenalty_seed:1",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-21-10-25_debug_rewardPenalty_seed:2",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-16-13-34_debug_rewardPenalty_seed:3",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-01-11-15-06_debug_rewardPenalty_seed:4",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-02-06-09-03_debug_rewardPenalty_seed:5"
         ],
         method_names=method_names,
         method_colors=method_colors,
         method_ls=method_ls
     )
 
-    plot_numpy_feasiblity_dqn(
-        # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/",
-        # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29",
-        dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
-    )
+    # plot_numpy_feasiblity_dqn(
+    #     # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/",
+    #     # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29",
+    #     dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
+    # )
 
 
