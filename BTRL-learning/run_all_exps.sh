@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 # run five times in total
-start=1;
-end=1;
+start=2;
+end=5;
 env_interactions=3000000
 learning_start=200000
 feasibility_epochs=200
