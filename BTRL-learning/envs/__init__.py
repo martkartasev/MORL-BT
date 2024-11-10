@@ -158,3 +158,21 @@ gym.envs.register(
         "max_ep_len": 200,
     },
 )
+
+gym.envs.register(
+    id="SimpleAccEnv-wide-withConveyer-shapedSum-v0",
+    entry_point="envs:SimpleAccEnv",
+    max_episode_steps=200,
+    reward_threshold=0,
+    kwargs={
+        "task": "shapedSum",
+        "with_conveyer": True,
+        "x_max": 20,
+        "conveyer_x_min": 2,
+        "conveyer_x_max": 10,
+        "lava_x_min":  10,
+        "lava_x_max":  18,
+        "goal_x": 10,
+        "max_ep_len": 200,
+    },
+)

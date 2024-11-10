@@ -93,7 +93,7 @@ class SimpleAccEnv(gym.Env):
             self.lava_y_max = lava_y_max
         self.task = task
         self.task_sum_weight = task_sum_weight
-        assert task in ["lava", "goal", "lava_goal_sum", "left", "battery"]
+        assert task in ["lava", "goal", "lava_goal_sum", "left", "battery", "shapedSum"]
         assert 0 <= self.task_sum_weight <= 1
 
         self.goal_x = goal_x
@@ -246,6 +246,8 @@ class SimpleAccEnv(gym.Env):
             reward = left_reward
         elif self.task == "battery":
             reward = battery_reward
+        elif self.task == "shapedSum":
+            reward = lava_reward + goal_rewad + battery_reward
         else:
             raise NotImplementedError(f"Task {self.task} not imlpemented")
 
@@ -285,7 +287,7 @@ class SimpleAccEnv(gym.Env):
 
         new_obs = self._get_obs()
         done = False
-        if self.task == "goal":
+        if self.task == "goal" or self.task == "shapedSum":
             if agent_at_goal:
                 done = True
         trunc = self.ep_len > self.max_ep_len
