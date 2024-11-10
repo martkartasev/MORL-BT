@@ -1078,10 +1078,15 @@ def plot_feasibility_value_function_comparison(
         battery_feasibility_names=[],
         value_resolution=500,
         battery_levels=[0.05, 0.1, 0.15, 0.2, 0.5],
+        exclude_safety_row=False,
 ):
     assert len(battery_feasibility_dirs) == len(battery_feasibility_names)
 
-    fig, axs = plt.subplots(figsize=(12, 5), nrows=len(battery_feasibility_dirs) + 1, ncols=5)
+    num_rows = len(battery_feasibility_dirs)
+    if not exclude_safety_row:
+        num_rows += 1
+
+    fig, axs = plt.subplots(figsize=(12, 4), nrows=num_rows, ncols=5)
 
     env = SimpleAccEnv(
         with_conveyer=True,
@@ -1108,25 +1113,26 @@ def plot_feasibility_value_function_comparison(
         hidden_activation=safety_feasbility_params["hidden_activation"],
         with_batchNorm=True,
     )
-    safety_feasbility_dqn.load_state_dict(torch.load(f"{safety_feasibility_dir}/feasibility_dqn.pt"))
+    safety_feasbility_dqn.load_state_dict(torch.load(f"{safety_feasibility_dir}/feasibility_dqn.pt", map_location=torch.device('cpu')))
     safety_feasbility_dqn.eval()
 
     row_idx = 0
-    for battery_col_idx, battery_lvl in enumerate(battery_levels):
-        agent_vel_x = np.full_like(xs, np.array([0]))
-        agent_vel_y = np.full_like(ys, np.array([0]))
-        battery = np.full_like(ys, battery_lvl)
-        states = np.stack([xs, ys, agent_vel_x, agent_vel_y, battery], axis=1)
+    if not exclude_safety_row:
+        for battery_col_idx, battery_lvl in enumerate(battery_levels):
+            agent_vel_x = np.full_like(xs, np.array([0]))
+            agent_vel_y = np.full_like(ys, np.array([0]))
+            battery = np.full_like(ys, battery_lvl)
+            states = np.stack([xs, ys, agent_vel_x, agent_vel_y, battery], axis=1)
 
-        q_values = safety_feasbility_dqn(torch.Tensor(states)).detach().cpu().numpy()
-        state_values = q_values.min(axis=1).reshape(value_resolution, value_resolution)
+            q_values = safety_feasbility_dqn(torch.Tensor(states)).detach().cpu().numpy()
+            state_values = q_values.min(axis=1).reshape(value_resolution, value_resolution)
 
-        img = axs[row_idx, battery_col_idx].imshow(state_values, cmap="viridis", interpolation="nearest", extent=[0, env.x_max, 0, env.y_max], vmin=0, vmax=1)
-        axs[row_idx, battery_col_idx].set_title(f"Battery: {battery_lvl}")
-        axs[row_idx, battery_col_idx].set_xticks([], [])
-        axs[row_idx, battery_col_idx].set_yticks([], [])
-        plt.colorbar(img, ax=axs[row_idx, battery_col_idx], format="%.1f", fraction=0.046, pad=0.04)
-    axs[0, 0].set_ylabel("Safety")
+            img = axs[row_idx, battery_col_idx].imshow(state_values, cmap="viridis", interpolation="nearest", extent=[0, env.x_max, 0, env.y_max], vmin=0, vmax=1)
+            axs[row_idx, battery_col_idx].set_title(f"Battery: {battery_lvl}")
+            axs[row_idx, battery_col_idx].set_xticks([], [])
+            axs[row_idx, battery_col_idx].set_yticks([], [])
+            plt.colorbar(img, ax=axs[row_idx, battery_col_idx], format="%.1f", fraction=0.046, pad=0.04)
+        axs[0, 0].set_ylabel("Safety")
 
     # plot battery feasibility functions
     for battery_row_idx, (battery_feasibility_dir, battery_feasibility_name) in enumerate(zip(battery_feasibility_dirs, battery_feasibility_names)):
@@ -1138,10 +1144,10 @@ def plot_feasibility_value_function_comparison(
             hidden_activation=battery_feasbility_params["hidden_activation"],
             with_batchNorm=True,
         )
-        safety_feasbility_dqn.load_state_dict(torch.load(f"{battery_feasibility_dir}/feasibility_dqn.pt"))
+        safety_feasbility_dqn.load_state_dict(torch.load(f"{battery_feasibility_dir}/feasibility_dqn.pt", map_location=torch.device('cpu')))
         safety_feasbility_dqn.eval()
 
-        row_idx = battery_row_idx + 1
+        row_idx = battery_row_idx + 1 if not exclude_safety_row else battery_row_idx
         fixed_vel = np.array([0, 0])
         for battery_col_idx, battery_lvl in enumerate(battery_levels):
             agent_vel_x = np.full_like(xs, fixed_vel[0])
@@ -1161,6 +1167,9 @@ def plot_feasibility_value_function_comparison(
             if battery_col_idx == 0:
                 axs[row_idx, battery_col_idx].set_ylabel(battery_feasibility_name)
 
+            if battery_row_idx == 0 and exclude_safety_row:
+                axs[row_idx, battery_col_idx].set_title(f"Battery: {battery_lvl}")
+
     plt.tight_layout()
     plt.savefig(f"runs/feasibility_stateSpace_comparison.png", bbox_inches="tight", dpi=300)
     plt.show()
@@ -1177,21 +1186,22 @@ if __name__ == "__main__":
     
     plot_feasibility_value_function_comparison(
         # safety_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-31-17-15-32_withBattery_refactorMLP/feasibility_2024-07-31-19-37-15_1k_lrDecay_veryLargeBatch",
-        safety_feasibility_dir="final_experiments/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-15-08-46_debug_seed:1/feasibility_2024-09-28-18-05-50_lava",
+        safety_feasibility_dir="final_experiments_winPaths/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-15-08-46_debug_seed-1/feasibility_2024-09-28-18-05-50_lava",
         battery_feasibility_dirs=[
             # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-31-24_singleLoad_batch:4k_greedy",
             # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-49-30_singleLoad_batch:4k_recursive",
             # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-14-16-27_singleLoad_batch:4k_OR"
-            "final_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-28-18-13-59_debug_seed:1/feasibility_2024-09-28-22-23-20_battery_naive",
-            "final_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-28-18-13-59_debug_seed:1/feasibility_2024-09-28-22-30-41_battery_recursive",
-            "final_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-28-18-13-59_debug_seed:1/feasibility_2024-09-28-22-38-46_lava_OR_battery"
+            "final_experiments_winPaths/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-28-18-13-59_debug_seed-1/feasibility_2024-09-28-22-23-20_battery_naive",
+            "final_experiments_winPaths/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-28-18-13-59_debug_seed-1/feasibility_2024-09-28-22-30-41_battery_recursive",
+            "final_experiments_winPaths/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-28-18-13-59_debug_seed-1/feasibility_2024-09-28-22-38-46_lava_OR_battery"
         ],
         battery_feasibility_names=[
-            "Battery\nNaive",
-            "Battery\nRecursive",
-            "Battery\nOR",
+            "Naive",
+            "Recursive",
+            "Battery OR\nSafety",
         ],
-        battery_levels=[0.01, 0.05, 0.1, 0.15, 0.5]
+        battery_levels=[0.01, 0.05, 0.1, 0.15, 0.5],
+        exclude_safety_row=True,
     )
 
     # plot_multi_feasibility_comparison(
