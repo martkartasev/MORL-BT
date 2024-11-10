@@ -820,7 +820,7 @@ def main(args):
 
     if params["which_env"] == "numpy":
         create_plots_numpy_env(
-            dqns=dqns,
+            dqn=dqns[-1].q_net,
             env=env,
             device=device,
             save_dir=f"{img_dir}",

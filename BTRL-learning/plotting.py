@@ -103,7 +103,7 @@ def plot_discrete_actions(dqn, state, device, action_map, save_path=""):
 
 
 def create_plots_numpy_env(
-        dqns,
+        dqn,
         env,
         device,
         save_dir,
@@ -111,7 +111,7 @@ def create_plots_numpy_env(
         plot_value_function=True,
         plot_eval_states=True,
 ):
-    dqn = dqns[-1]  # plot currently learning dqn
+    # dqn = dqns[-1]  # plot currently learning dqn
     if plot_value_function:
         # plot value function with different velocities
         for vel in [
@@ -125,7 +125,8 @@ def create_plots_numpy_env(
                 for value_function in ["max", "mean", "min"]:
                     # value_function = "min"
                     plot_value_2D(
-                        dqn=dqn.q_net,
+                        # dqn=dqn.q_net,
+                        dqn=dqn,
                         velocity=vel,
                         value_function=value_function,
                         battery=batt,
@@ -148,7 +149,8 @@ def create_plots_numpy_env(
             #     device=device,
             #     save_path=f"{save_dir}/qf_state:{eval_state}.png",
             # )
-            q_values = dqn.q_net(torch.Tensor(eval_state).to(device).unsqueeze(0)).detach().cpu().numpy().flatten()
+            # q_values = dqn.q_net(torch.Tensor(eval_state).to(device).unsqueeze(0)).detach().cpu().numpy().flatten()
+            q_values = dqn(torch.Tensor(eval_state).to(device).unsqueeze(0)).detach().cpu().numpy().flatten()
             for a in range(env.action_space.n):
                 acc = action_to_acc(a)
                 plt.scatter(acc[0], acc[1], c=q_values[a], s=800, cmap="plasma", vmin=q_values.min(), vmax=q_values.max())
