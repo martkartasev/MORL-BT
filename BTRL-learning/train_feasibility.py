@@ -15,6 +15,18 @@ import envs
 import gymnasium as gym
 import argparse
 
+from buffer import AgentBuffer
+
+def load_mlagents_buffer():
+    update_buffer = AgentBuffer()
+    filename = os.path.join("C:/Users/Mart9/Workspace/ABB-Warehouse/results/results/grasp_ppo_02/ABBMobile/", "extended_replay_buffer_164600.hdf5")
+    with open(filename, "rb+") as file_object:
+        update_buffer.load_from_file(file_object)
+        print("Experience replay buffer has {} experiences.".format(update_buffer.num_experiences))
+
+    batch = update_buffer.sample_mini_batch(512, 1)
+    batch = update_buffer.sample_mini_batch(512, 1)
+
 
 def load_data_from_rb(load_dirs, n_obs, n_actions):
     obs = None
@@ -62,7 +74,6 @@ def load_data_from_rb(load_dirs, n_obs, n_actions):
 
     # normalize data
 
-
     print(f""
           f"Done: obs.shape: {obs.shape}, "
           f"actions.shape: {actions.shape}, "
@@ -74,7 +85,6 @@ def load_data_from_rb(load_dirs, n_obs, n_actions):
 
 
 def label_data(all_obs, label_fun):
-
     # label data for ACC violation
     print("Labeling data for ACC violation...")
     labels = np.ones((all_obs.shape[0], 1)) * np.inf
@@ -147,7 +157,6 @@ def create_training_plots(model, env, exp_dir, train_loss_hist=None, lr_hist=Non
 
 
 def train_model(
-        env,
         model,
         target_model,
         optimizer,
@@ -168,7 +177,6 @@ def train_model(
         higher_prio_constraint_nets=[],
         higher_prio_constraint_thresholds=[],
 ):
-
     assert len(higher_prio_constraint_thresholds) == len(higher_prio_constraint_nets)
 
     criterion = criterion()
@@ -179,7 +187,6 @@ def train_model(
     print("Training model...")
 
     batches_per_episode = states.shape[0] // batch_size
-    # gamma = 0.99
     for epoch in range(epochs):
         model.train()
         target_model.train()
@@ -206,7 +213,8 @@ def train_model(
 
                 for idx, net in enumerate(higher_prio_constraint_nets):
                     high_prio_vals = net(next_state_batch.float())
-                    best_high_prio_vals = high_prio_vals.min(dim=1, keepdim=True)[0]  # TODO, consider higher prio when finding best?
+                    best_high_prio_vals = high_prio_vals.min(dim=1, keepdim=True)[
+                        0]  # TODO, consider higher prio when finding best?
                     high_prio_forbidden = high_prio_vals > best_high_prio_vals + higher_prio_constraint_thresholds[idx]
 
                     target_q_values[high_prio_forbidden] = torch.inf
@@ -241,7 +249,9 @@ def train_model(
                 target_param.data.copy_(polyak_tau * param.data + (1.0 - polyak_tau) * target_param.data)
 
             if i % 100 == 0:
-                print(f"Epoch {epoch}, batch {i} / {batches_per_episode}, loss: {np.around(loss.item(), 5)}, avg. q-values: {np.around(q_values.mean().item(), 3)}, lr={np.around(optimizer.param_groups[0]['lr'], 5)}", flush=True)
+                print(
+                    f"Epoch {epoch}, batch {i} / {batches_per_episode}, loss: {np.around(loss.item(), 5)}, avg. q-values: {np.around(q_values.mean().item(), 3)}, lr={np.around(optimizer.param_groups[0]['lr'], 5)}",
+                    flush=True)
 
         # train_loss_hist.append(train_loss / batches_done)
         lr_hist.append(optimizer.param_groups[0]["lr"])
@@ -301,9 +311,10 @@ def main(args):
     #     return env.lava_x_range[0] < state[0] < env.lava_x_range[-1] and env.lava_y_range[0] < state[1] < env.lava_y_range[-1]
 
     env = gym.make("SimpleAccEnv-wide-withConveyer-lava-v0")
-    
+
     n_obs = 5
     n_actions = 25
+
     def label_fun(state):
         # only lava
         # return env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max
@@ -313,10 +324,11 @@ def main(args):
 
         # only battery
         # return state[4] <= 0
-        
+
         # battery and lava
         # return (state[4] <= 0) or (env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max)
-        assert args.feasibility_label in ["lava", "left", "battery", "or"], f"Feasibility label {args.feasibility_label} not supported"
+        assert args.feasibility_label in ["lava", "left", "battery",
+                                          "or"], f"Feasibility label {args.feasibility_label} not supported"
 
         if args.feasibility_label == "lava":
             return env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max
@@ -325,7 +337,8 @@ def main(args):
         elif args.feasibility_label == "battery":
             return state[4] <= 0
         elif args.feasibility_label == "or":
-            return (state[4] <= 0) or (env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max)
+            return (state[4] <= 0) or (
+                        env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max)
         else:
             raise NotImplementedError(f"Feasibility label {args.feasibility_label} not supported")
 
@@ -381,19 +394,23 @@ def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("Setting up model...")
-    model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["hidden_arch"], with_batchNorm=params["with_batchNorm"])
+    model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"],
+                hidden_arch=params["hidden_arch"], with_batchNorm=params["with_batchNorm"])
     model.to(device)
-    target_model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["hidden_arch"], with_batchNorm=params["with_batchNorm"])
+    target_model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"],
+                       hidden_arch=params["hidden_arch"], with_batchNorm=params["with_batchNorm"])
     target_model.load_state_dict(model.state_dict())
     target_model.to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=params["optimizer_initial_lr"], weight_decay=params["optimizer_weight_decay"])
+    optimizer = torch.optim.Adam(model.parameters(), lr=params["optimizer_initial_lr"],
+                                 weight_decay=params["optimizer_weight_decay"])
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=params["exponential_lr_decay"])
-    
+
     # load higher_prio Model
     higher_prio_nets = []
     higher_prio_threshes = []
     if params["higher_prio_load_path"]:
-        higher_prio_model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["higher_prio_arch"], with_batchNorm=params["higher_prio_batchnorm"])
+        higher_prio_model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"],
+                                hidden_arch=params["higher_prio_arch"], with_batchNorm=params["higher_prio_batchnorm"])
         higher_prio_model.load_state_dict(torch.load(f"{params['higher_prio_load_path']}/feasibility_dqn.pt"))
         higher_prio_model.to(device)
         higher_prio_model.eval()
@@ -443,24 +460,26 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=[
-        # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-21-11-06-22_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget",
-        # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-21-12-02-49_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget"
-        # ---
-        "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-11-28-07_feasibilityAwareBT:False_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget_3M_batch4096"
-    ])
-    parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
-    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="singleLoad_randomXYResets")
-    parser.add_argument("--feasibility_label", type=str, help="String to append to the experiment directory", default="lava")
-    parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=200)
-
-    args = parser.parse_args()
-
-    exp_dir = main(args)
-
-    # EXTREMELY IMPORTANT: Last line of the script must print the experiment directory such that the bash script can capture it!
-    print(exp_dir)
-
-
-
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from",
+    #                     default=[
+    #                         # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-21-11-06-22_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget",
+    #                         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-21-12-02-49_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget"
+    #                         # ---
+    #                         "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-11-28-07_feasibilityAwareBT:False_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget_3M_batch4096"
+    #                     ])
+    # parser.add_argument("--higher_prio_feasibility_estimator", type=str,
+    #                     help="Higher-prio feasibility estimator to load for recursive training", default="")
+    # parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory",
+    #                     default="singleLoad_randomXYResets")
+    # parser.add_argument("--feasibility_label", type=str, help="String to append to the experiment directory",
+    #                     default="lava")
+    # parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=200)
+    #
+    # args = parser.parse_args()
+    #
+    # exp_dir = main(args)
+    #
+    # # EXTREMELY IMPORTANT: Last line of the script must print the experiment directory such that the bash script can capture it!
+    # print(exp_dir)
+    load_mlagents_buffer()
