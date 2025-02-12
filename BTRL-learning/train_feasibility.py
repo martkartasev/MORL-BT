@@ -17,17 +17,6 @@ import argparse
 
 from buffer import AgentBuffer
 
-def load_mlagents_buffer():
-    update_buffer = AgentBuffer()
-    filename = os.path.join("C:/Users/Mart9/Workspace/ABB-Warehouse/results/results/grasp_ppo_02/ABBMobile/", "extended_replay_buffer_164600.hdf5")
-    with open(filename, "rb+") as file_object:
-        update_buffer.load_from_file(file_object)
-        print("Experience replay buffer has {} experiences.".format(update_buffer.num_experiences))
-
-    batch = update_buffer.sample_mini_batch(512, 1)
-    batch = update_buffer.sample_mini_batch(512, 1)
-
-
 def load_data_from_rb(load_dirs, n_obs, n_actions):
     obs = None
     actions = None
@@ -460,26 +449,25 @@ def main(args):
 
 
 if __name__ == "__main__":
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from",
-    #                     default=[
-    #                         # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-21-11-06-22_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget",
-    #                         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-21-12-02-49_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget"
-    #                         # ---
-    #                         "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-11-28-07_feasibilityAwareBT:False_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget_3M_batch4096"
-    #                     ])
-    # parser.add_argument("--higher_prio_feasibility_estimator", type=str,
-    #                     help="Higher-prio feasibility estimator to load for recursive training", default="")
-    # parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory",
-    #                     default="singleLoad_randomXYResets")
-    # parser.add_argument("--feasibility_label", type=str, help="String to append to the experiment directory",
-    #                     default="lava")
-    # parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=200)
-    #
-    # args = parser.parse_args()
-    #
-    # exp_dir = main(args)
-    #
-    # # EXTREMELY IMPORTANT: Last line of the script must print the experiment directory such that the bash script can capture it!
-    # print(exp_dir)
-    load_mlagents_buffer()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from",
+                        default=[
+                            # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-21-11-06-22_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget",
+                            # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-21-12-02-49_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget"
+                            # ---
+                            "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-11-28-07_feasibilityAwareBT:False_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget_3M_batch4096"
+                        ])
+    parser.add_argument("--higher_prio_feasibility_estimator", type=str,
+                        help="Higher-prio feasibility estimator to load for recursive training", default="")
+    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory",
+                        default="singleLoad_randomXYResets")
+    parser.add_argument("--feasibility_label", type=str, help="String to append to the experiment directory",
+                        default="lava")
+    parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=200)
+
+    args = parser.parse_args()
+
+    exp_dir = main(args)
+
+    # EXTREMELY IMPORTANT: Last line of the script must print the experiment directory such that the bash script can capture it!
+    print(exp_dir)
