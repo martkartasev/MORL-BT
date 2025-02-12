@@ -1,5 +1,7 @@
 import os
+import random
 import time
+from os.path import isfile, join
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,17 +18,35 @@ import argparse
 import buffer
 
 
-def load_mlagents_buffer(load_dir, max_obs=1000000):
+def load_mlagents_buffer(load_dir, max_obs=10000000):
     update_buffer = buffer.AgentBuffer()
-    filename = os.path.join(load_dir[0], "extended_replay_buffer_88444.hdf5")
-    with open(filename, "rb+") as file_object:
-        update_buffer.load_from_file(file_object)
-        print("Experience replay buffer has {} experiences.".format(update_buffer.num_experiences))
+    for direc in load_dir:
+        replay_files = [f for f in os.listdir(direc) if isfile(join(direc, f)) and "extended_replay" in f]
+        file = replay_files.pop(0)
 
-    obs = update_buffer._fields[(buffer.ObservationKeyPrefix.OBSERVATION, 0)].to_ndarray()
-    next_obs = update_buffer._fields[(buffer.ObservationKeyPrefix.NEXT_OBSERVATION, 0)].to_ndarray()
-    dones = update_buffer._fields[buffer.BufferKey.DONE].to_ndarray()
-    actions = update_buffer._fields[buffer.BufferKey.DISCRETE_ACTION].to_ndarray()
+        filename = os.path.join(direc, file)
+        with open(filename, "rb+") as file_object:
+            update_buffer.load_from_file(file_object)
+            experiences = update_buffer.num_experiences
+            print("Experience replay buffer has {} experiences.".format(experiences))
+
+        obs = update_buffer._fields[(buffer.ObservationKeyPrefix.OBSERVATION, 0)].to_ndarray()
+        next_obs = update_buffer._fields[(buffer.ObservationKeyPrefix.NEXT_OBSERVATION, 0)].to_ndarray()
+        dones = update_buffer._fields[buffer.BufferKey.DONE].to_ndarray()
+        actions = update_buffer._fields[buffer.BufferKey.DISCRETE_ACTION].to_ndarray()
+
+        nr_files = int(max_obs / experiences)
+        for i, file in enumerate(random.sample(replay_files, min(nr_files, len(replay_files)))):
+            filename = os.path.join(direc, file)
+            with open(filename, "rb+") as file_object:
+                update_buffer.load_from_file(file_object)
+
+            obs = np.append(obs, update_buffer._fields[(buffer.ObservationKeyPrefix.OBSERVATION, 0)].to_ndarray(), axis=0)
+            next_obs = np.append(next_obs, update_buffer._fields[(buffer.ObservationKeyPrefix.NEXT_OBSERVATION, 0)].to_ndarray(), axis=0)
+            dones = np.append(dones, update_buffer._fields[buffer.BufferKey.DONE].to_ndarray(), axis=0)
+            actions = np.append(actions, update_buffer._fields[buffer.BufferKey.DISCRETE_ACTION].to_ndarray(), axis=0)
+            if i % 10 == 0:
+                print("Loaded {} out of {} files for the replay buffer. {} out of {} experiences loaded. ".format(i, nr_files, obs.shape[0], max_obs))
 
     return None, obs, actions, next_obs, dones
 
@@ -133,7 +153,7 @@ def train_model(
     torch.save(model.state_dict(), f"{exp_dir}/feasibility_dqn.pt")
 
     print(f"Saving model as onnx to {exp_dir}/feasibility_dqn.onnx")
-    torch_input = torch.randn(1, 1, 31).to(device)
+    torch_input = torch.randn(1, 31).to(device)
     torch.onnx.export(model,
                       torch_input,
                       f"{exp_dir}/feasibility_dqn.onnx",
@@ -152,6 +172,8 @@ def label_data(all_obs, label_fun):
         state = all_obs[i]
         label = label_fun(state=state)
         labels[i] = int(label)
+        if i % 500000 == 0:
+            print(f"Labelled {i} out of {all_obs.shape[0]} experiences")
 
     assert not np.isinf(labels).any()
     print(f"Done: labels.shape: {labels.shape}, positive labels: {np.sum(labels)}")
@@ -291,7 +313,7 @@ if __name__ == "__main__":
     parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
     parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="test")
     parser.add_argument("--feasibility_label", type=str, help="String to append to the experiment directory", default="abb")
-    parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=1)
+    parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=200)
     args = parser.parse_args()
 
     exp_dir = main(args)
