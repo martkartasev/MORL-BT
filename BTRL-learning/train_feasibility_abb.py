@@ -1,3 +1,4 @@
+import argparse
 import os
 import random
 import time
@@ -6,16 +7,11 @@ from os.path import isfile, join
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.linalg.linalg
-import onnx
 import torch
 import yaml
-from onnx import version_converter
-
-from networks import MLP
-from simple_env_plotting import plot_cp
-import argparse
 
 import buffer
+from networks import MLP
 
 
 def load_mlagents_buffer(load_dir, max_obs=10000000):
@@ -143,7 +139,7 @@ def train_model(
         # target_model.load_state_dict(model.state_dict())
 
         if epoch % 50 == 0:
-            torch.save(model.state_dict(), f"{exp_dir}/feasibility_dqn.pt")
+            torch.save(model.state_dict(), f"{exp_dir}/feasibility_dqn_{epoch}.pt")
 
         # if epoch % nuke_layer_every == 0 and epoch > 0:
     print("Done: training model")
@@ -193,17 +189,17 @@ def main(args):
         "epochs": args.epochs,
         "nuke_layer_every": 1e9,
         "hidden_activation": torch.nn.ReLU,
-        "hidden_arch": [128, 128],
+        "hidden_arch": [256, 256, 128, 128],
         "criterion": torch.nn.MSELoss,
-        "with_batchNorm": False,
+        "with_batchNorm": True,
         # "criterion": torch.nn.L1Loss,
         "discount_gamma": 0.999,  # unlike traditional finite-horizon TD, feasibility discount must always be <1!
         # "higher_prio_load_path": args.higher_prio_feasibility_estimator,
-        "higher_prio_batchnorm": True,
-        "higher_prio_arch": [64, 64, 32, 32],
-        "higher_prio_threshold": 0.05,
+        #"higher_prio_batchnorm": True,
+        #"higher_prio_arch": [64, 64, 32, 32],
+        #"higher_prio_threshold": 0.05,
         "polyak_tau": 0.01,
-        "feasibility_label": args.feasibility_label,
+        #"feasibility_label": args.feasibility_label,
         "rb_dirs": args.rb_dirs,
     }
 
