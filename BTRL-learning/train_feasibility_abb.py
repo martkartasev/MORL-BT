@@ -28,7 +28,6 @@ def load_mlagents_buffer(load_dir, max_obs=10000000):
         with open(filename, "rb+") as file_object:
             update_buffer.load_from_file(file_object)
             experiences = update_buffer.num_experiences
-            print("Experience replay buffer has {} experiences.".format(experiences))
 
         obs = update_buffer._fields[(buffer.ObservationKeyPrefix.OBSERVATION, 0)].to_ndarray()
         next_obs = update_buffer._fields[(buffer.ObservationKeyPrefix.NEXT_OBSERVATION, 0)].to_ndarray()
