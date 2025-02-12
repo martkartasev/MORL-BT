@@ -4,8 +4,10 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.linalg.linalg
+import onnx
 import torch
 import yaml
+from onnx import version_converter
 
 from networks import MLP
 from simple_env_plotting import plot_cp
@@ -130,6 +132,15 @@ def train_model(
     print(f"Saving classifier to {exp_dir}/feasibility_dqn.pt")
     torch.save(model.state_dict(), f"{exp_dir}/feasibility_dqn.pt")
 
+    print(f"Saving model as onnx to {exp_dir}/feasibility_dqn.onnx")
+    torch_input = torch.randn(1, 1, 31).to(device)
+    onnx_program = torch.onnx.dynamo_export(model, torch_input)
+    onnx_program.save(f"{exp_dir}/feasibility_dqn.onnx")
+
+    onnx_loaded_model = onnx.load(f"{exp_dir}/feasibility_dqn.onnx")
+    converted_model = version_converter.convert_version(onnx_loaded_model, 15)
+    onnx.save(converted_model, f"{exp_dir}/feasibility_dqn_opset15.onnx")
+
     return model, train_loss_hist, lr_hist, pred_mean_hist
 
 
@@ -191,7 +202,7 @@ def main(args):
     # save params as yaml
     with open(f"{exp_dir}/params.yaml", "w") as f:
         yaml.dump(params, f)
-    device = torch.device("cuda" if torch.cuda.is_available() and False else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("Setting up model...")
     model = MLP(input_size=n_obs, output_size=n_actions, hidden_activation=params["hidden_activation"], hidden_arch=params["hidden_arch"], with_batchNorm=params["with_batchNorm"])
@@ -280,7 +291,7 @@ if __name__ == "__main__":
     parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
     parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="test")
     parser.add_argument("--feasibility_label", type=str, help="String to append to the experiment directory", default="abb")
-    parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=200)
+    parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=1)
     args = parser.parse_args()
 
     exp_dir = main(args)
