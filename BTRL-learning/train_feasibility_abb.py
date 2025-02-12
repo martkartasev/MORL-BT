@@ -134,12 +134,12 @@ def train_model(
 
     print(f"Saving model as onnx to {exp_dir}/feasibility_dqn.onnx")
     torch_input = torch.randn(1, 1, 31).to(device)
-    onnx_program = torch.onnx.dynamo_export(model, torch_input)
-    onnx_program.save(f"{exp_dir}/feasibility_dqn.onnx")
-
-    onnx_loaded_model = onnx.load(f"{exp_dir}/feasibility_dqn.onnx")
-    converted_model = version_converter.convert_version(onnx_loaded_model, 15)
-    onnx.save(converted_model, f"{exp_dir}/feasibility_dqn_opset15.onnx")
+    torch.onnx.export(model,
+                      torch_input,
+                      f"{exp_dir}/feasibility_dqn.onnx",
+                      export_params=True,  # store the trained parameter weights inside the model file
+                      opset_version=15,  # the ONNX version to export the model to
+                      do_constant_folding=True, )
 
     return model, train_loss_hist, lr_hist, pred_mean_hist
 
