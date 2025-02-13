@@ -177,7 +177,7 @@ def label_data(all_obs, label_fun):
 
 
 def label_fun(state):
-    return numpy.linalg.norm(state[15:18]) < 0.1  # 16,17.18
+    return numpy.linalg.norm(state[16:19]) < 0.1  # 16,17.18
 
 
 def main(args):
