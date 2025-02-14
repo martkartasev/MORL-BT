@@ -30,7 +30,7 @@ def load_mlagents_buffer(load_dir, max_obs=10000000):
         dones = update_buffer._fields[buffer.BufferKey.DONE].to_ndarray()
         actions = update_buffer._fields[buffer.BufferKey.DISCRETE_ACTION].to_ndarray()
 
-        nr_files = int(max_obs / experiences)
+        nr_files = int(2*max_obs / experiences)
         for i, file in enumerate(random.sample(replay_files, min(nr_files, len(replay_files)))):
             filename = os.path.join(direc, file)
             with open(filename, "rb+") as file_object:
