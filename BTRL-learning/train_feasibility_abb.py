@@ -14,7 +14,7 @@ import buffer
 from networks import MLP
 
 
-def load_mlagents_buffer(load_dir, max_obs=10000000):
+def load_mlagents_buffer(load_dir, max_obs):
     update_buffer = buffer.AgentBuffer()
     for direc in load_dir:
         replay_files = [f for f in os.listdir(direc) if isfile(join(direc, f)) and "extended_replay" in f]
@@ -159,13 +159,13 @@ def train_model(
     return model, train_loss_hist, lr_hist, pred_mean_hist
 
 
-def label_data(all_obs, label_fun):
+def label_data(all_obs, label_function, feasibility_label):
     # label data for ACC violation
     print("Labeling data for ACC violation...")
     labels = np.ones((all_obs.shape[0], 1)) * np.inf
     for i in range(all_obs.shape[0]):
         state = all_obs[i]
-        label = label_fun(state=state)
+        label = label_function(state=state, feasibility_label=feasibility_label)
         labels[i] = int(label)
         if i % 500000 == 0:
             print(f"Labelled {i} out of {all_obs.shape[0]} experiences")
@@ -176,8 +176,11 @@ def label_data(all_obs, label_fun):
     return labels
 
 
-def label_fun(state):
-    return numpy.linalg.norm(state[16:19]) < 0.1  # 16,17.18
+def label_fun(state, feasibility_label):
+    if feasibility_label == "place":
+        return state[0] == 0
+    if feasibility_label == "move":
+        return numpy.linalg.norm(state[16:19]) < 0.1  # 16,17.18
 
 
 def main(args):
@@ -186,6 +189,7 @@ def main(args):
         "optimizer_weight_decay": 0.0001,
         "exponential_lr_decay": 0.9995,
         "batch_size": 4096,
+        "buffer_size": args.buffer_size,
         "epochs": args.epochs,
         "nuke_layer_every": 1e9,
         "hidden_activation": torch.nn.ReLU,
@@ -199,7 +203,7 @@ def main(args):
         #"higher_prio_arch": [64, 64, 32, 32],
         #"higher_prio_threshold": 0.05,
         "polyak_tau": 0.01,
-        #"feasibility_label": args.feasibility_label,
+        "feasibility_label": args.feasibility_label,
         "rb_dirs": args.rb_dirs,
     }
 
@@ -208,13 +212,13 @@ def main(args):
     os.makedirs(exp_dir, exist_ok=True)
 
     print("Loading data...")
-    data, obs, actions, next_obs, dones = load_mlagents_buffer(args.rb_dirs)
+    data, obs, actions, next_obs, dones = load_mlagents_buffer(args.rb_dirs, args.buffer_size)
 
     n_obs = obs.shape[1]
     n_actions = 6250
 
     print("Labeling transitions...")
-    labels = label_data(all_obs=obs, label_fun=label_fun)
+    labels = label_data(all_obs=obs, label_function=label_fun, feasibility_label=args.feasibility_label)
 
     # save params as yaml
     with open(f"{exp_dir}/params.yaml", "w") as f:
@@ -304,10 +308,11 @@ def create_training_plots(exp_dir, train_loss_hist=None, lr_hist=None, pred_mean
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/move_ppo_01/ABBMobile/"])
+    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/grasp_ppo_02/ABBMobile/"])
+    parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=1000000)
     parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
     parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="test")
-    parser.add_argument("--feasibility_label", type=str, help="String to append to the experiment directory", default="abb")
+    parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="place")
     parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=200)
     args = parser.parse_args()
 
