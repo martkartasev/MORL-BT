@@ -144,18 +144,6 @@ def train_model(
         # if epoch % nuke_layer_every == 0 and epoch > 0:
     print("Done: training model")
 
-    print(f"Saving classifier to {exp_dir}/feasibility_dqn.pt")
-    torch.save(model.state_dict(), f"{exp_dir}/feasibility_dqn.pt")
-
-    print(f"Saving model as onnx to {exp_dir}/feasibility_dqn.onnx")
-    torch_input = torch.randn(1, 31).to(device)
-    torch.onnx.export(model,
-                      torch_input,
-                      f"{exp_dir}/feasibility_dqn.onnx",
-                      export_params=True,  # store the trained parameter weights inside the model file
-                      opset_version=15,  # the ONNX version to export the model to
-                      do_constant_folding=True, )
-
     return model, train_loss_hist, lr_hist, pred_mean_hist
 
 
@@ -193,7 +181,7 @@ def main(args):
         "epochs": args.epochs,
         "nuke_layer_every": 1e9,
         "hidden_activation": torch.nn.ReLU,
-        "hidden_arch": [256, 256, 128, 128],
+        "hidden_arch": [128, 128],
         "criterion": torch.nn.MSELoss,
         "with_batchNorm": True,
         # "criterion": torch.nn.L1Loss,
@@ -277,6 +265,18 @@ def main(args):
         pred_mean_hist=pred_mean_hist,
     )
 
+    print(f"Saving classifier to {exp_dir}/feasibility_dqn.pt")
+    torch.save(model.state_dict(), f"{exp_dir}/feasibility_dqn.pt")
+
+    print(f"Saving model as onnx to {exp_dir}/feasibility_dqn.onnx")
+    torch_input = torch.randn(1, n_obs).to(device)
+    torch.onnx.export(model,
+                      torch_input,
+                      f"{exp_dir}/feasibility_dqn.onnx",
+                      export_params=True,  # store the trained parameter weights inside the model file
+                      opset_version=15,  # the ONNX version to export the model to
+                      do_constant_folding=True, )
+
     return exp_dir
 
 
@@ -308,8 +308,8 @@ def create_training_plots(exp_dir, train_loss_hist=None, lr_hist=None, pred_mean
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/move_ppo_01/ABBMobile/"])
-    parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=2000000)
+    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/grasp_ppo_02/ABBMobile/"])
+    parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=20000000)
     parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
     parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="test")
     parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="move")
