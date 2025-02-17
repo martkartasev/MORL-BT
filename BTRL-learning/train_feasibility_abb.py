@@ -30,7 +30,7 @@ def load_mlagents_buffer(load_dir, max_obs):
         dones = update_buffer._fields[buffer.BufferKey.DONE].to_ndarray()
         actions = update_buffer._fields[buffer.BufferKey.DISCRETE_ACTION].to_ndarray()
 
-        nr_files = int(2*max_obs / experiences)
+        nr_files = int(max_obs / experiences)
         for i, file in enumerate(random.sample(replay_files, min(nr_files, len(replay_files)))):
             filename = os.path.join(direc, file)
             with open(filename, "rb+") as file_object:
@@ -308,7 +308,7 @@ def create_training_plots(exp_dir, train_loss_hist=None, lr_hist=None, pred_mean
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/grasp_ppo_02/ABBMobile/"])
+    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/move_ppo_01/ABBMobile/"])
     parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=20000000)
     parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
     parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="test")
