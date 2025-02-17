@@ -308,11 +308,11 @@ def create_training_plots(exp_dir, train_loss_hist=None, lr_hist=None, pred_mean
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/grasp_ppo_02/ABBMobile/"])
-    parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=1000000)
+    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/move_ppo_01/ABBMobile/"])
+    parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=2000000)
     parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
     parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="test")
-    parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="place")
+    parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="move")
     parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=200)
     args = parser.parse_args()
 
