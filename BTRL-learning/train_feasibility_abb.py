@@ -96,7 +96,7 @@ def train_model(
             with torch.no_grad():
                 target_q_values = target_model(next_state_batch.float())
 
-                for idx, net in enumerate(higher_prio_constraint_nets):
+                for idx, net in enumerate(higher_prio_constraint_nets): # TODO: Needs to be updated as well
                     high_prio_vals = net(next_state_batch.float())
                     best_high_prio_vals = high_prio_vals.min(dim=1, keepdim=True)[0]
                     # TODO, consider higher prio when finding best?
@@ -107,8 +107,8 @@ def train_model(
                 assert torch.all(target_q_values.min(dim=1).values < torch.inf)
 
                 current_state_val = (1 - gamma) * reward_batch
-                target_min = target_q_values.min(dim=1, keepdim=True)[0]
-                future_val = torch.max(target_min.to(device), reward_batch)
+                target_max = target_q_values.max(dim=1, keepdim=True)[0]
+                future_val = torch.min(target_max.to(device), reward_batch)
                 td_target = current_state_val + gamma * future_val
 
             q_values = model(state_batch.float().to(device))
@@ -159,16 +159,16 @@ def label_data(all_obs, label_function, feasibility_label):
             print(f"Labelled {i} out of {all_obs.shape[0]} experiences")
 
     assert not np.isinf(labels).any()
-    print(f"Done: labels.shape: {labels.shape}, positive labels: {np.sum(labels)}")
+    print(f"Done: labels.shape: {labels.shape}, negative labels: {len(labels) - np.sum(labels)}, as fraction: {(len(labels) - np.sum(labels)) / len(labels)}")
 
     return labels
 
 
-def label_fun(state, feasibility_label):
+def label_fun(state, feasibility_label): # Now predicting that we are in the "Good set"
     if feasibility_label == "place":
-        return state[0] == 0
+        return state[0] > 0
     if feasibility_label == "move":
-        return numpy.linalg.norm(state[16:19]) < 0.1  # 16,17.18
+        return numpy.linalg.norm(state[16:19]) > 0.1  # 16,17.18
 
 
 def main(args):
@@ -181,7 +181,7 @@ def main(args):
         "epochs": args.epochs,
         "nuke_layer_every": 1e9,
         "hidden_activation": torch.nn.ReLU,
-        "hidden_arch": [128, 128],
+        "hidden_arch": [64, 64],
         "criterion": torch.nn.MSELoss,
         "with_batchNorm": True,
         # "criterion": torch.nn.L1Loss,
@@ -308,12 +308,12 @@ def create_training_plots(exp_dir, train_loss_hist=None, lr_hist=None, pred_mean
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/move_ppo_01/ABBMobile/"])
-    parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=20000000)
+    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/grasp_ppo_02/ABBMobile/"])
+    parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=10000000)
     parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
     parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="test")
-    parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="move")
-    parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=200)
+    parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="place")
+    parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=100)
     args = parser.parse_args()
 
     exp_dir = main(args)
