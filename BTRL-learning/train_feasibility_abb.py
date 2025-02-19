@@ -14,7 +14,7 @@ import buffer
 from networks import MLP
 
 
-def load_mlagents_buffer(load_dir, max_obs):
+def load_mlagents_buffer(load_dir, max_obs, feasibility_label):
     update_buffer = buffer.AgentBuffer()
     for direc in load_dir:
         replay_files = [f for f in os.listdir(direc) if isfile(join(direc, f)) and "extended_replay" in f]
@@ -23,27 +23,61 @@ def load_mlagents_buffer(load_dir, max_obs):
         filename = os.path.join(direc, file)
         with open(filename, "rb+") as file_object:
             update_buffer.load_from_file(file_object)
-            experiences = update_buffer.num_experiences
+
 
         obs = update_buffer._fields[(buffer.ObservationKeyPrefix.OBSERVATION, 0)].to_ndarray()
         next_obs = update_buffer._fields[(buffer.ObservationKeyPrefix.NEXT_OBSERVATION, 0)].to_ndarray()
         dones = update_buffer._fields[buffer.BufferKey.DONE].to_ndarray()
         actions = update_buffer._fields[buffer.BufferKey.DISCRETE_ACTION].to_ndarray()
+        labels = label_data(obs, label_function=label_fun, feasibility_label=feasibility_label)
 
-        nr_files = int(max_obs / experiences)
-        for i, file in enumerate(random.sample(replay_files, min(nr_files, len(replay_files)))):
+        nr_files = len(replay_files)
+        random.shuffle(replay_files)
+        for i, file in enumerate(replay_files):
             filename = os.path.join(direc, file)
             with open(filename, "rb+") as file_object:
                 update_buffer.load_from_file(file_object)
 
-            obs = np.append(obs, update_buffer._fields[(buffer.ObservationKeyPrefix.OBSERVATION, 0)].to_ndarray(), axis=0)
-            next_obs = np.append(next_obs, update_buffer._fields[(buffer.ObservationKeyPrefix.NEXT_OBSERVATION, 0)].to_ndarray(), axis=0)
-            dones = np.append(dones, update_buffer._fields[buffer.BufferKey.DONE].to_ndarray(), axis=0)
-            actions = np.append(actions, update_buffer._fields[buffer.BufferKey.DISCRETE_ACTION].to_ndarray(), axis=0)
-            if i % 10 == 0:
-                print("Loaded {} out of {} files for the replay buffer. {} out of {} experiences loaded. ".format(i, nr_files, obs.shape[0], max_obs))
+            new_obs = update_buffer._fields[(buffer.ObservationKeyPrefix.OBSERVATION, 0)].to_ndarray()
+            new_labels = label_data(new_obs, label_function=label_fun, feasibility_label=feasibility_label)
+            new_next_obs = update_buffer._fields[(buffer.ObservationKeyPrefix.NEXT_OBSERVATION, 0)].to_ndarray()
+            new_dones = update_buffer._fields[buffer.BufferKey.DONE].to_ndarray()
+            new_actions = update_buffer._fields[buffer.BufferKey.DISCRETE_ACTION].to_ndarray()
 
-    return None, obs, actions, next_obs, dones
+            # Code for selective sampling of data of both labels
+            pos_indices = np.where(new_labels == 1)[0]
+            ratio = len(pos_indices) / len(new_labels)
+            must_sample = False
+            if ratio < 0.35:
+                neg_indices = np.where(new_labels != 1)[0]
+                neg_indices = np.random.choice(neg_indices, len(pos_indices))
+                must_sample = True
+            elif ratio > 0.65:
+                neg_indices = np.where(new_labels != 1)[0]
+                pos_indices = np.random.choice(pos_indices, len(neg_indices))
+                must_sample = True
+
+            if must_sample:
+                new_obs = np.append(new_obs[pos_indices, :], new_obs[neg_indices, :], axis=0)
+                new_labels = np.append(new_labels[pos_indices, :], new_labels[neg_indices, :], axis=0)
+                new_next_obs = np.append(new_next_obs[pos_indices, :], new_next_obs[neg_indices, :], axis=0)
+                new_dones = np.append(new_dones[pos_indices], new_dones[neg_indices], axis=0)
+                new_actions = np.append(new_actions[pos_indices, :], new_actions[neg_indices, :], axis=0)
+
+            obs = np.append(obs, new_obs, axis=0)
+            labels = np.append(labels, new_labels, axis=0)
+            next_obs = np.append(next_obs, new_next_obs, axis=0)
+            dones = np.append(dones, new_dones, axis=0)
+            actions = np.append(actions, new_actions, axis=0)
+            print(f"Done: labels.shape: {labels.shape}, negative labels: {len(labels) - np.sum(labels)}, as fraction: {(len(labels) - np.sum(labels)) / len(labels)}")
+
+            if i % 10 == 0:
+                print("Sampled {} out of {} available files for the replay buffer. {} out of {} experiences loaded. ".format(i, nr_files, obs.shape[0], max_obs))
+
+            if len(obs) > max_obs:
+                break
+
+    return None, obs, actions, next_obs, dones, labels
 
 
 def train_model(
@@ -149,17 +183,17 @@ def train_model(
 
 def label_data(all_obs, label_function, feasibility_label):
     # label data for ACC violation
-    print("Labeling data for ACC violation...")
+  #  print("Labeling data for ACC violation...")
     labels = np.ones((all_obs.shape[0], 1)) * np.inf
     for i in range(all_obs.shape[0]):
         state = all_obs[i]
         label = label_function(state=state, feasibility_label=feasibility_label)
         labels[i] = int(label)
-        if i % 500000 == 0:
-            print(f"Labelled {i} out of {all_obs.shape[0]} experiences")
+        # if i % 500000 == 0:
+        #     print(f"Labelled {i} out of {all_obs.shape[0]} experiences")
 
     assert not np.isinf(labels).any()
-    print(f"Done: labels.shape: {labels.shape}, negative labels: {len(labels) - np.sum(labels)}, as fraction: {(len(labels) - np.sum(labels)) / len(labels)}")
+    #print(f"Done: labels.shape: {labels.shape}, negative labels: {len(labels) - np.sum(labels)}, as fraction: {(len(labels) - np.sum(labels)) / len(labels)}")
 
     return labels
 
@@ -181,7 +215,7 @@ def main(args):
         "epochs": args.epochs,
         "nuke_layer_every": 1e9,
         "hidden_activation": torch.nn.ReLU,
-        "hidden_arch": [64, 64],
+        "hidden_arch": [128, 64, 64],
         "criterion": torch.nn.MSELoss,
         "with_batchNorm": True,
         # "criterion": torch.nn.L1Loss,
@@ -200,13 +234,10 @@ def main(args):
     os.makedirs(exp_dir, exist_ok=True)
 
     print("Loading data...")
-    data, obs, actions, next_obs, dones = load_mlagents_buffer(args.rb_dirs, args.buffer_size)
+    data, obs, actions, next_obs, dones, labels = load_mlagents_buffer(args.rb_dirs, args.buffer_size, args.feasibility_label)
 
     n_obs = obs.shape[1]
     n_actions = 6250
-
-    print("Labeling transitions...")
-    labels = label_data(all_obs=obs, label_function=label_fun, feasibility_label=args.feasibility_label)
 
     # save params as yaml
     with open(f"{exp_dir}/params.yaml", "w") as f:
@@ -313,7 +344,7 @@ if __name__ == "__main__":
     parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
     parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="test")
     parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="place")
-    parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=100)
+    parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=250)
     args = parser.parse_args()
 
     exp_dir = main(args)
