@@ -215,7 +215,7 @@ def main(args):
         "epochs": args.epochs,
         "nuke_layer_every": 1e9,
         "hidden_activation": torch.nn.ReLU,
-        "hidden_arch": [128, 64, 64],
+        "hidden_arch": [64, 64],
         "criterion": torch.nn.MSELoss,
         "with_batchNorm": True,
         # "criterion": torch.nn.L1Loss,
@@ -342,7 +342,7 @@ if __name__ == "__main__":
     parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/grasp_ppo_02/ABBMobile/"])
     parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=10000000)
     parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
-    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="test")
+    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="64x64")
     parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="place")
     parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=250)
     args = parser.parse_args()
