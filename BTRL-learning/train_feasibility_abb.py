@@ -14,7 +14,7 @@ import buffer
 from networks import MLP
 
 
-def load_mlagents_buffer(load_dir, max_obs, feasibility_label):
+def load_mlagents_buffer(load_dir, max_obs, feasibility_label, label_ratio = 0.35):
     update_buffer = buffer.AgentBuffer()
     for direc in load_dir:
         replay_files = [f for f in os.listdir(direc) if isfile(join(direc, f)) and "extended_replay" in f]
@@ -48,13 +48,13 @@ def load_mlagents_buffer(load_dir, max_obs, feasibility_label):
             pos_indices = np.where(new_labels == 1)[0]
             ratio = len(pos_indices) / len(new_labels)
             must_sample = False
-            if ratio < 0.35:
+            if ratio < label_ratio:
                 neg_indices = np.where(new_labels != 1)[0]
-                neg_indices = np.random.choice(neg_indices, len(pos_indices))
+                neg_indices = np.random.choice(neg_indices, min(int(len(pos_indices) / label_ratio - len(pos_indices)), len(neg_indices)))
                 must_sample = True
-            elif ratio > 0.65:
+            elif ratio > 1 - label_ratio:
                 neg_indices = np.where(new_labels != 1)[0]
-                pos_indices = np.random.choice(pos_indices, len(neg_indices))
+                pos_indices = np.random.choice(pos_indices, min(int(len(neg_indices) / label_ratio - len(neg_indices)), len(pos_indices)))
                 must_sample = True
 
             if must_sample:
@@ -227,21 +227,23 @@ def main(args):
         "polyak_tau": 0.01,
         "feasibility_label": args.feasibility_label,
         "rb_dirs": args.rb_dirs,
+        "label_ratio": args.label_ratio
     }
 
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
     exp_dir = f"{args.rb_dirs[-1]}/feasibility_{timestamp}_{args.exp_str}"
     os.makedirs(exp_dir, exist_ok=True)
 
+    # save params as yaml
+    with open(f"{exp_dir}/params.yaml", "w") as f:
+        yaml.dump(params, f)
+
     print("Loading data...")
-    data, obs, actions, next_obs, dones, labels = load_mlagents_buffer(args.rb_dirs, args.buffer_size, args.feasibility_label)
+    data, obs, actions, next_obs, dones, labels = load_mlagents_buffer(args.rb_dirs, args.buffer_size, args.feasibility_label, args.label_ratio)
 
     n_obs = obs.shape[1]
     n_actions = 6250
 
-    # save params as yaml
-    with open(f"{exp_dir}/params.yaml", "w") as f:
-        yaml.dump(params, f)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("Setting up model...")
@@ -340,10 +342,11 @@ def create_training_plots(exp_dir, train_loss_hist=None, lr_hist=None, pred_mean
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/move_ppo_01/ABBMobile/"])
-    parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=20000000)
+    parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=10000000)
     parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
     parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="128x64x64")
     parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="move")
+    parser.add_argument("--label_ratio", type=float, help="Minimum ratio between positive labelled data and all data. Between 0 and 1. 1 means all labels, 0 means no labels.", default=0.2)
     parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=250)
     args = parser.parse_args()
 
