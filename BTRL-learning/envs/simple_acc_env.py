@@ -93,7 +93,7 @@ class SimpleAccEnv(gym.Env):
             self.lava_y_max = lava_y_max
         self.task = task
         self.task_sum_weight = task_sum_weight
-        assert task in ["lava", "goal", "lava_goal_sum", "left", "battery", "shapedSum"]
+        assert task in ["lava", "goal", "lava_goal_sum", "left", "battery", "shapedSum", "denseUnshapedSum"]
         assert 0 <= self.task_sum_weight <= 1
 
         self.goal_x = goal_x
@@ -248,6 +248,14 @@ class SimpleAccEnv(gym.Env):
             reward = battery_reward
         elif self.task == "shapedSum":
             reward = lava_reward + goal_rewad + battery_reward
+        elif self.task == "denseUnshapedSum":
+            reward = 0
+            if agent_in_lava:
+                reward -= 1
+            if battery_empty:
+                reward -= 1
+            if not agent_at_goal:
+                reward -= 1
         else:
             raise NotImplementedError(f"Task {self.task} not imlpemented")
 
@@ -287,7 +295,7 @@ class SimpleAccEnv(gym.Env):
 
         new_obs = self._get_obs()
         done = False
-        if self.task == "goal" or self.task == "shapedSum":
+        if self.task == "goal" or self.task == "shapedSum" or self.task == "unshapedSum":
             if agent_at_goal:
                 done = True
         trunc = self.ep_len > self.max_ep_len
@@ -295,6 +303,9 @@ class SimpleAccEnv(gym.Env):
         info["state_predicates"] = self.check_state_predicates()
         info["ep_len"] = self.ep_len
         info["state_predicate_names"] = self.state_predicate_names
+
+        full_task_solved = agent_at_goal and not battery_empty and not agent_in_lava
+        info["full_task_solved"] = full_task_solved
 
         self.ep_len += 1
 
