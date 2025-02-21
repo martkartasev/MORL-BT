@@ -633,25 +633,26 @@ def plot_bt_comp_metrics(
 
         # compute mean and std for across repetitions
         # apply smoothing
-        reward_hists = np.array([np.convolve(hist, np.ones(10) / 10, mode="valid") for hist in reward_hists])
+        smooth_len = 20
+        reward_hists = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in reward_hists])
         mean_reward = np.mean(reward_hists, axis=0)
         std_reward = np.std(reward_hists, axis=0)
 
-        in_lava = np.array([np.convolve(hist, np.ones(10) / 10, mode="valid") for hist in in_lava])
+        in_lava = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in in_lava])
         mean_in_lava = np.mean(in_lava, axis=0)
         std_in_lava = np.std(in_lava, axis=0)
 
-        at_goal = np.array([np.convolve(hist, np.ones(10) / 10, mode="valid") for hist in at_goal])
+        at_goal = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in at_goal])
         mean_at_goal = np.mean(at_goal, axis=0)
         std_at_goal = np.std(at_goal, axis=0)
 
-        battery_empty = np.array([np.convolve(hist, np.ones(10) / 10, mode="valid") for hist in battery_empty])
+        battery_empty = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in battery_empty])
         mean_battery_empty = np.mean(battery_empty, axis=0)
         std_battery_empty = np.std(battery_empty, axis=0)
 
         # plot metrics
         n_x_ticks = 3
-        lw = 0.5
+        lw = 2
         upper_x_lim = 26000
         # the number of episodes is different for different methods (due to finishing more or less episodes with same number of interactions)
         # to make all plots of same length we scale x to fit the length of the longest method...
@@ -688,7 +689,7 @@ def plot_bt_comp_metrics(
         bottom=0.15,
         left=0.12,
         right=0.975,
-        wspace=0.35
+        wspace=0.4
     )
     plt.savefig(f"runs/2D-lava-con-noCon-metrics.png")
     plt.show()
@@ -1183,28 +1184,28 @@ if __name__ == "__main__":
     # env_actuator.plot_action_acceleration_mapping()
 
     method_names = ["BT-DQN", "BT-Penalty", "CBTRL (Ours)"]
-    method_colors = ["magenta", "red", "cyan"]
+    method_colors = ["magenta", "k", "cyan"]
     method_ls = ["--", ":", "-"]
     
-    plot_feasibility_value_function_comparison(
-        # safety_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-31-17-15-32_withBattery_refactorMLP/feasibility_2024-07-31-19-37-15_1k_lrDecay_veryLargeBatch",
-        safety_feasibility_dir="final_experiments_winPaths/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-15-08-46_debug_seed-1/feasibility_2024-09-28-18-05-50_lava",
-        battery_feasibility_dirs=[
-            # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-31-24_singleLoad_batch:4k_greedy",
-            # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-49-30_singleLoad_batch:4k_recursive",
-            # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-14-16-27_singleLoad_batch:4k_OR"
-            "final_experiments_winPaths/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-28-18-13-59_debug_seed-1/feasibility_2024-09-28-22-23-20_battery_naive",
-            "final_experiments_winPaths/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-28-18-13-59_debug_seed-1/feasibility_2024-09-28-22-30-41_battery_recursive",
-            "final_experiments_winPaths/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-28-18-13-59_debug_seed-1/feasibility_2024-09-28-22-38-46_lava_OR_battery"
-        ],
-        battery_feasibility_names=[
-            "Naive",
-            "Recursive",
-            "Battery OR\nSafety",
-        ],
-        battery_levels=[0.01, 0.05, 0.1, 0.15, 0.5],
-        exclude_safety_row=True,
-    )
+    # plot_feasibility_value_function_comparison(
+    #     # safety_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-31-17-15-32_withBattery_refactorMLP/feasibility_2024-07-31-19-37-15_1k_lrDecay_veryLargeBatch",
+    #     safety_feasibility_dir="final_experiments_winPaths/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-15-08-46_debug_seed-1/feasibility_2024-09-28-18-05-50_lava",
+    #     battery_feasibility_dirs=[
+    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-31-24_singleLoad_batch:4k_greedy",
+    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-11-49-30_singleLoad_batch:4k_recursive",
+    #         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-08-22-15-42-44_withFeasibilityAwareBT/feasibility_2024-08-23-14-16-27_singleLoad_batch:4k_OR"
+    #         "final_experiments_winPaths/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-28-18-13-59_debug_seed-1/feasibility_2024-09-28-22-23-20_battery_naive",
+    #         "final_experiments_winPaths/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-28-18-13-59_debug_seed-1/feasibility_2024-09-28-22-30-41_battery_recursive",
+    #         "final_experiments_winPaths/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-28-18-13-59_debug_seed-1/feasibility_2024-09-28-22-38-46_lava_OR_battery"
+    #     ],
+    #     battery_feasibility_names=[
+    #         "Naive",
+    #         "Recursive",
+    #         "Battery OR\nSafety",
+    #     ],
+    #     battery_levels=[0.01, 0.05, 0.1, 0.15, 0.5],
+    #     exclude_safety_row=True,
+    # )
 
     # plot_multi_feasibility_comparison(
     #     # unsafe_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
@@ -1251,48 +1252,48 @@ if __name__ == "__main__":
     #     method_ls=method_ls
     # )
 
-    # plot_bt_comp_metrics(
-    #     which_data="train",
-    #     no_con_load_dirs=[
-    #         # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-14-52-57_noPunish_noConstraint_noEval_1",
-    #         # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-13-12_noPunish_noConstraint_noEval_2",
-    #         # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-33-37_noPunish_noConstraint_noEval_3",
-    #         # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-53-56_noPunish_noConstraint_noEval_4",
-    #         # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-14-18_noPunish_noConstraint_noEval_5",
-    #         "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-28-22-54-23_debug_noConstraints_seed:1",
-    #         "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-18-11-28_debug_noConstraints_seed:2",
-    #         "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-13-14-12_debug_noConstraints_seed:3",
-    #         "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-01-08-15-17_debug_noConstraints_seed:4",
-    #         "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-02-03-10-46_debug_noConstraints_seed:5"
-    #     ],
-    #     con_load_dirs=[
-    #         # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
-    #         # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-35-40_noPunish_withConstraint_noEval_2",
-    #         # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-01-19_noPunish_withConstraint_noEval_3",
-    #         # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-27-03_noPunish_withConstraint_noEval_4",
-    #         # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-52-26_noPunish_withConstraint_noEval_5",
-    #         "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-04-53-21_debug_feasibilityAwareBT_seed:1",
-    #         "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-00-10-33_debug_feasibilityAwareBT_seed:2",
-    #         "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-19-14-47_debug_feasibilityAwareBT_seed:3",
-    #         "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-01-14-17-29_debug_feasibilityAwareBT_seed:4",
-    #         "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-02-09-07-39_debug_feasibilityAwareBT_seed:5"
-    #     ],
-    #     sum_load_dir=[
-    #         # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-34-46_withPunish_noConstraint_noEval_1",
-    #         # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-53-56_withPunish_noConstraint_noEval_2",
-    #         # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-13-07_withPunish_noConstraint_noEval_3",
-    #         # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-32-10_withPunish_noConstraint_noEval_4",
-    #         # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-51-14_withPunish_noConstraint_noEval_5",
-    #         "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-01-53-13_debug_rewardPenalty_seed:1",
-    #         "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-21-10-25_debug_rewardPenalty_seed:2",
-    #         "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-16-13-34_debug_rewardPenalty_seed:3",
-    #         "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-01-11-15-06_debug_rewardPenalty_seed:4",
-    #         "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-02-06-09-03_debug_rewardPenalty_seed:5"
-    #     ],
-    #     method_names=method_names,
-    #     method_colors=method_colors,
-    #     method_ls=method_ls
-    # )
+    plot_bt_comp_metrics(
+        which_data="train",
+        no_con_load_dirs=[
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-14-52-57_noPunish_noConstraint_noEval_1",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-13-12_noPunish_noConstraint_noEval_2",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-33-37_noPunish_noConstraint_noEval_3",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-53-56_noPunish_noConstraint_noEval_4",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-14-18_noPunish_noConstraint_noEval_5",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-28-22-54-23_debug_noConstraints_seed-1",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-29-18-11-28_debug_noConstraints_seed-2",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-13-14-12_debug_noConstraints_seed-3",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-01-08-15-17_debug_noConstraints_seed-4",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-02-03-10-46_debug_noConstraints_seed-5"
+        ],
+        con_load_dirs=[
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-35-40_noPunish_withConstraint_noEval_2",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-01-19_noPunish_withConstraint_noEval_3",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-27-03_noPunish_withConstraint_noEval_4",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-52-26_noPunish_withConstraint_noEval_5",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-29-04-53-21_debug_feasibilityAwareBT_seed-1",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-00-10-33_debug_feasibilityAwareBT_seed-2",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-19-14-47_debug_feasibilityAwareBT_seed-3",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-01-14-17-29_debug_feasibilityAwareBT_seed-4",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-02-09-07-39_debug_feasibilityAwareBT_seed-5"
+        ],
+        sum_load_dir=[
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-34-46_withPunish_noConstraint_noEval_1",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-53-56_withPunish_noConstraint_noEval_2",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-13-07_withPunish_noConstraint_noEval_3",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-32-10_withPunish_noConstraint_noEval_4",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-51-14_withPunish_noConstraint_noEval_5",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-29-01-53-13_debug_rewardPenalty_seed-1",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-29-21-10-25_debug_rewardPenalty_seed-2",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-16-13-34_debug_rewardPenalty_seed-3",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-16-13-34_debug_rewardPenalty_seed-3",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-02-06-09-03_debug_rewardPenalty_seed-5"
+        ],
+        method_names=method_names,
+        method_colors=method_colors,
+        method_ls=method_ls
+    )
 
     # plot_numpy_feasiblity_dqn(
     #     # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/",
