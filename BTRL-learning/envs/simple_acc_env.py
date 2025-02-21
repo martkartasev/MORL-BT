@@ -295,7 +295,7 @@ class SimpleAccEnv(gym.Env):
 
         new_obs = self._get_obs()
         done = False
-        if self.task == "goal" or self.task == "shapedSum" or self.task == "unshapedSum":
+        if self.task == "goal" or self.task == "shapedSum" or self.task == "unshapedSum" or self.task == "denseUnshapedSum":
             if agent_at_goal:
                 done = True
         trunc = self.ep_len > self.max_ep_len
