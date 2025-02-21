@@ -192,16 +192,22 @@ class SimpleAccEnv(gym.Env):
         self.vel_x = np.random.uniform(-self.max_velocity, self.max_velocity)
         self.vel_y = np.random.uniform(-self.max_velocity, self.max_velocity)
 
-        # seems I need this or train on much more data to learn good feasibility estimator for all velocities and poses
-        border_dist = np.random.choice([0, 0.05, 1])
-        p = random_point_on_rectangle_outline(
-            x_min=self.conveyer_x_min-border_dist,
-            y_min=self.conveyer_y_min-border_dist,
-            x_max=self.lava_x_max+border_dist,
-            y_max=self.lava_y_max+border_dist
-        )
-        self.x = p[0]
-        self.y = p[1]
+        if self.task == "denseUnshapedSum":
+            # this is for training standard DQN without BT, always reset if like the BT resets when training goal task...
+            self.x = self.x_max / 2 + np.random.uniform(-8, 8)
+            self.y = 1
+        else:
+            # seems I need this or train on much more data to learn good feasibility estimator for all velocities and poses
+            # note: When training BT on goal task, the reset options are passed to make sure env resets underneath lava area...
+            border_dist = np.random.choice([0, 0.05, 1])
+            p = random_point_on_rectangle_outline(
+                x_min=self.conveyer_x_min-border_dist,
+                y_min=self.conveyer_y_min-border_dist,
+                x_max=self.lava_x_max+border_dist,
+                y_max=self.lava_y_max+border_dist
+            )
+            self.x = p[0]
+            self.y = p[1]
 
         self.battery_charge = np.random.uniform(0, 1)
 

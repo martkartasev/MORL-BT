@@ -573,6 +573,7 @@ def plot_bt_comp_metrics(
         no_con_load_dirs=[],
         con_load_dirs=[],
         sum_load_dir=[],
+        standard_dqn_load_dirs=[],
         which_data="eval",  # eval or train
         fontsize=25,
         method_names=["BT-DQN", "BT-MORL", "CBTRL (Ours)"],
@@ -590,8 +591,13 @@ def plot_bt_comp_metrics(
     # setup figure
     fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(15, 6))
 
+    bt_max_reward = -25
+    bt_min_reward = -200
+    dqn_min_reward = -500
+    dqn_max_reward = -60
+
     # iterate over all methods
-    for idx, method_dirs in enumerate([no_con_load_dirs, sum_load_dir, con_load_dirs]):
+    for idx, method_dirs in enumerate([no_con_load_dirs, sum_load_dir, con_load_dirs, standard_dqn_load_dirs]):
 
         # load data from dirs
         eval_reward_hists = []
@@ -631,9 +637,17 @@ def plot_bt_comp_metrics(
         at_goal = predicate_hists[:, :, 1]
         battery_empty = predicate_hists[:, :, 3]
 
+        # separately normalize BT rewards and standard DQN (no BT) rewards, since they are using other reward functions
+        print("Reward min max before norm", reward_hists.min(), reward_hists.max())
+        if idx <=2:
+            reward_hists = (reward_hists - bt_min_reward) / (bt_max_reward - bt_min_reward)
+        else:
+            reward_hists = (reward_hists - dqn_min_reward) / (dqn_max_reward - dqn_min_reward)
+        print("Reward min max after norm", reward_hists.min(), reward_hists.max())
+
         # compute mean and std for across repetitions
         # apply smoothing
-        smooth_len = 20
+        smooth_len = 10
         reward_hists = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in reward_hists])
         mean_reward = np.mean(reward_hists, axis=0)
         std_reward = np.std(reward_hists, axis=0)
@@ -662,8 +676,8 @@ def plot_bt_comp_metrics(
         axs[0].fill_between(x_scaled, mean_reward - std_reward, mean_reward + std_reward, color=method_colors[idx], alpha=0.2)
         axs[0].set_ylabel("Goal reward")
         axs[0].set_xlabel("Episodes")
-        axs[0].set_xlim(0, upper_x_lim)
-        axs[0].set_ylim(-200, 0)
+        # axs[0].set_xlim(0, upper_x_lim)
+        # axs[0].set_ylim(-200, 0)
         # axs[0].set_xticks(np.linspace(0, len(mean_reward), n_x_ticks, dtype=np.int64))
 
         axs[1].plot(x_scaled, mean_in_lava, color=method_colors[idx], label=method_names[idx], ls=method_ls[idx], lw=lw)
@@ -1252,6 +1266,9 @@ if __name__ == "__main__":
     #     method_ls=method_ls
     # )
 
+    method_names = ["BT-DQN", "BT-Penalty", "CBTRL (Ours)", "DQN"]
+    method_colors = ["magenta", "k", "cyan", "red"]
+    method_ls = ["--", ":", "-", "-."]
     plot_bt_comp_metrics(
         which_data="train",
         no_con_load_dirs=[
@@ -1289,6 +1306,10 @@ if __name__ == "__main__":
             r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-16-13-34_debug_rewardPenalty_seed-3",
             r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-16-13-34_debug_rewardPenalty_seed-3",
             r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-02-06-09-03_debug_rewardPenalty_seed-5"
+        ],
+        standard_dqn_load_dirs=[
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\runs\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__train_clean_dqn__1__1740130738",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\runs\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__train_clean_dqn__1__1740130738"
         ],
         method_names=method_names,
         method_colors=method_colors,
