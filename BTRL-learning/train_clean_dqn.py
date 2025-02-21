@@ -47,7 +47,7 @@ class Args:
 
     # Algorithm specific arguments
     # env_id: str = "SimpleAccEnv-wide-withConveyer-lava-v0"
-    env_id: str = "SimpleAccEnv-wide-withConveyer-shapedSum-v0"
+    env_id: str = "SimpleAccEnv-wide-withConveyer-unshapedSum-v0"
 
     """the id of the environment"""
     total_timesteps: int = 300_000
@@ -192,12 +192,15 @@ poetry run pip install "stable_baselines3==2.0.0a1"
     eval_reward_hist = []
     eval_state_predicate_hist = []
     eval_episodes_times = []
+    ep_success = 0
+    full_task_success_hist = []
 
     logging_dict = {
         "episodes_done": episodes_done,
         "ep_len": ep_len,
         "ep_reward_sum": ep_reward_sum,
         "ep_state_predicates": ep_state_predicates,
+        "ep_success": ep_success,
         "loss_hist": loss_hist,
         "avg_q_hist": avg_q_hist,
         "ep_reward_hist": ep_reward_hist,
@@ -206,6 +209,7 @@ poetry run pip install "stable_baselines3==2.0.0a1"
         "eval_reward_hist": eval_reward_hist,
         "eval_state_predicate_hist": eval_state_predicate_hist,
         "eval_episodes_times": eval_episodes_times,
+        "full_task_success_hist": full_task_success_hist
     }
 
     # TRY NOT TO MODIFY: start the game
@@ -229,12 +233,14 @@ poetry run pip install "stable_baselines3==2.0.0a1"
         if not "final_info" in infos:
             # avoid keyError here and add state predicates from last step in the following if block
             logging_dict["ep_state_predicates"] += np.array(infos["state_predicates"][0], dtype=np.int64)
+            logging_dict["ep_success"] += int(infos["full_task_solved"])
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
         if "final_info" in infos:
             for info in infos["final_info"]:
                 if info and "episode" in info:
                     logging_dict["ep_state_predicates"] += np.array(info["state_predicates"], dtype=np.int64)
+                    logging_dict["ep_success"] += int(info["full_task_solved"])
 
                     print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
                     writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
@@ -243,11 +249,13 @@ poetry run pip install "stable_baselines3==2.0.0a1"
                     logging_dict["ep_len_hist"].append(info["episode"]["l"][0])
                     logging_dict["ep_reward_hist"].append(info["episode"]["r"][0])
                     logging_dict["ep_state_predicate_hist"].append(logging_dict["ep_state_predicates"])
+                    logging_dict["full_task_success_hist"].append(logging_dict["ep_success"])
 
                     logging_dict["ep_len"] = 0
                     logging_dict["ep_reward_sum"] = 0
                     logging_dict["ep_state_predicates"] = np.zeros(len(envs.envs[0].state_predicate_names))
                     logging_dict["episodes_done"] += 1
+                    logging_dict["ep_success"] = 0
 
         # TRY NOT TO MODIFY: save data to reply buffer; handle `final_observation`
         real_next_obs = next_obs.copy()
@@ -299,17 +307,19 @@ poetry run pip install "stable_baselines3==2.0.0a1"
         eval_reward_hist=logging_dict["eval_reward_hist"],
         eval_state_predicate_hist=logging_dict["eval_state_predicate_hist"],
         eval_ep_times=logging_dict["eval_episodes_times"],
+        ep_success_hist=logging_dict["full_task_success_hist"]
     )
 
     # PLOT TRAINING CURVES
     img_dir = f"runs/{run_name}/imgs"
     os.makedirs(img_dir, exist_ok=True)
-    titles = ["Loss Q", "Avg Q", "Episode Reward", "Episode Length"]
+    titles = ["Loss Q", "Avg Q", "Episode Reward", "Episode Length", "Episode Success"]
     graphs = [
         logging_dict["loss_hist"],
         logging_dict["avg_q_hist"],
         logging_dict["ep_reward_hist"],
         logging_dict["ep_len_hist"],
+        logging_dict["full_task_success_hist"]
         ]
     for y_data, title in zip(graphs, titles):
         plt.plot(y_data)
@@ -330,7 +340,7 @@ poetry run pip install "stable_baselines3==2.0.0a1"
             plt.close()
 
         create_plots_numpy_env(
-            dqns=[q_network],
+            dqn=q_network,
             env=envs.envs[0],
             device=device,
             save_dir=f"{img_dir}",
