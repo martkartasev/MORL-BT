@@ -4,6 +4,7 @@ import torch
 from envs.simple_acc_env import action_to_acc, SimpleAccEnv
 from networks import MLP
 import yaml
+import matplotlib.ticker as ticker
 
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE" # Flag from https://stackoverflow.com/questions/20554074/sklearn-omp-error-15-initializing-libiomp5md-dll-but-found-mk2iomp5md-dll-a
@@ -579,6 +580,7 @@ def plot_bt_comp_metrics(
         method_names=["BT-DQN", "BT-MORL", "CBTRL (Ours)"],
         method_colors=["magenta", "yellow", "cyan"],
         method_ls=["--", ":", "-"],
+        zorders=[0, 1, 2]
 ):
     """
     Plot avg. and std. metrics over time of multiple runs for 2D numpy env
@@ -593,8 +595,8 @@ def plot_bt_comp_metrics(
 
     bt_max_reward = -25
     bt_min_reward = -200
-    dqn_min_reward = -500
-    dqn_max_reward = -60
+    dqn_min_reward = -600
+    dqn_max_reward = -40
 
     # iterate over all methods
     for idx, method_dirs in enumerate([no_con_load_dirs, sum_load_dir, con_load_dirs, standard_dqn_load_dirs]):
@@ -623,7 +625,7 @@ def plot_bt_comp_metrics(
             reward_hists = np.array(eval_reward_hists)
             predicate_hists = np.array(eval_predicate_hists)
         else:
-            # truncate training data to the length of the shortest
+            # truncate training data to the length of the shortest for the current method
             shortest_reward_hist = min([len(hist) for hist in train_reward_hists])
             train_reward_hists = [hist[:shortest_reward_hist] for hist in train_reward_hists]
             reward_hists = np.array(train_reward_hists)
@@ -634,20 +636,19 @@ def plot_bt_comp_metrics(
 
         print(method_dirs)
         in_lava = predicate_hists[:, :, 0]
-        at_goal = predicate_hists[:, :, 1]
         battery_empty = predicate_hists[:, :, 3]
 
         # separately normalize BT rewards and standard DQN (no BT) rewards, since they are using other reward functions
         print("Reward min max before norm", reward_hists.min(), reward_hists.max())
-        if idx <=2:
-            reward_hists = (reward_hists - bt_min_reward) / (bt_max_reward - bt_min_reward)
-        else:
+        if method_names[idx] == "DQN":
             reward_hists = (reward_hists - dqn_min_reward) / (dqn_max_reward - dqn_min_reward)
+        else:
+            reward_hists = (reward_hists - bt_min_reward) / (bt_max_reward - bt_min_reward)
         print("Reward min max after norm", reward_hists.min(), reward_hists.max())
 
         # compute mean and std for across repetitions
         # apply smoothing
-        smooth_len = 10
+        smooth_len = 50
         reward_hists = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in reward_hists])
         mean_reward = np.mean(reward_hists, axis=0)
         std_reward = np.std(reward_hists, axis=0)
@@ -656,46 +657,45 @@ def plot_bt_comp_metrics(
         mean_in_lava = np.mean(in_lava, axis=0)
         std_in_lava = np.std(in_lava, axis=0)
 
-        at_goal = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in at_goal])
-        mean_at_goal = np.mean(at_goal, axis=0)
-        std_at_goal = np.std(at_goal, axis=0)
-
         battery_empty = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in battery_empty])
         mean_battery_empty = np.mean(battery_empty, axis=0)
         std_battery_empty = np.std(battery_empty, axis=0)
 
         # plot metrics
-        n_x_ticks = 3
         lw = 2
-        upper_x_lim = 26000
+        upper_x_lim = 26366
         # the number of episodes is different for different methods (due to finishing more or less episodes with same number of interactions)
         # to make all plots of same length we scale x to fit the length of the longest method...
         x_scaled = np.linspace(0, upper_x_lim, len(mean_reward))
+        print(len(mean_reward))
 
-        axs[0].plot(x_scaled, mean_reward, color=method_colors[idx], ls=method_ls[idx], lw=lw, alpha=0.75)
-        axs[0].fill_between(x_scaled, mean_reward - std_reward, mean_reward + std_reward, color=method_colors[idx], alpha=0.2)
-        axs[0].set_ylabel("Goal reward")
+        axs[0].plot(x_scaled, mean_reward, color=method_colors[idx], ls=method_ls[idx], lw=lw, alpha=0.75, zorder=zorders[idx])
+        axs[0].fill_between(x_scaled, mean_reward - std_reward, mean_reward + std_reward, color=method_colors[idx], alpha=0.2, zorder=zorders[idx])
+        axs[0].set_ylabel("Task return (normalized)")
         axs[0].set_xlabel("Episodes")
-        # axs[0].set_xlim(0, upper_x_lim)
-        # axs[0].set_ylim(-200, 0)
+        axs[0].set_xlim(0, upper_x_lim)
+        axs[0].set_ylim(0, 1.1)
         # axs[0].set_xticks(np.linspace(0, len(mean_reward), n_x_ticks, dtype=np.int64))
+        axs[0].set_xticks([2000, 10_000, 20_000], ["2e3", "1e4", "2e4"])
 
-        axs[1].plot(x_scaled, mean_in_lava, color=method_colors[idx], label=method_names[idx], ls=method_ls[idx], lw=lw)
-        axs[1].fill_between(x_scaled, mean_in_lava - std_in_lava, mean_in_lava + std_in_lava, color=method_colors[idx], alpha=0.2)
-        axs[1].set_ylabel("Steps " + predicate_names[0].replace("_", " "))
+        x_scaled = np.linspace(0, upper_x_lim, len(mean_in_lava))
+        axs[1].plot(x_scaled, mean_in_lava, color=method_colors[idx], label=method_names[idx], ls=method_ls[idx], lw=lw, zorder=zorders[idx])
+        axs[1].fill_between(x_scaled, mean_in_lava - std_in_lava, mean_in_lava + std_in_lava, color=method_colors[idx], alpha=0.2, zorder=zorders[idx])
+        axs[1].set_ylabel("Steps: Unsafe")
         axs[1].set_xlabel("Episodes")
         axs[1].legend(loc="upper center", bbox_to_anchor=(0.5, 1.25), ncol=len(method_names))
         axs[1].set_xlim(0, upper_x_lim)
         axs[1].set_ylim(-5, 100)
-        # axs[1].set_xticks(np.linspace(0, len(mean_in_lava), n_x_ticks, dtype=np.int64))
+        axs[1].set_xticks([2000, 10_000, 20_000], ["2e3", "1e4", "2e4"])
 
-        axs[2].plot(x_scaled, mean_battery_empty, color=method_colors[idx], ls=method_ls[idx], lw=lw)
-        axs[2].fill_between(x_scaled, mean_battery_empty - std_battery_empty, mean_battery_empty + std_battery_empty, color=method_colors[idx], alpha=0.2)
-        axs[2].set_ylabel("Steps " + predicate_names[3].replace("_", " "))
+        x_scaled = np.linspace(0, upper_x_lim, len(mean_battery_empty))
+        axs[2].plot(x_scaled, mean_battery_empty, color=method_colors[idx], ls=method_ls[idx], lw=lw, zorder=zorders[idx])
+        axs[2].fill_between(x_scaled, mean_battery_empty - std_battery_empty, mean_battery_empty + std_battery_empty, color=method_colors[idx], alpha=0.2, zorder=zorders[idx])
+        axs[2].set_ylabel("Steps: Battery low")
         axs[2].set_xlabel("Episodes")
         axs[2].set_xlim(0, upper_x_lim)
         axs[2].set_ylim(-5, 100)
-        # axs[2].set_xticks(np.linspace(0, len(mean_at_goal), n_x_ticks, dtype=np.int64))
+        axs[2].set_xticks([2000, 10_000, 20_000], ["2e3", "1e4", "2e4"])
 
     plt.tight_layout()
     plt.subplots_adjust(
@@ -1197,10 +1197,14 @@ if __name__ == "__main__":
     # env_actuator = EnvActuatorGrid5x5()
     # env_actuator.plot_action_acceleration_mapping()
 
-    method_names = ["BT-DQN", "BT-Penalty", "CBTRL (Ours)"]
-    method_colors = ["magenta", "k", "cyan"]
-    method_ls = ["--", ":", "-"]
-    
+    # method_names = ["BT-DQN", "BT-Penalty", "CBTRL (Ours)"]
+    # method_colors = ["magenta", "k", "cyan"]
+    # method_ls = ["--", ":", "-"]
+    method_names = ["BT-DQN", "BT-Penalty", "CBTRL (Ours)", "DQN"]
+    method_colors = ["k", "magenta", "cyan", "red"]
+    method_ls = ["--", ":", "-", "-."]
+    zorders = [5, 10, 15, 0]
+
     # plot_feasibility_value_function_comparison(
     #     # safety_feasibility_dir="runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-31-17-15-32_withBattery_refactorMLP/feasibility_2024-07-31-19-37-15_1k_lrDecay_veryLargeBatch",
     #     safety_feasibility_dir="final_experiments_winPaths/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-15-08-46_debug_seed-1/feasibility_2024-09-28-18-05-50_lava",
@@ -1266,9 +1270,6 @@ if __name__ == "__main__":
     #     method_ls=method_ls
     # )
 
-    method_names = ["BT-DQN", "BT-Penalty", "CBTRL (Ours)", "DQN"]
-    method_colors = ["magenta", "k", "cyan", "red"]
-    method_ls = ["--", ":", "-", "-."]
     plot_bt_comp_metrics(
         which_data="train",
         no_con_load_dirs=[
@@ -1308,12 +1309,16 @@ if __name__ == "__main__":
             r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-02-06-09-03_debug_rewardPenalty_seed-5"
         ],
         standard_dqn_load_dirs=[
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\runs\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__train_clean_dqn__1__1740130738",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\runs\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__train_clean_dqn__1__1740130738"
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__0__1740212518",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__1__1740221587",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__2__1740230580",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__3__1740239692",
+            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__4__1740248762"
         ],
         method_names=method_names,
         method_colors=method_colors,
-        method_ls=method_ls
+        method_ls=method_ls,
+        zorders=zorders
     )
 
     # plot_numpy_feasiblity_dqn(
