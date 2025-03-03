@@ -216,8 +216,11 @@ def train_model(
 
                 current_state_val = (1 - gamma) * reward_batch
                 # current_state_val = reward_batch
-                target_min = target_q_values.min(dim=1, keepdim=True)[0]
-                future_val = torch.max(target_min.to(device), reward_batch)
+                # target_min = target_q_values.min(dim=1, keepdim=True)[0]  # either this way: min max
+                # future_val = torch.max(target_min.to(device), reward_batch)
+                target_max = target_q_values.max(dim=1, keepdim=True)[0]  # or that way: max min
+                future_val = torch.min(target_max.to(device), reward_batch)
+
                 # future_val = target_q_values.min(dim=1, keepdim=True)[0]
                 # future_val = target_q_values.gather(dim=1, index=double_q_values.argmin(dim=1, keepdim=True))
                 td_target = current_state_val + gamma * future_val
@@ -316,18 +319,21 @@ def main(args):
         
         # battery and lava
         # return (state[4] <= 0) or (env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max)
-        assert args.feasibility_label in ["lava", "left", "battery", "or"], f"Feasibility label {args.feasibility_label} not supported"
+        # assert args.feasibility_label in ["lava", "left", "battery", "or"], f"Feasibility label {args.feasibility_label} not supported"
+        assert args.feasibility_label in ["lava", "or"], f"Feasibility label {args.feasibility_label} not supported"
 
         if args.feasibility_label == "lava":
-            return env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max
+            label = env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max
         elif args.feasibility_label == "left":
-            return state[0] > (env.x_max / 2)
+            label = state[0] > (env.x_max / 2)
         elif args.feasibility_label == "battery":
-            return state[4] <= 0
+            label = state[4] <= 0
         elif args.feasibility_label == "or":
-            return (state[4] <= 0) or (env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max)
+            label = (state[4] <= 0) or (env.lava_x_min <= state[0] <= env.lava_x_max and env.lava_y_min <= state[1] <= env.lava_y_max)
         else:
             raise NotImplementedError(f"Feasibility label {args.feasibility_label} not supported")
+
+        return not label
 
     # unity env
     # env = None
@@ -448,10 +454,10 @@ if __name__ == "__main__":
         # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-21-11-06-22_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget",
         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-21-12-02-49_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget"
         # ---
-        "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-11-28-07_feasibilityAwareBT:False_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget_3M_batch4096"
+        "final_experiments/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-15-08-46_debug_seed:1"
     ])
     parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
-    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="singleLoad_randomXYResets")
+    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="invert")
     parser.add_argument("--feasibility_label", type=str, help="String to append to the experiment directory", default="lava")
     parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=200)
 
