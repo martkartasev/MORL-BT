@@ -2,6 +2,7 @@ import gymnasium as gym
 
 from .lava_goal_conveyer_acceleration import LavaGoalConveyerAccelerationEnv
 from .simple_acc_env import SimpleAccEnv
+from .simple_acc_env_noBattery import SimpleAccEnvNoBattery
 
 gym.envs.register(
     id="LavaGoalConveyerAcceleration-lava-v0",
@@ -191,5 +192,36 @@ gym.envs.register(
         "lava_x_max":  18,
         "goal_x": 10,
         "max_ep_len": 200,
+    },
+)
+
+# =========================================================================================
+# =                                    Without battery                                    =
+# =========================================================================================
+gym.envs.register(
+    id="SimpleAccEnv-wide-withConveyer-lava-v1",
+    entry_point="envs:SimpleAccEnvNoBattery",
+    max_episode_steps=200,
+    reward_threshold=0,
+    kwargs={
+        "task": "lava",
+    },
+)
+gym.envs.register(
+    id="SimpleAccEnv-wide-withConveyer-goal-v1",
+    entry_point="envs:SimpleAccEnvNoBattery",
+    max_episode_steps=200,
+    reward_threshold=0,
+    kwargs={
+        "task": "goal",
+    },
+)
+gym.envs.register(
+    id="SimpleAccEnv-wide-withConveyer-unshapedSum-v1",
+    entry_point="envs:SimpleAccEnvNoBattery",
+    max_episode_steps=200,
+    reward_threshold=0,
+    kwargs={
+        "task": "denseUnshapedSum",
     },
 )
