@@ -64,7 +64,7 @@ class SimpleAccEnv(gym.Env):
             goal_y=9,
             task_sum_weight=0.5,
             battery_x=15,
-            battery_y=2,
+            battery_y=1,
     ):
         self.x_min = x_min
         self.x_max = x_max
@@ -187,16 +187,7 @@ class SimpleAccEnv(gym.Env):
 
     def reset(self, seed=None, options={}):
 
-        # self.x = np.random.uniform(self.x_min, self.x_max)
-        # self.y = np.random.uniform(self.y_min, self.y_max)
-        self.vel_x = np.random.uniform(-self.max_velocity, self.max_velocity)
-        self.vel_y = np.random.uniform(-self.max_velocity, self.max_velocity)
-
-        if self.task == "denseUnshapedSum":
-            # this is for training standard DQN without BT, always reset if like the BT resets when training goal task...
-            self.x = self.x_max / 2 + np.random.uniform(-8, 8)
-            self.y = 1
-        else:
+        if self.task == "lava":
             # seems I need this or train on much more data to learn good feasibility estimator for all velocities and poses
             # note: When training BT on goal task, the reset options are passed to make sure env resets underneath lava area...
             border_dist = np.random.choice([0, 0.05, 1])
@@ -206,10 +197,42 @@ class SimpleAccEnv(gym.Env):
                 x_max=self.lava_x_max+border_dist,
                 y_max=self.lava_y_max+border_dist
             )
+
             self.x = p[0]
             self.y = p[1]
+            self.vel_x = np.random.uniform(-self.max_velocity, self.max_velocity)
+            self.vel_y = np.random.uniform(-self.max_velocity, self.max_velocity)
+            self.battery_charge = np.random.uniform(0, 1)
 
-        self.battery_charge = np.random.uniform(0, 1)
+        elif self.task == "battery":
+            while True:
+                x = np.random.uniform(self.x_min, self.x_max)
+                y = np.random.uniform(self.y_min, self.y_max)
+
+                # make sure we are not initializing on conveyer or in lava...
+                if not (self.conveyer_x_min <= x <= self.lava_x_max and self.conveyer_y_min <= y <= self.lava_y_max):
+                    self.x = x
+                    self.y = y
+                    break
+
+            self.vel_x = 0
+            self.vel_y = 0
+            self.battery_charge = np.random.uniform(0, 1)
+
+        else:  # for all the goal tasks
+            while True:
+                x = np.random.uniform(self.x_min, self.x_max)
+                y = np.random.uniform(self.y_min, self.y_max)
+
+                # make sure we are not initializing on conveyer or in lava...
+                if not (self.conveyer_x_min <= x <= self.lava_x_max and self.conveyer_y_min <= y <= self.lava_y_max):
+                    self.x = x
+                    self.y = y
+                    break
+
+            self.vel_x = 0
+            self.vel_y = 0
+            self.battery_charge = 0.5
 
         self.ep_len = 0
 
@@ -236,8 +259,9 @@ class SimpleAccEnv(gym.Env):
         agent_at_battery = self._at_batterty()
 
         lava_reward = -1 if agent_in_lava else 0
-        # goal_rewad = -1 - 0.1 * np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y])
-        goal_rewad = - np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y]) / 13  # 13 is the max distance
+        # goal_reward = -1 - 0.1 * np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y])
+        # goal_reward = - np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y]) / 13  # 13 is the max distance
+        goal_reward = -1
         left_reward = 0 if self.x < (self.x_max * (2/3)) else -1
         # battery_reward = -1 if battery_empty else 0
         battery_reward = -0.1 * np.linalg.norm([self.battery_x - self.x, self.battery_y - self.y]) if battery_empty else 0
@@ -245,7 +269,7 @@ class SimpleAccEnv(gym.Env):
         if self.task == "lava":
             reward = lava_reward
         elif self.task == "goal":
-            reward = goal_rewad
+            reward = goal_reward
         elif self.task == "lava_goal_sum":
             reward = self.task_sum_weight * lava_reward + (1 - self.task_sum_weight) * goal_rewad
         elif self.task == "left":
@@ -253,7 +277,7 @@ class SimpleAccEnv(gym.Env):
         elif self.task == "battery":
             reward = battery_reward
         elif self.task == "shapedSum":
-            reward = lava_reward + goal_rewad + battery_reward
+            reward = lava_reward + goal_reward + battery_reward
         elif self.task == "denseUnshapedSum":
             reward = 0
             if agent_in_lava:
@@ -390,7 +414,7 @@ if __name__ == "__main__":
         goal_x=10,
         max_velocity=1.5,
         lava_max_velocity=1.5,
-        task="lava"
+        task="battery"
     )
 
     # plot accelerations
