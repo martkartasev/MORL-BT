@@ -45,7 +45,7 @@ class SimpleAccEnvNoBattery(gym.Env):
             x_min=0,
             x_max=20,
             y_min=0,
-            y_max=10,
+            y_max=15,
             max_velocity=1.5,
             lava_max_velocity=1.5,
             dt=0.2,
@@ -117,7 +117,7 @@ class SimpleAccEnvNoBattery(gym.Env):
             np.array([18.05, 4, 0.0, 0.0]),  # right of lava, at y slightly lower than middle, no velocity
             np.array([18.05, 6, 0.0, 0.0]),  # right of lava, at y slightly higher than, no velocity
             np.array([15, 7.05, 0.0, 0.0]),  # above lava
-            np.array([self.lava_x_max + 0.05, 5, 0, 0, 1.0]),  # can step into of lava
+            np.array([self.lava_x_max + 0.05, 5, 0, 0]),  # can step into of lava
         ]
 
         self.action_space = gym.spaces.Discrete(25)
@@ -207,7 +207,7 @@ class SimpleAccEnvNoBattery(gym.Env):
         agent_on_conveyer = self._on_conveyer()
 
         lava_reward = -1 if agent_in_lava else 0
-        goal_rewad = - np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y]) / 13  # 13 is the max distance
+        goal_rewad = -1 - (np.linalg.norm([self.goal_x - self.x, self.goal_y - self.y]) / 6)  # 13 is the max distance
         left_reward = 0 if self.x < (self.x_max * (2/3)) else -1
 
         if self.task == "lava":
