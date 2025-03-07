@@ -89,7 +89,7 @@ def label_data(all_obs, label_fun):
     return labels
 
 
-def create_training_plots(model, env, exp_dir, train_loss_hist=None, lr_hist=None, pred_mean_hist=None):
+def create_training_plots(model, env, exp_dir, train_loss_hist=None, lr_hist=None, pred_mean_hist=None, device="cpu"):
     if train_loss_hist is not None:
         plt.plot(train_loss_hist, label="train_loss")
         plt.ylabel("TD Loss")
@@ -132,18 +132,18 @@ def create_training_plots(model, env, exp_dir, train_loss_hist=None, lr_hist=Non
                 x_steps=env.x_range[-1] + 1,
                 y_lim=env.y_range,
                 y_steps=env.y_range[-1] + 1,
-                device="cpu",
+                device=device,
                 save_path=f"{exp_dir}/feasibility_vf:{value_function}_velocity:{vel}.png"
             )
 
-        for eval_state in env.eval_states:
-            plot_discrete_actions(
-                dqn=model,
-                state=eval_state,
-                action_map=env.action_map,
-                device="cpu",
-                save_path=f"{exp_dir}/feasibility_qf_state:{eval_state}.png",
-            )
+        # for eval_state in env.eval_states:
+        #     plot_discrete_actions(
+        #         dqn=model,
+        #         state=eval_state,
+        #         action_map=env.action_map,
+        #         device=device,
+        #         save_path=f"{exp_dir}/feasibility_qf_state:{eval_state}.png",
+        #     )
 
 
 def train_model(
@@ -437,12 +437,14 @@ def main(args):
         lr_hist=lr_hist,
         exp_dir=exp_dir,
         pred_mean_hist=pred_mean_hist,
+        device=device,
     )
     plot_cp(
         env=env,
         cp_dir=exp_dir,
         cp_file="feasibility_dqn.pt",
         with_conveyer=True,
+        device=device,
     )
 
     return exp_dir

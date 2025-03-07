@@ -27,7 +27,7 @@ def plot_q_state(q_values, state, env, cp_dir):
     plt.close()
 
 
-def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False):
+def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False, device="cpu"):
 
     # plot eval states
     lava_rect = plt.Rectangle(
@@ -81,6 +81,7 @@ def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False
     )
     model.load_state_dict(torch.load(f"{cp_dir}/{cp_file}"))
     model.eval()
+    model.to(device)
 
     # plot value function with different velocities
     for vel in [
@@ -101,7 +102,7 @@ def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False
             battery = np.ones([agent_x.shape[0]]) * batt
             states = np.stack([agent_x, agent_y, agent_vel_x, agent_vel_y, battery], axis=1)
 
-            q_values = model(torch.Tensor(states).to("cpu"))
+            q_values = model(torch.Tensor(states).to(device))
 
             for value_function in [torch.min]:
                 vf = value_function(q_values, dim=1).values.detach().cpu().numpy()
@@ -116,7 +117,7 @@ def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False
                 plt.close()
 
     for state in env.eval_states:
-        q_values = model(torch.Tensor(state).unsqueeze(0).to("cpu")).squeeze().detach().cpu().numpy()
+        q_values = model(torch.Tensor(state).unsqueeze(0).to(device)).squeeze().detach().cpu().numpy()
         plot_q_state(
             q_values=q_values,
             state=state,

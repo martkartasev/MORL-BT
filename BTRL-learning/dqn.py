@@ -116,11 +116,22 @@ class DQN:
             con_thresh = self.con_threshes[con_idx]
 
             con_pred = con_model(state_batch)
-            con_pred[mask_forbidden_global.bool()] += torch.inf  # apply higher prio cons before finding best value
-            best_con_action_value = con_pred.min(dim=1).values
-            mask_forbidden_local = con_pred > best_con_action_value.unsqueeze(1) + con_thresh
 
-            mask_forbidden_global[mask_forbidden_local] += torch.inf
+            # best_con_action_value = con_pred.min(dim=1).values
+            # con_pred[mask_forbidden_global.bool()] += torch.inf  # apply higher prio cons before finding best value
+            # mask_forbidden_local = con_pred > best_con_action_value.unsqueeze(1) + con_thresh
+
+            con_pred[mask_forbidden_global.bool()] -= torch.inf  # apply higher prio cons before finding best value
+            best_con_action_idx = con_pred.argmax(dim=1)
+            best_con_action_value = con_pred.max(dim=1).values
+            mask_forbidden_local = con_pred < con_thresh                                   # absolute constraint
+            # mask_forbidden_local = con_pred < best_con_action_value.unsqueeze(1) - 0.05  # relative constraint...
+
+            if not False in mask_forbidden_local:
+                # shouldn't happen, but if no action is feasible according to estimator, allow the best one to prevent empty action space...
+                mask_forbidden_local[:, best_con_action_idx] = False
+
+            mask_forbidden_global[mask_forbidden_local] += 1
 
         return mask_forbidden_global.bool().squeeze()
 
@@ -204,7 +215,7 @@ class DQN:
         if ret_vals:
             return action, q_values.detach().cpu().numpy()
         else:
-            return action
+            return action, forbidden_mask
 
 
 
