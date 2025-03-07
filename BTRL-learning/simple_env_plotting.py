@@ -91,7 +91,8 @@ def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False
         # np.array([0.0, env.max_velocity]),
         # np.array([0.0, -env.max_velocity]),
     ]:
-        for batt in [0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 1.0]:
+        # for batt in [0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 1.0]:
+        for batt in [1.0]:
             agent_x = np.linspace(env.x_min, env.x_max, 100)
             agent_y = np.linspace(env.y_max, env.y_min, 100)
             agent_x, agent_y = np.meshgrid(agent_x, agent_y)
@@ -100,7 +101,8 @@ def plot_cp(env, cp_dir="", cp_file="", squash_output=False, with_conveyer=False
             agent_vel_x = np.full_like(agent_x, vel[0])
             agent_vel_y = np.full_like(agent_y, vel[1])
             battery = np.ones([agent_x.shape[0]]) * batt
-            states = np.stack([agent_x, agent_y, agent_vel_x, agent_vel_y, battery], axis=1)
+            # states = np.stack([agent_x, agent_y, agent_vel_x, agent_vel_y, battery], axis=1)
+            states = np.stack([agent_x, agent_y, agent_vel_x, agent_vel_y], axis=1)
 
             q_values = model(torch.Tensor(states).to(device))
 

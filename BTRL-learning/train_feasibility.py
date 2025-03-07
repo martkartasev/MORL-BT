@@ -114,7 +114,7 @@ def create_training_plots(model, env, exp_dir, train_loss_hist=None, lr_hist=Non
         plt.savefig(f"{exp_dir}/feasibility_qf_mean.png")
         plt.close()
 
-    if env is not None and isinstance(env, LavaGoalConveyerAccelerationEnv):
+    if env is not None:
         for vel in [
             np.array([0.0, 0.0]),
             np.array([2.0, 0.0]),
@@ -122,7 +122,7 @@ def create_training_plots(model, env, exp_dir, train_loss_hist=None, lr_hist=Non
             np.array([0.0, 2.0]),
             np.array([0.0, -2.0]),
         ]:
-            value_function = "min"
+            value_function = "max"
             plot_value_2D(
                 dqn=model,
                 velocity=vel,
@@ -303,9 +303,10 @@ def main(args):
     # def label_fun(state):
     #     return env.lava_x_range[0] < state[0] < env.lava_x_range[-1] and env.lava_y_range[0] < state[1] < env.lava_y_range[-1]
 
-    env = gym.make("SimpleAccEnv-wide-withConveyer-lava-v0")
-    
-    n_obs = 5
+    # env = gym.make("SimpleAccEnv-wide-withConveyer-lava-v0")
+    env = gym.make("SimpleAccEnv-wide-withConveyer-lava-v1")  # no battery...
+
+    n_obs = 4
     n_actions = 25
     def label_fun(state):
         # only lava
@@ -351,19 +352,20 @@ def main(args):
 
     params = {
         "optimizer_initial_lr": 0.001,
-        "optimizer_weight_decay": 0.0001,
+        "optimizer_weight_decay": 0.00001,
         "exponential_lr_decay": 0.9995,
         # "batch_size": 16384,
-        # "batch_size": 8192,
-        "batch_size": 4096,
+        "batch_size": 8192,
+        # "batch_size": 4096,
         # "batch_size": 2048,
+        # "batch_size": 256,
         # "epochs": 1000,
         "epochs": args.epochs,
-        "nuke_layer_every": 1e9,
+        "nuke_layer_every": 1e20,
         "hidden_activation": torch.nn.ReLU,
-        "hidden_arch": [64, 64, 32, 32],
+        "hidden_arch": [64, 64, 64, 64],
         "criterion": torch.nn.MSELoss,
-        "with_batchNorm": True,
+        "with_batchNorm": False,
         # "criterion": torch.nn.L1Loss,
         # "discount_gamma": 1.0,  # unlike traditional finite-horizon TD, feasibility discount must always be <1!
         # "discount_gamma": 0.995,
@@ -456,12 +458,27 @@ if __name__ == "__main__":
         # "runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-21-11-06-22_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget",
         # "runs/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-21-12-02-49_withFeasibilityAwareBT_randomXYReset_withEnsemble4_clipAllGrads_withEnsembleTarget"
         # ---
-        "final_experiments/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-15-08-46_debug_seed:1"
+        # "final_experiments/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-15-08-46_debug_seed:1",
+        # "final_experiments/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-29-10-29-42_debug_seed:2",
+        # "final_experiments/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-30-05-30-35_debug_seed:3",
+        # "final_experiments/SimpleAccEnv-wide-withConveyer-lava-v0/2024-10-01-00-29-19_debug_seed:4",
+        # "final_experiments/SimpleAccEnv-wide-withConveyer-lava-v0/2024-10-01-19-29-58_debug_seed:5",
+        # # "final_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-28-18-13-59_debug_seed:1",
+        # # "final_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-29-13-33-12_debug_seed:2",
+        # # "final_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2024-09-30-08-35-17_debug_seed:3",
+        # # "final_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2024-10-01-03-34-07_debug_seed:4",
+        # # "final_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2024-10-01-22-33-04_debug_seed:5"
+        # "newBattery_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2025-03-03-16-44-43_debug_seed:1",
+        # "newBattery_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2025-03-03-20-49-19_debug_seed:2",
+        # "newBattery_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2025-03-04-00-51-08_debug_seed:3",
+        # ---
+        "runs/SimpleAccEnv-wide-withConveyer-lava-v1/2025-03-05-08-48-54_lava",
+        "runs/SimpleAccEnv-wide-withConveyer-lava-v1/2025-03-05-14-27-47_256x256"
     ])
     parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
-    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="invert")
+    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="batch8k_noBatchNorm_gamma:0999_500epochs_weightDecay:1e-5")
     parser.add_argument("--feasibility_label", type=str, help="String to append to the experiment directory", default="lava")
-    parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=200)
+    parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=500)
 
     args = parser.parse_args()
 
