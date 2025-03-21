@@ -39,15 +39,15 @@ def load_mlagents_buffer(load_dir, max_obs, feasibility_label, label_ratio=0.35)
         i = 1
 
         files_to_proccess = []
+        parallel = 10
+        pool = multiprocessing.Pool(processes=parallel)
         while len(replay_files) > 0:
             file = replay_files.pop(0)
             filename = os.path.join(direc, file)
 
             files_to_proccess.append(filename)
             i+=1
-            if len(files_to_proccess) >= 10 or len(replay_files) == 0:
-                pool = multiprocessing.Pool(processes=len(files_to_proccess))
-
+            if len(files_to_proccess) >= parallel or len(replay_files) == 0:
                 async_results = [pool.apply_async(process_file, args=(feasibility_label, listFile, label_ratio)) for listFile in files_to_proccess]
                 results = [ar.get() for ar in async_results]
                 for result in results:
