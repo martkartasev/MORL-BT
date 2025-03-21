@@ -199,9 +199,15 @@ def label_data(all_obs, label_function, feasibility_label):
 
 
 def label_fun(state, feasibility_label): # Now predicting that we are in the "Good set"
-    if feasibility_label == "place":
+    if feasibility_label == "safe&have":
+        return state[0] > 0 or numpy.linalg.norm(state[16:19]) > 0.1
+    if feasibility_label == "have&near":
+        return state[0] > 0 or numpy.linalg.norm(state[10:13]) < 0.65
+    if feasibility_label == "have":
         return state[0] > 0
-    if feasibility_label == "move":
+    if feasibility_label == "near":
+        return numpy.linalg.norm(state[10:13]) < 0.65
+    if feasibility_label == "safe":
         return numpy.linalg.norm(state[16:19]) > 0.1  # 16,17.18
 
 
