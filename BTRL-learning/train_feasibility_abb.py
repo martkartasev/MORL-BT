@@ -1,6 +1,7 @@
 import argparse
 import os
 import random
+import threading
 import time
 from os.path import isfile, join
 
@@ -14,16 +15,26 @@ import buffer
 from networks import MLP
 
 
-def load_mlagents_buffer(load_dir, max_obs, feasibility_label, label_ratio = 0.35):
-    update_buffer = buffer.AgentBuffer()
+class ReturnableThread(threading.Thread):
+    # This class is a subclass of Thread that allows the thread to return a value.
+    def __init__(self, target, args):
+        threading.Thread.__init__(self)
+        self.target = target
+        self.args = args
+        self.result = None
+
+    def run(self) -> None:
+        self.result = self.target(self.args[0], self.args[1], self.args[2])
+
+def load_mlagents_buffer(load_dir, max_obs, feasibility_label, label_ratio=0.35):
     for direc in load_dir:
         replay_files = [f for f in os.listdir(direc) if isfile(join(direc, f)) and "extended_replay" in f]
         file = replay_files.pop(0)
 
         filename = os.path.join(direc, file)
+        update_buffer = buffer.AgentBuffer()
         with open(filename, "rb+") as file_object:
             update_buffer.load_from_file(file_object)
-
 
         obs = update_buffer._fields[(buffer.ObservationKeyPrefix.OBSERVATION, 0)].to_ndarray()
         next_obs = update_buffer._fields[(buffer.ObservationKeyPrefix.NEXT_OBSERVATION, 0)].to_ndarray()
@@ -33,51 +44,66 @@ def load_mlagents_buffer(load_dir, max_obs, feasibility_label, label_ratio = 0.3
 
         nr_files = len(replay_files)
         random.shuffle(replay_files)
-        for i, file in enumerate(replay_files):
+
+        #for i, file in enumerate(replay_files):
+        i = 1
+        threads = []
+        while len(replay_files) > 0:
+            file = replay_files.pop(0)
             filename = os.path.join(direc, file)
-            with open(filename, "rb+") as file_object:
-                update_buffer.load_from_file(file_object)
 
-            new_obs = update_buffer._fields[(buffer.ObservationKeyPrefix.OBSERVATION, 0)].to_ndarray()
-            new_labels = label_data(new_obs, label_function=label_fun, feasibility_label=feasibility_label)
-            new_next_obs = update_buffer._fields[(buffer.ObservationKeyPrefix.NEXT_OBSERVATION, 0)].to_ndarray()
-            new_dones = update_buffer._fields[buffer.BufferKey.DONE].to_ndarray()
-            new_actions = update_buffer._fields[buffer.BufferKey.DISCRETE_ACTION].to_ndarray()
+            thr = ReturnableThread(target = process_file, args=[feasibility_label, filename, label_ratio])
+            thr.start()
+            threads.append(thr)
+            i += 1
+            if len(threads) >= 5 or len(replay_files) == 0:
+                for doneThr in threads:
+                    doneThr.join()
 
-            # Code for selective sampling of data of both labels
-            pos_indices = np.where(new_labels == 1)[0]
-            ratio = len(pos_indices) / len(new_labels)
-            must_sample = False
-            if ratio < label_ratio:
-                neg_indices = np.where(new_labels != 1)[0]
-                neg_indices = np.random.choice(neg_indices, min(int(len(pos_indices) / label_ratio - len(pos_indices)), len(neg_indices)))
-                must_sample = True
-            elif ratio > 1 - label_ratio:
-                neg_indices = np.where(new_labels != 1)[0]
-                pos_indices = np.random.choice(pos_indices, min(int(len(neg_indices) / label_ratio - len(neg_indices)), len(pos_indices)))
-                must_sample = True
-
-            if must_sample:
-                new_obs = np.append(new_obs[pos_indices, :], new_obs[neg_indices, :], axis=0)
-                new_labels = np.append(new_labels[pos_indices, :], new_labels[neg_indices, :], axis=0)
-                new_next_obs = np.append(new_next_obs[pos_indices, :], new_next_obs[neg_indices, :], axis=0)
-                new_dones = np.append(new_dones[pos_indices], new_dones[neg_indices], axis=0)
-                new_actions = np.append(new_actions[pos_indices, :], new_actions[neg_indices, :], axis=0)
-
-            obs = np.append(obs, new_obs, axis=0)
-            labels = np.append(labels, new_labels, axis=0)
-            next_obs = np.append(next_obs, new_next_obs, axis=0)
-            dones = np.append(dones, new_dones, axis=0)
-            actions = np.append(actions, new_actions, axis=0)
-            print(f"Done: labels.shape: {labels.shape}, negative labels: {len(labels) - np.sum(labels)}, as fraction: {(len(labels) - np.sum(labels)) / len(labels)}")
-
-            if i % 10 == 0:
+                    obs = np.append(obs, doneThr.result[4], axis=0)
+                    labels = np.append(labels, doneThr.result[2], axis=0)
+                    next_obs = np.append(next_obs, doneThr.result[3], axis=0)
+                    dones = np.append(dones, doneThr.result[1], axis=0)
+                    actions = np.append(actions, doneThr.result[0], axis=0)
+                    print(f"Done: labels.shape: {labels.shape}, negative labels: {len(labels) - np.sum(labels)}, as fraction: {(len(labels) - np.sum(labels)) / len(labels)}")
+                threads = []
                 print("Sampled {} out of {} available files for the replay buffer. {} out of {} experiences loaded. ".format(i, nr_files, obs.shape[0], max_obs))
 
             if len(obs) > max_obs:
                 break
 
     return None, obs, actions, next_obs, dones, labels
+
+
+def process_file(feasibility_label, filename, label_ratio):
+    update_buffer = buffer.AgentBuffer()
+    with open(filename, "rb+") as file_object:
+        update_buffer.load_from_file(file_object)
+    new_obs = update_buffer._fields[(buffer.ObservationKeyPrefix.OBSERVATION, 0)].to_ndarray()
+    new_labels = label_data(new_obs, label_function=label_fun, feasibility_label=feasibility_label)
+    new_next_obs = update_buffer._fields[(buffer.ObservationKeyPrefix.NEXT_OBSERVATION, 0)].to_ndarray()
+    new_dones = update_buffer._fields[buffer.BufferKey.DONE].to_ndarray()
+    new_actions = update_buffer._fields[buffer.BufferKey.DISCRETE_ACTION].to_ndarray()
+    # Code for selective sampling of data of both labels
+    pos_indices = np.where(new_labels == 1)[0]
+    ratio = len(pos_indices) / len(new_labels)
+    must_sample = False
+    if ratio < label_ratio:
+        neg_indices = np.where(new_labels != 1)[0]
+        neg_indices = np.random.choice(neg_indices, min(int(len(pos_indices) / label_ratio - len(pos_indices)), len(neg_indices)))
+        must_sample = True
+    elif ratio > 1 - label_ratio:
+        neg_indices = np.where(new_labels != 1)[0]
+        pos_indices = np.random.choice(pos_indices, min(int(len(neg_indices) / label_ratio - len(neg_indices)), len(pos_indices)))
+        must_sample = True
+
+    if must_sample:
+        new_obs = np.append(new_obs[pos_indices, :], new_obs[neg_indices, :], axis=0)
+        new_labels = np.append(new_labels[pos_indices, :], new_labels[neg_indices, :], axis=0)
+        new_next_obs = np.append(new_next_obs[pos_indices, :], new_next_obs[neg_indices, :], axis=0)
+        new_dones = np.append(new_dones[pos_indices], new_dones[neg_indices], axis=0)
+        new_actions = np.append(new_actions[pos_indices, :], new_actions[neg_indices, :], axis=0)
+    return new_actions, new_dones, new_labels, new_next_obs, new_obs
 
 
 def train_model(
@@ -130,7 +156,7 @@ def train_model(
             with torch.no_grad():
                 target_q_values = target_model(next_state_batch.float())
 
-                for idx, net in enumerate(higher_prio_constraint_nets): # TODO: Needs to be updated as well
+                for idx, net in enumerate(higher_prio_constraint_nets):  # TODO: Needs to be updated as well
                     high_prio_vals = net(next_state_batch.float())
                     best_high_prio_vals = high_prio_vals.min(dim=1, keepdim=True)[0]
                     # TODO, consider higher prio when finding best?
@@ -183,7 +209,7 @@ def train_model(
 
 def label_data(all_obs, label_function, feasibility_label):
     # label data for ACC violation
-  #  print("Labeling data for ACC violation...")
+    #  print("Labeling data for ACC violation...")
     labels = np.ones((all_obs.shape[0], 1)) * np.inf
     for i in range(all_obs.shape[0]):
         state = all_obs[i]
@@ -193,12 +219,12 @@ def label_data(all_obs, label_function, feasibility_label):
         #     print(f"Labelled {i} out of {all_obs.shape[0]} experiences")
 
     assert not np.isinf(labels).any()
-    #print(f"Done: labels.shape: {labels.shape}, negative labels: {len(labels) - np.sum(labels)}, as fraction: {(len(labels) - np.sum(labels)) / len(labels)}")
+    # print(f"Done: labels.shape: {labels.shape}, negative labels: {len(labels) - np.sum(labels)}, as fraction: {(len(labels) - np.sum(labels)) / len(labels)}")
 
     return labels
 
 
-def label_fun(state, feasibility_label): # Now predicting that we are in the "Good set"
+def label_fun(state, feasibility_label):  # Now predicting that we are in the "Good set"
     if feasibility_label == "safe&have":
         return state[0] > 0 or numpy.linalg.norm(state[16:19]) > 0.1
     if feasibility_label == "have&near":
@@ -227,9 +253,9 @@ def main(args):
         # "criterion": torch.nn.L1Loss,
         "discount_gamma": 0.999,  # unlike traditional finite-horizon TD, feasibility discount must always be <1!
         # "higher_prio_load_path": args.higher_prio_feasibility_estimator,
-        #"higher_prio_batchnorm": True,
-        #"higher_prio_arch": [64, 64, 32, 32],
-        #"higher_prio_threshold": 0.05,
+        # "higher_prio_batchnorm": True,
+        # "higher_prio_arch": [64, 64, 32, 32],
+        # "higher_prio_threshold": 0.05,
         "polyak_tau": 0.01,
         "feasibility_label": args.feasibility_label,
         "rb_dirs": args.rb_dirs,
@@ -347,11 +373,11 @@ def create_training_plots(exp_dir, train_loss_hist=None, lr_hist=None, pred_mean
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/move_ppo_02/ABBMobile/"])
+    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/move_ppo_penalty/ABBMobile/"])
     parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=10000000)
     parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
-    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="128x64x64")
-    parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="move")
+    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="safe128x64x64")
+    parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="safe")
     parser.add_argument("--label_ratio", type=float, help="Minimum ratio between positive labelled data and all data. Between 0 and 1. 1 means all labels, 0 means no labels.", default=0.2)
     parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=250)
     args = parser.parse_args()
