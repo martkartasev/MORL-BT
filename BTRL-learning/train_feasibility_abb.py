@@ -365,10 +365,10 @@ def create_training_plots(exp_dir, train_loss_hist=None, lr_hist=None, pred_mean
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/move_ppo_penalty/ABBMobile/"])
-    parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=10000000)
+    parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=15000000)
     parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
-    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="safe&have128x64x64")
-    parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="safe&have")
+    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="safe128x64x64")
+    parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="safe")
     parser.add_argument("--label_ratio", type=float, help="Minimum ratio between positive labelled data and all data. Between 0 and 1. 1 means all labels, 0 means no labels.", default=0.2)
     parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=250)
     args = parser.parse_args()
