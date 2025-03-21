@@ -1,4 +1,5 @@
 import argparse
+import multiprocessing
 import os
 import random
 import threading
@@ -14,17 +15,6 @@ import yaml
 import buffer
 from networks import MLP
 
-
-class ReturnableThread(threading.Thread):
-    # This class is a subclass of Thread that allows the thread to return a value.
-    def __init__(self, target, args):
-        threading.Thread.__init__(self)
-        self.target = target
-        self.args = args
-        self.result = None
-
-    def run(self) -> None:
-        self.result = self.target(self.args[0], self.args[1], self.args[2])
 
 def load_mlagents_buffer(load_dir, max_obs, feasibility_label, label_ratio=0.35):
     for direc in load_dir:
@@ -47,26 +37,27 @@ def load_mlagents_buffer(load_dir, max_obs, feasibility_label, label_ratio=0.35)
 
         #for i, file in enumerate(replay_files):
         i = 1
-        threads = []
+
+        files_to_proccess = []
         while len(replay_files) > 0:
             file = replay_files.pop(0)
             filename = os.path.join(direc, file)
 
-            thr = ReturnableThread(target = process_file, args=[feasibility_label, filename, label_ratio])
-            thr.start()
-            threads.append(thr)
-            i += 1
-            if len(threads) >= 5 or len(replay_files) == 0:
-                for doneThr in threads:
-                    doneThr.join()
+            files_to_proccess.append(filename)
+            i+=1
+            if len(files_to_proccess) >= 20 or len(replay_files) == 0:
+                pool = multiprocessing.Pool(processes=len(files_to_proccess))
 
-                    obs = np.append(obs, doneThr.result[4], axis=0)
-                    labels = np.append(labels, doneThr.result[2], axis=0)
-                    next_obs = np.append(next_obs, doneThr.result[3], axis=0)
-                    dones = np.append(dones, doneThr.result[1], axis=0)
-                    actions = np.append(actions, doneThr.result[0], axis=0)
+                async_results = [pool.apply_async(process_file, args=(feasibility_label, listFile, label_ratio)) for listFile in files_to_proccess]
+                results = [ar.get() for ar in async_results]
+                for result in results:
+                    obs = np.append(obs, result[4], axis=0)
+                    labels = np.append(labels, result[2], axis=0)
+                    next_obs = np.append(next_obs, result[3], axis=0)
+                    dones = np.append(dones, result[1], axis=0)
+                    actions = np.append(actions, result[0], axis=0)
                     print(f"Done: labels.shape: {labels.shape}, negative labels: {len(labels) - np.sum(labels)}, as fraction: {(len(labels) - np.sum(labels)) / len(labels)}")
-                threads = []
+                files_to_proccess = []
                 print("Sampled {} out of {} available files for the replay buffer. {} out of {} experiences loaded. ".format(i, nr_files, obs.shape[0], max_obs))
 
             if len(obs) > max_obs:
