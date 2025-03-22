@@ -60,8 +60,8 @@ def load_mlagents_buffer(load_dir, max_obs, feasibility_label, label_ratio=0.35)
                 files_to_proccess = []
                 print("Sampled {} out of {} available files for the replay buffer. {} out of {} experiences loaded. ".format(i, nr_files, obs.shape[0], max_obs))
 
-            if len(obs) > max_obs:
-                break
+                if len(obs) > max_obs:
+                    break
 
     return None, obs, actions, next_obs, dones, labels
 
@@ -75,6 +75,7 @@ def process_file(feasibility_label, filename, label_ratio):
     new_next_obs = update_buffer._fields[(buffer.ObservationKeyPrefix.NEXT_OBSERVATION, 0)].to_ndarray()
     new_dones = update_buffer._fields[buffer.BufferKey.DONE].to_ndarray()
     new_actions = update_buffer._fields[buffer.BufferKey.DISCRETE_ACTION].to_ndarray()
+
     # Code for selective sampling of data of both labels
     pos_indices = np.where(new_labels == 1)[0]
     ratio = len(pos_indices) / len(new_labels)
@@ -189,11 +190,14 @@ def train_model(
         # hard target network update
         # target_model.load_state_dict(model.state_dict())
 
-        if epoch % 50 == 0:
-            torch.save(model.state_dict(), f"{exp_dir}/feasibility_dqn_{epoch}.pt")
+        if epoch % 10 == 0:
+            save_model(device, exp_dir, model, states.shape[1], f"epoch_{epoch}")
 
-        # if epoch % nuke_layer_every == 0 and epoch > 0:
     print("Done: training model")
+
+
+
+    # if epoch % nuke_layer_every == 0 and epoch > 0:
 
     return model, train_loss_hist, lr_hist, pred_mean_hist
 
@@ -225,7 +229,7 @@ def label_fun(state, feasibility_label):  # Now predicting that we are in the "G
     if feasibility_label == "near":
         return numpy.linalg.norm(state[10:13]) < 0.65
     if feasibility_label == "safe":
-        return numpy.linalg.norm(state[16:19]) > 0.1  # 16,17.18
+        return numpy.linalg.norm(state[16:19]) > 0.15  # 16,17.18
 
 
 def main(args):
@@ -233,7 +237,7 @@ def main(args):
         "optimizer_initial_lr": 0.001,
         "optimizer_weight_decay": 0.0001,
         "exponential_lr_decay": 0.9995,
-        "batch_size": 4096,
+        "batch_size": 512,
         "buffer_size": args.buffer_size,
         "epochs": args.epochs,
         "nuke_layer_every": 1e9,
@@ -321,19 +325,23 @@ def main(args):
         pred_mean_hist=pred_mean_hist,
     )
 
+    save_model(device, exp_dir, model, n_obs)
+
+    return exp_dir
+
+
+def save_model(device, exp_dir, model, n_obs, suffix=""):
     print(f"Saving classifier to {exp_dir}/feasibility_dqn.pt")
     torch.save(model.state_dict(), f"{exp_dir}/feasibility_dqn.pt")
 
-    print(f"Saving model as onnx to {exp_dir}/feasibility_dqn.onnx")
+    print(f"Saving model as onnx to {exp_dir}/feasibility_dqn_{suffix}.onnx")
     torch_input = torch.randn(1, n_obs).to(device)
     torch.onnx.export(model,
                       torch_input,
-                      f"{exp_dir}/feasibility_dqn.onnx",
+                      f"{exp_dir}/feasibility_dqn_{suffix}.onnx",
                       export_params=True,  # store the trained parameter weights inside the model file
                       opset_version=15,  # the ONNX version to export the model to
                       do_constant_folding=True, )
-
-    return exp_dir
 
 
 def create_training_plots(exp_dir, train_loss_hist=None, lr_hist=None, pred_mean_hist=None):
@@ -364,13 +372,13 @@ def create_training_plots(exp_dir, train_loss_hist=None, lr_hist=None, pred_mean
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/grasp_ppo_rl/ABBMobile/"])
-    parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=15000000)
+    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/move_ppo_penalty/ABBMobile/"])
+    parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=10000000)
     parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
-    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="have&near128x64x64")
-    parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="have&near")
-    parser.add_argument("--label_ratio", type=float, help="Minimum ratio between positive labelled data and all data. Between 0 and 1. 1 means all labels, 0 means no labels.", default=0.4)
-    parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=250)
+    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="safe&have128x64x64")
+    parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="safe&have")
+    parser.add_argument("--label_ratio", type=float, help="Minimum ratio between positive labelled data and all data. Between 0 and 1. 1 means all labels, 0 means no labels.", default=0.35)
+    parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=25)
     args = parser.parse_args()
 
     exp_dir = main(args)
