@@ -190,7 +190,7 @@ def train_model(
         # hard target network update
         # target_model.load_state_dict(model.state_dict())
 
-        if epoch % 10 == 0:
+        if epoch % 5 == 0:
             save_model(device, exp_dir, model, states.shape[1], f"epoch_{epoch}")
 
     print("Done: training model")
@@ -229,7 +229,7 @@ def label_fun(state, feasibility_label):  # Now predicting that we are in the "G
     if feasibility_label == "near":
         return numpy.linalg.norm(state[10:13]) < 0.65
     if feasibility_label == "safe":
-        return numpy.linalg.norm(state[16:19]) > 0.15  # 16,17.18
+        return numpy.linalg.norm(state[16:19]) > 0.10  # 16,17.18
 
 
 def main(args):
@@ -244,9 +244,9 @@ def main(args):
         "hidden_activation": torch.nn.ReLU,
         "hidden_arch": [128, 64, 64],
         "criterion": torch.nn.MSELoss,
-        "with_batchNorm": True,
+        "with_batchNorm": False,
         # "criterion": torch.nn.L1Loss,
-        "discount_gamma": 0.999,  # unlike traditional finite-horizon TD, feasibility discount must always be <1!
+        "discount_gamma": 0.995,  # unlike traditional finite-horizon TD, feasibility discount must always be <1!
         # "higher_prio_load_path": args.higher_prio_feasibility_estimator,
         # "higher_prio_batchnorm": True,
         # "higher_prio_arch": [64, 64, 32, 32],
@@ -372,13 +372,13 @@ def create_training_plots(exp_dir, train_loss_hist=None, lr_hist=None, pred_mean
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/move_ppo_penalty/ABBMobile/"])
+    parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/move_ppo_rl/ABBMobile/"])
     parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=10000000)
     parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
-    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="safe&have128x64x64")
-    parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="safe&have")
-    parser.add_argument("--label_ratio", type=float, help="Minimum ratio between positive labelled data and all data. Between 0 and 1. 1 means all labels, 0 means no labels.", default=0.35)
-    parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=25)
+    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="safe128x64x64")
+    parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="safe")
+    parser.add_argument("--label_ratio", type=float, help="Minimum ratio between negative labelled data and all data. Between 0 and 1. 1 means all labels, 0 means no labels.", default=0.30)
+    parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=50)
     args = parser.parse_args()
 
     exp_dir = main(args)
