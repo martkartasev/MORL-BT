@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 from envs.simple_acc_env import action_to_acc, SimpleAccEnv
+from envs.simple_acc_env_noBattery import SimpleAccEnvNoBattery
 from networks import MLP
 import yaml
 import matplotlib.ticker as ticker
@@ -19,7 +20,7 @@ def plot_value_2D(
         x_steps=7,
         y_lim=[0, 6],
         y_steps=7,
-        resolution=100,
+        resolution=50,
         threshold=None,
         save_path=""
 ):
@@ -111,6 +112,7 @@ def create_plots_numpy_env(
         n_rollouts=10,
         plot_value_function=True,
         plot_eval_states=True,
+        battery_levels=[0.1, 0.5, 1.0]
 ):
     # dqn = dqns[-1]  # plot currently learning dqn
     if plot_value_function:
@@ -122,7 +124,7 @@ def create_plots_numpy_env(
             np.array([0.0, env.max_velocity]),
             np.array([0.0, -env.max_velocity]),
         ]:
-            for batt in [0.1, 0.5, 1.0]:
+            for batt in battery_levels:
                 for value_function in ["max", "mean", "min"]:
                     # value_function = "min"
                     plot_value_2D(
@@ -373,7 +375,7 @@ def plot_simple_acc_env(env, ax=None, show=True, save_path="", close=True):
     plt.text(
         env.conveyer_x_min + (env.conveyer_x_max - env.conveyer_x_min) / 2,
         env.conveyer_y_min + (env.conveyer_y_max - env.conveyer_y_min) / 2,
-        "Treadmill",
+        "Slope",
         fontsize=15,
         horizontalalignment='center',
         verticalalignment='center',
@@ -405,18 +407,18 @@ def plot_simple_acc_env(env, ax=None, show=True, save_path="", close=True):
     plt.gca().add_artist(circle)
 
     # battery
-    plt.scatter(
-        env.battery_x,
-        env.battery_y,
-        s=600,
-        c='k',
-        zorder=10,
-        marker='+',
-        label="Charger",
-        lw=3,
-    )
-    circle = plt.Circle((env.battery_x, env.battery_y), 0.75, color="k", fill=False, lw=3, zorder=10)
-    plt.gca().add_artist(circle)
+    # plt.scatter(
+    #     env.battery_x,
+    #     env.battery_y,
+    #     s=600,
+    #     c='k',
+    #     zorder=10,
+    #     marker='+',
+    #     label="Charger",
+    #     lw=3,
+    # )
+    # circle = plt.Circle((env.battery_x, env.battery_y), 0.75, color="k", fill=False, lw=3, zorder=10)
+    # plt.gca().add_artist(circle)
 
     ax.set_xlim(env.x_min - 0.1, env.x_max + 0.1)
     ax.set_ylim(env.y_min - 0.1, env.y_max + 0.1)
@@ -518,6 +520,7 @@ def plot_bt_comp_rollouts(
         no_con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-20-18-00_slowLava_trainedWithoutCon_len100/",
         con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-16-20-38-15_slowLava_trainedWithCon_len100/",
         sum_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-sum-v0/2024-07-19-13-45-26_MORL_sumWeight:0.5_withCon/",
+        rl_load_dir="final_experiment_StandardDQN/SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__0__1740212518",
         fontsize=15,
         method_names=["BT-DQN", "BT-MORL", "CBTRL (Ours)"],
         method_colors=["magenta", "yellow", "cyan"],
@@ -544,7 +547,7 @@ def plot_bt_comp_rollouts(
 
     plt.rcParams.update({'font.size': fontsize})
 
-    for load_idx, load_dir in enumerate([no_con_load_dir, sum_load_dir, con_load_dir]):
+    for load_idx, load_dir in enumerate([no_con_load_dir, sum_load_dir, con_load_dir, rl_load_dir]):
         # load and plot con data
         data = np.load(load_dir + "/trajectories.npz")
         plot_multiple_rollouts(
@@ -606,17 +609,21 @@ def plot_bt_comp_metrics(
         train_reward_hists = []
         eval_predicate_hists = []
         eval_time_hists = []
+        train_len_hists = []
         train_predicate_hists = []
         predicate_names = []
 
         # iterate over all repetitions
+        print("Method dirs:", method_dirs)
         for load_dir in method_dirs:
+            print("Load Dir:", load_dir)
             data = np.load(load_dir + "/logging_data.npz")
             trajectories = np.load(load_dir + "/trajectories.npz")
             eval_reward_hists.append(data["eval_reward_hist"])
             train_reward_hists.append(data["train_reward_hist"])
             eval_predicate_hists.append(data["eval_state_predicate_hist"])
             eval_time_hists.append(data["eval_ep_times"])
+            train_len_hists.append(data["train_len_hist"])
             train_predicate_hists.append(data["train_state_predicate_hist"])
             predicate_names = trajectories["state_predicate_names"]
 
@@ -624,19 +631,23 @@ def plot_bt_comp_metrics(
         if which_data == "eval":
             reward_hists = np.array(eval_reward_hists)
             predicate_hists = np.array(eval_predicate_hists)
+            len_hists = None
         else:
             # truncate training data to the length of the shortest for the current method
             shortest_reward_hist = min([len(hist) for hist in train_reward_hists])
             train_reward_hists = [hist[:shortest_reward_hist] for hist in train_reward_hists]
             reward_hists = np.array(train_reward_hists)
 
-            shortest_predicate_hist = min([len(hist) for hist in train_predicate_hists])
-            train_predicate_hists = [hist[:shortest_predicate_hist] for hist in train_predicate_hists]
+            train_predicate_hists = [hist[:shortest_reward_hist] for hist in train_predicate_hists]
             predicate_hists = np.array(train_predicate_hists)
 
-        print(method_dirs)
+            train_len_hists = [hist[:shortest_reward_hist] for hist in train_len_hists]
+            len_hists = np.array(train_len_hists)
+
         in_lava = predicate_hists[:, :, 0]
-        battery_empty = predicate_hists[:, :, 3]
+        at_goal = predicate_hists[:, :, 1]
+        at_goal = at_goal.clip(0, 1)
+        # battery_empty = predicate_hists[:, :, 3]
 
         # separately normalize BT rewards and standard DQN (no BT) rewards, since they are using other reward functions
         print("Reward min max before norm", reward_hists.min(), reward_hists.max())
@@ -648,54 +659,88 @@ def plot_bt_comp_metrics(
 
         # compute mean and std for across repetitions
         # apply smoothing
-        smooth_len = 50
+        smooth_len = 100
         reward_hists = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in reward_hists])
         mean_reward = np.mean(reward_hists, axis=0)
         std_reward = np.std(reward_hists, axis=0)
+
+        len_hists = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in len_hists])
+        mean_len = np.mean(len_hists, axis=0)
+        std_len = np.std(len_hists, axis=0)
 
         in_lava = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in in_lava])
         mean_in_lava = np.mean(in_lava, axis=0)
         std_in_lava = np.std(in_lava, axis=0)
 
-        battery_empty = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in battery_empty])
-        mean_battery_empty = np.mean(battery_empty, axis=0)
-        std_battery_empty = np.std(battery_empty, axis=0)
+        at_goal = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in at_goal])
+
+        mean_at_goal = np.mean(at_goal, axis=0)
+        std_at_goal = np.std(at_goal, axis=0)
+
+        # battery_empty = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in battery_empty])
+        # mean_battery_empty = np.mean(battery_empty, axis=0)
+        # std_battery_empty = np.std(battery_empty, axis=0)
 
         # plot metrics
         lw = 2
-        upper_x_lim = 26366
-        # the number of episodes is different for different methods (due to finishing more or less episodes with same number of interactions)
-        # to make all plots of same length we scale x to fit the length of the longest method...
-        x_scaled = np.linspace(0, upper_x_lim, len(mean_reward))
-        print(len(mean_reward))
+        upper_x_lim = 1e6
+        lin_thresh=1e5
 
-        axs[0].plot(x_scaled, mean_reward, color=method_colors[idx], ls=method_ls[idx], lw=lw, alpha=0.75, zorder=zorders[idx])
-        axs[0].fill_between(x_scaled, mean_reward - std_reward, mean_reward + std_reward, color=method_colors[idx], alpha=0.2, zorder=zorders[idx])
-        axs[0].set_ylabel("Task return (normalized)")
-        axs[0].set_xlabel("Episodes")
+        # axs[0].plot(x_scaled, mean_reward, color=method_colors[idx], ls=method_ls[idx], lw=lw, alpha=0.75, zorder=zorders[idx])
+        # axs[0].fill_between(x_scaled, mean_reward - std_reward, mean_reward + std_reward, color=method_colors[idx], alpha=0.2, zorder=zorders[idx])
+        # axs[0].set_ylabel("Task return (normalized)")
+        # axs[0].set_xlabel("Episodes")
+        # axs[0].set_xlim(0, upper_x_lim)
+        # axs[0].set_ylim(0, 1.1)
+        # # axs[0].set_xticks(np.linspace(0, len(mean_reward), n_x_ticks, dtype=np.int64))
+        # axs[0].set_xticks([2000, 10_000, 20_000], ["2e3", "1e4", "2e4"])
+        x_scaled = np.linspace(0, upper_x_lim, len(mean_at_goal))
+        axs[0].plot(x_scaled, mean_at_goal, color=method_colors[idx], label=method_names[idx], ls=method_ls[idx], lw=lw, zorder=zorders[idx])
+        axs[0].fill_between(x_scaled, mean_at_goal - std_at_goal, mean_at_goal + std_at_goal, color=method_colors[idx], alpha=0.2, zorder=zorders[idx])
+        axs[0].set_ylabel("Success rate")
+        # axs[0].legend(loc="upper center", bbox_to_anchor=(0.5, 1.25), ncol=len(method_names))
         axs[0].set_xlim(0, upper_x_lim)
-        axs[0].set_ylim(0, 1.1)
-        # axs[0].set_xticks(np.linspace(0, len(mean_reward), n_x_ticks, dtype=np.int64))
-        axs[0].set_xticks([2000, 10_000, 20_000], ["2e3", "1e4", "2e4"])
+        axs[0].set_ylim(-0.1, 1.1)
+        # axs[0].set_xticks([0, 500_000, 1e6], ["0", "5e5", "1e6"])
+        axs[0].set_xlabel("Timesteps")
+        # axs[0].set_xscale("log")
+        axs[0].set_xscale("symlog", linthresh=lin_thresh)
+        # axs[0].axvline(lin_thresh, ls="--", color="k", zorder=-10)
+
+        x_scaled = np.linspace(0, upper_x_lim, len(mean_len))
+        axs[1].plot(x_scaled, mean_len, color=method_colors[idx], ls=method_ls[idx], lw=lw, zorder=zorders[idx], label=method_names[idx])
+        axs[1].fill_between(x_scaled, mean_len - std_len, mean_len + std_len, color=method_colors[idx], alpha=0.2, zorder=zorders[idx])
+        axs[1].set_ylabel("Episode length")
+        axs[1].legend(loc="upper center", bbox_to_anchor=(0.5, 1.25), ncol=len(method_names))
+        axs[1].set_xlabel("Timesteps")
+        axs[1].set_xlim(0, upper_x_lim)
+        axs[1].set_ylim(20, 210)
+        # axs[1].set_xticks([0, 500_000, 1e6], ["0", "5e5", "1e6"])
+        # axs[1].set_xscale("log")
+        axs[1].set_xscale("symlog", linthresh=lin_thresh)
+        # axs[1].axvline(lin_thresh, ls="--", color="k", zorder=-10)
 
         x_scaled = np.linspace(0, upper_x_lim, len(mean_in_lava))
-        axs[1].plot(x_scaled, mean_in_lava, color=method_colors[idx], label=method_names[idx], ls=method_ls[idx], lw=lw, zorder=zorders[idx])
-        axs[1].fill_between(x_scaled, mean_in_lava - std_in_lava, mean_in_lava + std_in_lava, color=method_colors[idx], alpha=0.2, zorder=zorders[idx])
-        axs[1].set_ylabel("Steps: Unsafe")
-        axs[1].set_xlabel("Episodes")
-        axs[1].legend(loc="upper center", bbox_to_anchor=(0.5, 1.25), ncol=len(method_names))
-        axs[1].set_xlim(0, upper_x_lim)
-        axs[1].set_ylim(-5, 100)
-        axs[1].set_xticks([2000, 10_000, 20_000], ["2e3", "1e4", "2e4"])
-
-        x_scaled = np.linspace(0, upper_x_lim, len(mean_battery_empty))
-        axs[2].plot(x_scaled, mean_battery_empty, color=method_colors[idx], ls=method_ls[idx], lw=lw, zorder=zorders[idx])
-        axs[2].fill_between(x_scaled, mean_battery_empty - std_battery_empty, mean_battery_empty + std_battery_empty, color=method_colors[idx], alpha=0.2, zorder=zorders[idx])
-        axs[2].set_ylabel("Steps: Battery low")
-        axs[2].set_xlabel("Episodes")
+        axs[2].plot(x_scaled, mean_in_lava, color=method_colors[idx], label=method_names[idx], ls=method_ls[idx], lw=lw, zorder=zorders[idx])
+        axs[2].fill_between(x_scaled, mean_in_lava - std_in_lava, mean_in_lava + std_in_lava, color=method_colors[idx], alpha=0.2, zorder=zorders[idx])
+        axs[2].set_ylabel("Constraint violations")
+        axs[2].set_xlabel("Timesteps")
+        # axs[2].legend(loc="upper center", bbox_to_anchor=(0.5, 1.25), ncol=len(method_names))
         axs[2].set_xlim(0, upper_x_lim)
         axs[2].set_ylim(-5, 100)
-        axs[2].set_xticks([2000, 10_000, 20_000], ["2e3", "1e4", "2e4"])
+        # axs[2].set_xticks([0, 500_000, 1e6], ["0", "5e5", "1e6"])
+        axs[2].set_xscale("log")
+        axs[2].set_xscale("symlog", linthresh=lin_thresh)
+        # axs[2].axvline(lin_thresh, ls="--", color="k", zorder=-10)
+
+        # x_scaled = np.linspace(0, upper_x_lim, len(mean_battery_empty))
+        # axs[2].plot(x_scaled, mean_battery_empty, color=method_colors[idx], ls=method_ls[idx], lw=lw, zorder=zorders[idx])
+        # axs[2].fill_between(x_scaled, mean_battery_empty - std_battery_empty, mean_battery_empty + std_battery_empty, color=method_colors[idx], alpha=0.2, zorder=zorders[idx])
+        # axs[2].set_ylabel("Steps: Battery low")
+        # axs[2].set_xlabel("Episodes")
+        # axs[2].set_xlim(0, upper_x_lim)
+        # axs[2].set_ylim(-5, 100)
+        # axs[2].set_xticks([2000, 10_000, 20_000], ["2e3", "1e4", "2e4"])
 
     plt.tight_layout()
     plt.subplots_adjust(
@@ -716,7 +761,7 @@ def plot_bt_comp_metrics(
 def plot_numpy_feasiblity_dqn(
         dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/",
         file_name="feasibility_dqn.pt",
-        state=np.array([6.2, 2.2, 0.8, 1.5, 1.0]),
+        state=np.array([3.2, 2.2, 0.0, 1.3]),
         feasibility_thresh=0.05,
         value_function="min",
         cmap="viridis",
@@ -736,9 +781,10 @@ def plot_numpy_feasiblity_dqn(
     plt.close()
 
     # setup wide env
-    env = SimpleAccEnv(
+    env = SimpleAccEnvNoBattery(
         with_conveyer=True,
         x_max=20,
+        y_max=10,
         conveyer_x_min=2,
         conveyer_x_max=10,
         lava_x_min=10,
@@ -782,11 +828,12 @@ def plot_numpy_feasiblity_dqn(
     agent_y = agent_y.flatten()
 
     # plot with [0, 0] and [0, 2] (upward) velocity
-    for vel_idx, vel_arr in enumerate([np.array([0, 0]), np.array([0, 2.0])]):
+    for vel_idx, vel_arr in enumerate([np.array([0, 1.2]), np.array([-2.0, 0])]):
         agent_vel_x = np.full_like(agent_x, vel_arr[0])
         agent_vel_y = np.full_like(agent_y, vel_arr[1])
         battery = np.full_like(agent_y, 1.0)
-        states = np.stack([agent_x, agent_y, agent_vel_x, agent_vel_y, battery], axis=1)
+        # states = np.stack([agent_x, agent_y, agent_vel_x, agent_vel_y, battery], axis=1)
+        states = np.stack([agent_x, agent_y, agent_vel_x, agent_vel_y], axis=1)
 
         q_values = dqn(torch.Tensor(states).to("cpu"))
 
@@ -804,7 +851,8 @@ def plot_numpy_feasiblity_dqn(
         img = axs[vel_idx].imshow(state_values, cmap=cmap, interpolation="nearest", extent=[0, env.x_max, 0, env.y_max])
 
         # add indicator for state location
-        axs[vel_idx].scatter(state[0], state[1], c="magenta", s=100, marker="^")
+        if vel_idx == 0:
+            axs[vel_idx].scatter(state[0], state[1], c="magenta", s=100, marker="^")
         # axs[vel_idx].scatter(state[0], state[1], c="magenta", s=40, marker="o")
         # axs[vel_idx].quiver(state[0], state[1], 0, 1, color="magenta")
 
@@ -849,7 +897,8 @@ def plot_numpy_feasiblity_dqn(
             vmax=max(q_vals),
         )
 
-        if q_vals[a_idx] > q_vals.min() + feasibility_thresh:
+        if q_vals[a_idx] < 0.995:
+        # if q_vals[a_idx] > q_vals.min() + feasibility_thresh:
             axs[2].scatter(acceleration[0], acceleration[1], s=800, c="r", marker="x", linewidths=cross_lw)
 
     axs[2].set_xlim(-2.4, 2.4)
@@ -863,8 +912,8 @@ def plot_numpy_feasiblity_dqn(
     plt.subplots_adjust(
         top=0.925,
         bottom=0.075,
-        left=-0.03,
-        right=0.99,
+        left=-0.04,
+        right=0.97,
         wspace=0.05
     )
     plt.savefig("runs/feasiblity_estimator")
@@ -1200,7 +1249,7 @@ if __name__ == "__main__":
     # method_names = ["BT-DQN", "BT-Penalty", "CBTRL (Ours)"]
     # method_colors = ["magenta", "k", "cyan"]
     # method_ls = ["--", ":", "-"]
-    method_names = ["BT-DQN", "BT-Penalty", "CBTRL (Ours)", "DQN"]
+    method_names = ["BTRL", "BT-Penalty", "CBTRL (Ours)", "RL"]
     method_colors = ["k", "magenta", "cyan", "red"]
     method_ls = ["--", ":", "-", "-."]
     zorders = [5, 10, 15, 0]
@@ -1242,19 +1291,25 @@ if __name__ == "__main__":
     #     cross_lw=3,
     # )
 
-    # plot_bt_comp_rollouts(
-    #     # con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
-    #     # no_con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-13-12_noPunish_noConstraint_noEval_2",
-    #     # sum_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-53-56_withPunish_noConstraint_noEval_2",
-    #     con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-04-53-21_debug_feasibilityAwareBT_seed:1",
-    #     # no_con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-28-22-54-23_debug_noConstraints_seed:1",
-    #     # no_con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-18-11-28_debug_noConstraints_seed:2",
-    #     no_con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-13-14-12_debug_noConstraints_seed:3",
-    #     sum_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-01-53-13_debug_rewardPenalty_seed:1",
-    #     method_names=method_names,
-    #     method_colors=method_colors,
-    #     method_ls=method_ls
-    # )
+    plot_bt_comp_rollouts(
+        # con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-05-21-25-17_256x256_1M_goalReward-1-dist_batch4k_tau:0.001_ylim15_moreDistPunish_buffer500k",
+        con_load_dir=r"final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-06-21-01-14_CBTRL_seed:1",
+        
+        # no_con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-28-22-54-23_debug_noConstraints_seed:1",
+        # no_con_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-18-11-28_debug_noConstraints_seed:2",
+        # no_con_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-06-10-02-26_256x256_1M_goalReward-1-dist_batch4k_tau:0.001_ylim15_moreDistPunish_buffer500k_noCon",
+        no_con_load_dir=r"final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-06-22-16-41_BTRL_seed:1",
+        
+        # sum_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-06-11-21-26_256x256_1M_goalReward-1-dist_batch4k_tau:0.001_ylim15_moreDistPunish_buffer500k_penalty",
+        sum_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-14-25-08_PENALTY_seed:4",
+        # sum_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-04-01-32_PENALTY_seed:2",
+
+        # rl_load_dir="final_experiment_StandardDQN/SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__0__1740212518",
+        rl_load_dir="/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-unshapedSum-v1/2025-03-07-05-04-30_StandardRL_seed:2",
+        method_names=method_names,
+        method_colors=method_colors,
+        method_ls=method_ls
+    )
 
     # plot_bt_comp_rollouts(
     #     # con_load_dir=r"/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
@@ -1273,47 +1328,80 @@ if __name__ == "__main__":
     plot_bt_comp_metrics(
         which_data="train",
         no_con_load_dirs=[
-            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-14-52-57_noPunish_noConstraint_noEval_1",
-            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-13-12_noPunish_noConstraint_noEval_2",
-            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-33-37_noPunish_noConstraint_noEval_3",
-            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-15-53-56_noPunish_noConstraint_noEval_4",
-            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-14-18_noPunish_noConstraint_noEval_5",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-28-22-54-23_debug_noConstraints_seed-1",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-29-18-11-28_debug_noConstraints_seed-2",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-13-14-12_debug_noConstraints_seed-3",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-01-08-15-17_debug_noConstraints_seed-4",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-02-03-10-46_debug_noConstraints_seed-5"
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-28-22-54-23_debug_noConstraints_seed:1",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-18-11-28_debug_noConstraints_seed:2",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-13-14-12_debug_noConstraints_seed:3",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-01-08-15-17_debug_noConstraints_seed:4",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-02-03-10-46_debug_noConstraints_seed:5",
+            # 
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-28-22-54-23_debug_noConstraints_seed-1",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-29-18-11-28_debug_noConstraints_seed-2",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-13-14-12_debug_noConstraints_seed-3",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-01-08-15-17_debug_noConstraints_seed-4",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-02-03-10-46_debug_noConstraints_seed-5"
+            # 
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-06-22-16-41_BTRL_seed:1",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-02-56-58_BTRL_seed:2",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-07-37-06_BTRL_seed:3",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-13-07-19_BTRL_seed:4",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-18-14-31_BTRL_seed:5",
         ],
         con_load_dirs=[
-            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-10-22_noPunish_withConstraint_noEval_1",
-            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-18-35-40_noPunish_withConstraint_noEval_2",
-            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-01-19_noPunish_withConstraint_noEval_3",
-            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-27-03_noPunish_withConstraint_noEval_4",
-            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-19-52-26_noPunish_withConstraint_noEval_5",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-29-04-53-21_debug_feasibilityAwareBT_seed-1",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-00-10-33_debug_feasibilityAwareBT_seed-2",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-19-14-47_debug_feasibilityAwareBT_seed-3",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-01-14-17-29_debug_feasibilityAwareBT_seed-4",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-02-09-07-39_debug_feasibilityAwareBT_seed-5"
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-04-53-21_debug_feasibilityAwareBT_seed:1",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-00-10-33_debug_feasibilityAwareBT_seed:2",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-19-14-47_debug_feasibilityAwareBT_seed:3",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-01-14-17-29_debug_feasibilityAwareBT_seed:4",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-02-09-07-39_debug_feasibilityAwareBT_seed:5",
+            # 
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-29-04-53-21_debug_feasibilityAwareBT_seed-1",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-00-10-33_debug_feasibilityAwareBT_seed-2",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-19-14-47_debug_feasibilityAwareBT_seed-3",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-01-14-17-29_debug_feasibilityAwareBT_seed-4",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-02-09-07-39_debug_feasibilityAwareBT_seed-5"
+            # 
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-06-21-01-14_CBTRL_seed:1",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-01-41-36_CBTRL_seed:2",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-06-22-25_CBTRL_seed:3",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-11-49-54_CBTRL_seed:4",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-16-54-33_CBTRL_seed:5",
         ],
         sum_load_dir=[
-            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-34-46_withPunish_noConstraint_noEval_1",
-            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-16-53-56_withPunish_noConstraint_noEval_2",
-            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-13-07_withPunish_noConstraint_noEval_3",
-            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-32-10_withPunish_noConstraint_noEval_4",
-            # "/home/finn/repos/MORL-BT/BTRL-learning/runs/SimpleAccEnv-wide-withConveyer-goal-v0/2024-07-27-17-51-14_withPunish_noConstraint_noEval_5",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-29-01-53-13_debug_rewardPenalty_seed-1",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-29-21-10-25_debug_rewardPenalty_seed-2",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-16-13-34_debug_rewardPenalty_seed-3",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-16-13-34_debug_rewardPenalty_seed-3",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-02-06-09-03_debug_rewardPenalty_seed-5"
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-01-53-13_debug_rewardPenalty_seed:1",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-21-10-25_debug_rewardPenalty_seed:2",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-16-13-34_debug_rewardPenalty_seed:3",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-01-11-15-06_debug_rewardPenalty_seed:4",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-02-06-09-03_debug_rewardPenalty_seed:5",
+            # 
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-29-01-53-13_debug_rewardPenalty_seed-1",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-29-21-10-25_debug_rewardPenalty_seed-2",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-16-13-34_debug_rewardPenalty_seed-3",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-16-13-34_debug_rewardPenalty_seed-3",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-02-06-09-03_debug_rewardPenalty_seed-5"
+            # 
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-06-23-21-39_PENALTY_seed:1",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-04-01-32_PENALTY_seed:2",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-08-44-14_PENALTY_seed:3",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-14-25-08_PENALTY_seed:4",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-19-23-17_PENALTY_seed:5",
         ],
         standard_dqn_load_dirs=[
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__0__1740212518",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__1__1740221587",
-            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__2__1740230580",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__3__1740239692",
-            r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__4__1740248762"
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiment_StandardDQN/SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__0__1740212518",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiment_StandardDQN/SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__1__1740221587",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiment_StandardDQN/SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__2__1740230580",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiment_StandardDQN/SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__3__1740239692",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiment_StandardDQN/SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__4__1740248762",
+            # 
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__0__1740212518",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__1__1740221587",
+            # # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__2__1740230580",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__3__1740239692",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__4__1740248762"
+            # 
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-unshapedSum-v1/2025-03-07-00-23-24_StandardRL_seed:1",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-unshapedSum-v1/2025-03-07-05-04-30_StandardRL_seed:2",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-unshapedSum-v1/2025-03-07-10-07-27_StandardRL_seed:3",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-unshapedSum-v1/2025-03-07-15-31-59_StandardRL_seed:4",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-unshapedSum-v1/2025-03-07-20-28-57_StandardRL_seed:5",
         ],
         method_names=method_names,
         method_colors=method_colors,
@@ -1321,12 +1409,13 @@ if __name__ == "__main__":
         zorders=zorders
     )
 
-    # plot_numpy_feasiblity_dqn(
-    #     # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/",
-    #     # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29",
-    #     # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
-    #     dqn_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-29-10-29-42_debug_seed:2/feasibility_2024-09-29-13-25-13_lava",
-    #     cross_lw=3
-    # )
+    plot_numpy_feasiblity_dqn(
+        # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-16-03-00-37_good/feasibility_2024-07-16-15-52-18/",
+        # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-25-16-24-08_200kRandom_squareResetMultipleReings/feasibility_2024-07-25-17-29-29",
+        # dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v0/2024-07-29-10-03-55_withBattery/feasibility_2024-07-29-17-28-18",
+        # dqn_load_dir=r"final_experiments/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-29-10-29-42_debug_seed:2/feasibility_2024-09-29-13-25-13_lava",
+        dqn_load_dir=r"runs/SimpleAccEnv-wide-withConveyer-lava-v1/2025-03-05-08-48-54_lava/feasibility_2025-03-05-11-44-00_batch8k_noBatchNorm_gamma:0999_400epochs_weightDecay:1e-5",
+        cross_lw=3
+    )
 
 

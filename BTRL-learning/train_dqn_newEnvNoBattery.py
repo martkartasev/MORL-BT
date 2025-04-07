@@ -126,86 +126,16 @@ def setup_numpy_env(params, device, exp_dir):
 
     if "lava" in env_id:
         dqns = [avoid_lava_dqn]
-    elif "battery" in env_id:
-        assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
-        avoid_lava_dqn.save_model(exp_dir)
-        dqns = [avoid_lava_dqn, battery_dqn]
     elif "goal" in env_id:
         assert params["numpy_env_lava_dqn_cp"] != "", "Pre-trained avoid_lava DQN load path must be given"
         avoid_lava_dqn.save_model(exp_dir)
-        assert params["numpy_env_battery_dqn_cp"] != "", "Pre-trained battery DQN load path must be given"
-        battery_dqn.save_model(exp_dir)
-        dqns = [avoid_lava_dqn, battery_dqn, reach_goal_dqn]
+        dqns = [avoid_lava_dqn, reach_goal_dqn]
+    elif "unshapedSum" in env_id:
+        dqns = [avoid_lava_dqn]  # just use single, unconstrained DQN trained on sum of rewards...
     else:
         raise ValueError(f"Unknown env-id '{env_id}', not sure which DQNs to use...")
 
     return env, state_dim, action_dim, obs, info, logging_dict, dqns
-
-
-def setup_unity_env(unity_scene_dir, take_screenshots=False):
-    engine = EngineConfigurationChannel()
-    engine.set_configuration_parameters(time_scale=2)  # Can speed up simulation between steps with this
-    engine.set_configuration_parameters(quality_level=0)
-    engine.set_configuration_parameters(width=1000, height=1000)
-    print("Creating unity env (instance started?)...")
-    if take_screenshots:
-        env = UnityEnvironment(
-            # file_name=f"envs/unity_builds/{unity_scene_dir}/myBuild-MORL-BT.x86_64",
-            # comment out to connect to unity editor instance
-            no_graphics=False,  # Can disable graphics if needed
-            # base_port=10001,  # for starting multiple envs
-            side_channels=[engine])
-    else:
-        env = UnityEnvironment(
-            file_name=f"envs/unity_builds/{unity_scene_dir}/myBuild-MORL-BT.x86_64",  # comment out to connect to unity editor instance
-            no_graphics=False,  # Can disable graphics if needed
-            # base_port=10001,  # for starting multiple envs
-            side_channels=[engine])
-    print("Unity env ready")
-
-    dqns = []
-    raise NotImplementedError("Unity env DQN setup for BT not implemented yet...")
-
-    action_dim = 25
-    # state_dim = 9  # for flat env with pos, acc, goal
-    state_dim = 17  # for flat env with pos, acc, goal, trigger, button
-    env.action_space = gym.spaces.Discrete(action_dim)
-    env.observation_space = gym.spaces.Box(
-        low=np.array([-np.inf] * state_dim),
-        high=np.array([np.inf] * state_dim),
-        dtype=np.float32
-    )
-    n_agents = 16  # number of agents in the unity scene
-
-    env.state_predicate_names = unity_state_predicate_names
-
-    env.check_state_predicates = unity_state_predicate_check
-
-    env.reset()  # init unity env and all agents within
-
-    episodes_done = 0
-    loss_hist = []
-    avg_q_hist = []
-    ep_reward_hist = []
-    ep_len_hist = []
-    ep_state_predicate_hist = []
-    ep_reward_sum = np.zeros((n_agents, 1))
-    ep_len = np.zeros((n_agents, 1))
-    ep_state_predicate = np.zeros((n_agents, len(env.state_predicate_names)))
-
-    logging_dict = {
-        "episodes_done": episodes_done,
-        "ep_len": ep_len,
-        "ep_reward_sum": ep_reward_sum,
-        "ep_state_predicates": ep_state_predicate,
-        "loss_hist": loss_hist,
-        "avg_q_hist": avg_q_hist,
-        "ep_reward_hist": ep_reward_hist,
-        "ep_len_hist": ep_len_hist,
-        "ep_state_predicate_hist": ep_state_predicate_hist
-    }
-
-    return env, state_dim, action_dim, logging_dict, dqns
 
 
 def env_interaction_numpy_env(
@@ -225,57 +155,20 @@ def env_interaction_numpy_env(
         feasibility_aware_BT=False,
 ):
 
-    # compute lava feasiblity values if we have that constraint
-    min_lava_feasibility_val = 0
-    if feasibility_aware_BT:
-        if len(dqns) > 1 and len(dqns[1].con_models) > 0:
-            lava_feasibility_estimator = dqns[1].con_models[0]
-            lava_feasibility_estimator.eval()
-            lava_feasibility_q_vals = lava_feasibility_estimator(torch.tensor(obs).unsqueeze(0).float().to(device)).squeeze()
-            min_lava_feasibility_val = lava_feasibility_q_vals.min().item()
-
-    # compute battery feasiblity values if we have that constraint
-    min_battery_feasibility_val = 0
-    if feasibility_aware_BT:
-        if len(dqns) > 2 and len(dqns[2].con_models) > 0:
-            # TODO, we should apply higher prio mask before checking?!
-            battery_feasibility_estimator = dqns[2].con_models[1]
-            battery_feasibility_estimator.eval()
-            battery_feasibility_q_vals = battery_feasibility_estimator(torch.tensor(obs).unsqueeze(0).float().to(device)).squeeze()
-            min_battery_feasibility_val = battery_feasibility_q_vals.min().item()
-
-    if not feasibility_aware_BT:
-        # kinda hacky but simple way to turn off feasibility aware BT
-        min_lava_feasibility_val = 0
-        min_battery_feasibility_val = 0
-
     # BTs are just if-else statements for which DQN to use, each DQNs has its own constraints
     agent_x = obs[0]
     agent_y = obs[1]
-    agent_battery = obs[4]
     if len(dqns) == 1:
         # we only have one DQN, always use that one
         dqn_idx = 0
     
     elif len(dqns) == 2:
-        # two DQNs, first one is avoid lava, second one is battery
-        if (env.lava_x_min < agent_x < env.lava_x_max and env.lava_y_min < agent_y < env.lava_y_max) or min_lava_feasibility_val > 0.9:
-            # print("Agent in lava or lava infeasibility val too high, using avoid DQN")
+        # two DQNs, first one is avoid lava, second one is goal
+        if env.lava_x_min < agent_x < env.lava_x_max and env.lava_y_min < agent_y < env.lava_y_max:
             dqn_idx = 0
         else:
             dqn_idx = 1
             
-    elif len(dqns) == 3:
-        # three DQNs, first one is avoid lava, second one is battery, third one is reach goal
-        if (env.lava_x_min < agent_x < env.lava_x_max and env.lava_y_min < agent_y < env.lava_y_max) or min_lava_feasibility_val > 0.9:
-            # print("Agent in lava or lava infeasibility val too high, using avoid DQN")
-            dqn_idx = 0
-        elif agent_battery <= 0 or min_battery_feasibility_val > 0.9:
-            # print("Agent battery empty or battery infeasibility too high, using battery DQN")
-            dqn_idx = 1
-        else:
-            dqn_idx = 2
-    
     else:
         raise NotImplementedError("More than 2 DQNs given, Implement BT here!")
 
@@ -285,11 +178,6 @@ def env_interaction_numpy_env(
     punish_reward = reward
     if params["reward_punish"]:
         if env.lava_x_min < next_obs[0] < env.lava_x_max and env.lava_y_min < next_obs[1] < env.lava_y_max:
-            # print("Reward penalty for being in lave")
-            punish_reward -= 100
-
-        if next_obs[4] <= 0:
-            # print("Reward penalty for empty battery")
             punish_reward -= 100
 
     if with_plot:
@@ -422,140 +310,6 @@ def env_interaction_numpy_env(
     return obs, reward, done, trunc, info
 
 
-def env_interaction_unity_env(
-        dqns,
-        epsilon,
-        env,
-        device,
-        exp_dir,
-        global_step,
-        replay_buffer,
-        writer,
-        params,
-        logging_dict
-):
-    raise NotImplementedError("Unity env interaction for BT with mutiple DQNs not implemented yet...")
-
-    (decision_steps, terminal_steps) = env.get_steps("BridgeEnv?team=0")
-    obs = decision_steps.obs[0]  # Strange structure, but this is how you get the observations array
-    nr_agents = len(decision_steps)  # this many agents need to take an action
-
-    if nr_agents > 0:
-        unity_actions = np.zeros((nr_agents, 3))
-        for i in decision_steps.agent_id:
-            rl_action, q_vals = dqn.act(obs[i], epsilon, ret_vals=True)
-            logging_dict["ep_len"][i] += 1
-
-            screenshot_action = 0
-            reset_action = 0 if params["unity_max_ep_len"] > logging_dict["ep_len"][i] else 1
-
-            if params["unity_take_screenshots"]:
-                if -3 < obs[i][0] < 3:
-                # if True:
-                    screenshot_action = 1
-                    os.makedirs(f"{exp_dir}/imgs/Q", exist_ok=True)
-                    plot_unity_q_vals(
-                        obs[i],
-                        dqn.q_net,
-                        device,
-                        save_path=f"{exp_dir}/imgs/Q/{global_step}_Q.png",
-                        title=f"Q values: xyz={obs[i][0:3]}",
-                    )
-                    if dqn.con_model is not None:
-                        os.makedirs(f"{exp_dir}/imgs/ACC", exist_ok=True)
-                        plot_unity_q_vals(
-                            obs[i],
-                            dqn.con_model,
-                            device,
-                            save_path=f"{exp_dir}/imgs/ACC/{global_step}_reachabilityQ.png",
-                            title=f"feasibility Q values, xzy={obs[i][0:3]}",
-                            vmin=0,
-                            vmax=1,
-                            con_thresh=dqn.con_thresh,
-                        )
-
-            unity_actions[i] = [rl_action, reset_action, screenshot_action]
-
-    else:
-        unity_actions = np.zeros((0, 3))  # we still need to pass an empty action tuple even if no agent acts
-
-    action_tuple = ActionTuple()
-    action_tuple.add_discrete(unity_actions)
-    env.set_actions("BridgeEnv?team=0", action_tuple)
-    env.step()
-    (next_decision_steps, next_terminal_steps) = env.get_steps("BridgeEnv?team=0")
-
-    if len(next_decision_steps.agent_id) == 0 and len(next_terminal_steps.agent_id) > 0:
-        # some episode has ended, we need to handle that
-        for idx, j in enumerate(next_terminal_steps.agent_id):
-            if j in decision_steps.agent_id:
-                # find those agents that did a step and now are done, aka those that did a valid (s, a, s') transition
-                agent_obs = obs[j][:]
-                next_obs = next_terminal_steps.obs[0][idx][:]
-                action = unity_actions[j][0]
-
-                # compute reward
-                rew = np.array([rewards_flat_acc_env(agent_obs, task=params["unity_task"])])
-                logging_dict["ep_reward_sum"][j] += rew
-                logging_dict["ep_len"][j] += 1
-
-                state_predicates = env.check_state_predicates(agent_obs)
-                logging_dict["ep_state_predicates"][j] += state_predicates
-
-                # check done
-                done = done_check_flat_acc_env(obs)
-                if done:
-                    print(f"Agent {j} is done (terminal state)!")
-                else:
-                    print(f"Agent {j} is done (episode trunaction)! Return: {np.around(logging_dict['ep_reward_sum'][j], decimals=3)}")
-
-                writer.add_scalar("episode/reward_sum", logging_dict['ep_reward_sum'][j], logging_dict["episodes_done"])
-                writer.add_scalar("episode/length", logging_dict['ep_len'][j], logging_dict["episodes_done"])
-                logging_dict["ep_len_hist"].append(logging_dict["ep_len"][j].copy())
-                logging_dict["ep_reward_hist"].append(logging_dict['ep_reward_sum'][j].copy())
-                logging_dict["ep_state_predicate_hist"].append(logging_dict["ep_state_predicates"][j].copy())
-                logging_dict['ep_reward_sum'][j] = 0
-                logging_dict["ep_len"][j] = 0
-                logging_dict["episodes_done"] += 1
-                logging_dict["ep_state_predicates"][j] = np.zeros(len(env.state_predicate_names))
-
-                termination = np.array([int(done)])
-                info = None
-                replay_buffer.add(agent_obs, next_obs, action, rew, termination, info)
-            else:
-                # happens after reset, we have a "next obs" but not yet a "current obs"
-                # transition will be added to the buffer after the next env interaction
-                pass
-
-    elif len(next_decision_steps.agent_id) > 0 and len(next_terminal_steps.agent_id) == 0 and len(decision_steps.agent_id) == len(next_decision_steps.agent_id):
-        # all agents have taken a step and none has terminates
-        for j in next_decision_steps.agent_id:
-            agent_obs = obs[j][:]
-            next_obs = next_decision_steps.obs[0][j][:]
-            action = unity_actions[j][0]
-
-            # compute reward
-            rew = np.array([rewards_flat_acc_env(agent_obs, task=params["unity_task"])])
-            logging_dict["ep_reward_sum"][j] += rew
-            logging_dict["ep_len"][j] += 1
-
-            state_predicates = env.check_state_predicates(agent_obs)
-            logging_dict["ep_state_predicates"][j] += state_predicates
-
-            # check done ( should not be done here, since those cases are handeled above...
-            done = done_check_flat_acc_env(obs)
-            if done:
-                raise RuntimeWarning(f"Agent {j} is done, but should not be done here!")
-
-            termination = np.array([int(done)])
-            info = None
-            replay_buffer.add(agent_obs, next_obs, action, rew, termination, info)
-
-    else:
-        # this seems to happen after reset, we have next obs but not yet current obs
-        pass
-
-
 def main(args):
     # HYPERPARAMETERS
     which_env = "numpy"  # "unity" or "numpy
@@ -563,27 +317,17 @@ def main(args):
     params = {
         "exp_base_dir": args.exp_base_dir,
         "which_env": which_env,
-        # "env_id": "SimpleAccEnv-wide-withConveyer-lava-v0",
-        # "env_id": "SimpleAccEnv-wide-withConveyer-goal-v0",
-        # "env_id": "SimpleAccEnv-wide-withConveyer-sum-v0",
-        # "env_id": "SimpleAccEnv-wide-withConveyer-left-v0",
-        # "env_id": "flat-acc-button",  # name of the folder containing the unity scene binaries
-        # "env_id": "flat-acc",  # name of the folder containing the unity scene binaries
         "env_id": args.env_id,
-        "unity_take_screenshots": True,
-        "unity_max_ep_len": 1000,
-        "unity_task": "fetch_trigger",
-        # "unity_task": "reach_goal",
         "no_train_only_plot": False,
         "total_timesteps": args.total_steps,
         "lr": 0.0005,
-        "buffer_size": 10e6,
+        "buffer_size": 500_000,
         "gamma": 0.99,
         # "tau": 0.001,
         # "target_freq": 1,
-        "tau": 1,
-        "target_freq": 1000,
-        "batch_size": 256,
+        "tau": 0.001,
+        "target_freq": 1,
+        "batch_size": 4024,
         "hidden_activation": nn.ReLU,
         "start_epsilon": 1.0,
         "end_epsilon": 0.1,
@@ -599,9 +343,9 @@ def main(args):
         "numpy_env_lava_dqn_batchNorm": False,
 
         "numpy_env_lava_feasibility_dqn_cp": args.lava_constraint_feasibility_path,
-        "numpy_env_lava_feasibility_dqn_arch": [64, 64, 32, 32],
-        "numpy_env_lava_feasibility_thresh": 0.99,
-        "numpy_env_lava_feasibility_batchNorm": True,
+        "numpy_env_lava_feasibility_dqn_arch": [64, 64, 64, 64],
+        "numpy_env_lava_feasibility_thresh": 0.98,
+        "numpy_env_lava_feasibility_batchNorm": False,
 
         "numpy_env_battery_dqn_cp": args.battery_dqn_path,
         "numpy_env_battery_dqn_arch": [32, 32, 16, 16],
@@ -609,11 +353,11 @@ def main(args):
 
         "numpy_env_battery_feasibility_dqn_cp": args.battery_constraint_feasibility_path,
         "numpy_env_battery_feasibility_dqn_arch": [64, 64, 32, 32],
-        "numpy_env_battery_feasibility_thresh": 0.99,
+        "numpy_env_battery_feasibility_thresh": 0.98,
         "numpy_env_battery_feasibility_batchNorm": True,
 
         "numpy_env_goal_dqn_cp": args.goal_dqn_path,
-        "numpy_env_goal_dqn_arch": [32, 32, 16, 16],
+        "numpy_env_goal_dqn_arch": [256, 256],
         "numpy_env_goal_dqn_batchNorm": False,
     }
 
@@ -642,12 +386,7 @@ def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # ENVIRONMENT SETUP
-    if params["which_env"] == "numpy":
-        env, state_dim, action_dim, obs, info, logging_dict, dqns = setup_numpy_env(params=params, device=device, exp_dir=exp_dir)
-    elif params["which_env"] == "unity":
-        env, state_dim, action_dim, logging_dict, dqns = setup_unity_env(params["env_id"], take_screenshots=params["unity_take_screenshots"])
-    else:
-        raise ValueError(f"which_env must be 'numpy' or 'unity' but got '{params['which_env']}'")
+    env, state_dim, action_dim, obs, info, logging_dict, dqns = setup_numpy_env(params=params, device=device, exp_dir=exp_dir)
 
     learn_dqn = dqns[-1]  # we always only learn the last DQN, all other DQNs in list must be trained already
 
@@ -676,35 +415,19 @@ def main(args):
         writer.add_scalar("epsilon", epsilon, global_step)
 
         # one-step interaction with the environment
-        if params["which_env"] == "numpy":
-            obs, _, done, trunc, _ = env_interaction_numpy_env(
-                dqns=dqns,
-                obs=obs,
-                epsilon=epsilon,
-                env=env,
-                replay_buffer=replay_buffer,
-                writer=writer,
-                global_step=global_step,
-                params=params,
-                logging_dict=logging_dict,
-                device=device,
-                feasibility_aware_BT=params["feasibility_aware_BT"]
-            )
-        elif params["which_env"] == "unity":
-            obs = env_interaction_unity_env(
-                dqns=dqns,
-                epsilon=epsilon,
-                env=env,
-                device=device,
-                exp_dir=exp_dir,
-                global_step=global_step,
-                replay_buffer=replay_buffer,
-                writer=writer,
-                params=params,
-                logging_dict=logging_dict
-            )
-        else:
-            raise ValueError(f"which_env must be 'numpy' or 'unity' but got '{params['which_env']}'")
+        obs, _, done, trunc, _ = env_interaction_numpy_env(
+            dqns=dqns,
+            obs=obs,
+            epsilon=epsilon,
+            env=env,
+            replay_buffer=replay_buffer,
+            writer=writer,
+            global_step=global_step,
+            params=params,
+            logging_dict=logging_dict,
+            device=device,
+            feasibility_aware_BT=params["feasibility_aware_BT"]
+        )
 
         if global_step > params["learning_start"] and global_step % params["train_freq"] == 0:
             batch = replay_buffer.sample(params["batch_size"])
@@ -829,8 +552,9 @@ def main(args):
             device=device,
             save_dir=f"{img_dir}",
             plot_eval_states=True,
-            plot_value_function=True,
-            n_rollouts=10
+            plot_value_function=False,  # to prevent OOD issue with large value function batch...
+            n_rollouts=10,
+            battery_levels=[None]
         )
 
         # PLOT TRAJECTORIES
@@ -942,19 +666,21 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--total_steps", type=int, default=1_000_000, help="Total number of training steps")
-    parser.add_argument("-s", "--seed", type=int, default=1, help="The random seed for this run")
-    parser.add_argument("-l", "--learning_starts", type=int, default=20_000, help="Do this many random actions before learning starts")
+    parser.add_argument("-s", "--seed", type=int, default=2, help="The random seed for this run")
+    parser.add_argument("-l", "--learning_starts", type=int, default=25_000, help="Do this many random actions before learning starts")
     parser.add_argument('--punishACC', default=False, action=argparse.BooleanOptionalAction, help="Agent receives reward penalty for ACC violation")
     parser.add_argument('--feasibility_aware_bt', default=False, action=argparse.BooleanOptionalAction, help="Wether BT selects higher prio based on feasibility even if constraint is not violated yet")
-    parser.add_argument("-e", "--exp_name", type=str, default="lava", help="Additional string to append to the experiment directory")
+    parser.add_argument("-e", "--exp_name", type=str, default="256x256_1M_goalReward-1-dist_batch4k_tau:0.001_ylim15_moreDistPunish_buffer500k_thresh:0.98", help="Additional string to append to the experiment directory")
     parser.add_argument("-d", "--exp_base_dir", type=str, default="runs", help="Base directory for all experiments")
 
     # TODO: Properly load ensemble DQN instead of just one of the ensemble members...
     parser.add_argument("-ldqnp", "--lava_dqn_path", type=str, default="", help="Path to load the lava avoiding DQN policy from.")
     # parser.add_argument("-ldqnp", "--lava_dqn_path", type=str, default="final_experiments/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-15-08-46_debug_seed:1/avoid_lava_q_net_0.pth", help="Path to load the lava avoiding DQN policy from.")
+    # parser.add_argument("-ldqnp", "--lava_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-lava-v1/2025-03-05-08-48-54_lava/avoid_lava_q_net_0.pth", help="Path to load the lava avoiding DQN policy from.")
 
     parser.add_argument("-lfcp", "--lava_constraint_feasibility_path", type=str, default="", help="Path to load Lava feasibility constraint network from.")
     # parser.add_argument("-lfcp", "--lava_constraint_feasibility_path", type=str, default="final_experiments/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-15-08-46_debug_seed:1/feasibility_2025-03-03-11-57-05_invert/feasibility_dqn.pt", help="Path to load Lava feasibility constraint network from.")
+    # parser.add_argument("-lfcp", "--lava_constraint_feasibility_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-lava-v1/2025-03-05-14-27-47_256x256/feasibility_2025-03-05-15-07-42_batch8k_noBatchNorm_gamma:0999_500epochs_weightDecay:1e-5/feasibility_dqn.pt", help="Path to load Lava feasibility constraint network from.")
 
     parser.add_argument("-bdqnp", "--battery_dqn_path", type=str, default="", help="Path to load the battery charging DQN policy from.")
     # parser.add_argument("-bdqnp", "--battery_dqn_path", type=str, default="newBattery_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2025-03-04-04-51-22_debug_seed:4/battery_q_net_0.pth", help="Path to load the battery charging DQN policy from.")
@@ -963,15 +689,16 @@ if __name__ == "__main__":
     # parser.add_argument("-bfcp", "--battery_constraint_feasibility_path", type=str, default="newBattery_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2025-03-04-04-51-22_debug_seed:4/feasibility_2025-03-04-09-04-36_invert/feasibility_dqn.pt", help="Path to load Battery feasibility constraint network from.")
 
     parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="", help="Path to load the goal reaching DQN policy from.")
-    # parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-02-09-07-39_debug_feasibilityAwareBT_seed:5/reach_goal_q_net_0.pth", help="Path to load the goal reaching DQN policy from.")
+    # parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-05-19-49-13_256x256_1M_goalReward-1-dist_batch1k_tau:0.001_ylim15/reach_goal_q_net_0.pth", help="Path to load the goal reaching DQN policy from.")
 
     # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-lava-v0", help="Which gym env to train on.")
     # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-battery-v0", help="Which gym env to train on.")
     # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-goal-v0", help="Which gym env to train on.")
     
     # new 2D env, no battery
-    parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-lava-v1", help="Which gym env to train on.")
-    # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-battery-v0", help="Which gym env to train on.")
+    # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-lava-v1", help="Which gym env to train on.")
+    parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-goal-v1", help="Which gym env to train on.")
+    # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-unshapedSum-v1", help="Which gym env to train on.")
 
     args = parser.parse_args()
     print(args)
