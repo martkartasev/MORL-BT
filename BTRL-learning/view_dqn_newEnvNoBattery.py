@@ -153,6 +153,7 @@ def env_interaction_numpy_env(
         save_plot_path="",
         eval_ep=False,
         feasibility_aware_BT=False,
+        plot_trajs=[]
 ):
 
     # BTs are just if-else statements for which DQN to use, each DQNs has its own constraints
@@ -192,41 +193,58 @@ def env_interaction_numpy_env(
             # state_fig, state_axs = plt.subplots(nrows=1, ncols=n_subplots, figsize=(20, 5))
 
             # hardcode for now: at most 3 cols (dqn, con1, con2), at most 3 rows (lava + env, battery + con_lava, goal + con_lava + con_battery)
-            state_fig, state_axs = plt.subplots(nrows=3, ncols=3, figsize=(10, 10))
+            # state_fig, state_axs = plt.subplots(nrows=3, ncols=3, figsize=(10, 10))
 
             subplot_row_idx = 0
             subplot_col_idx = 0
             for dqn_plt_idx, dqn in enumerate(dqns):
+                fig, ax = plt.subplots()
                 q_vals = dqn.q_net(torch.tensor(obs).float().to(device)).detach().cpu().numpy()
                 # plot q_vals
                 for a in range(env.action_space.n):
                     acc = action_to_acc(a)
-                    point = state_axs[subplot_row_idx, subplot_col_idx].scatter(acc[0], acc[1], s=800, c=q_vals[a], vmin=q_vals.min(), vmax=q_vals.max())
-                plt.colorbar(point, ax=state_axs[subplot_row_idx, subplot_col_idx])
+                    point = ax.scatter(acc[0], acc[1], s=800, c=q_vals[a], vmin=q_vals.min(), vmax=q_vals.max())
+                plt.colorbar(point, ax=ax)
 
-                state_axs[subplot_row_idx, subplot_col_idx].set_title(f"Q-values {dqn_plt_idx}: ({'active' if dqn_idx == dqn_plt_idx else ''})")
+                q_name = "Safety" if dqn_plt_idx == 0 else "Goal"
+                ax.set_title(f"Q-values '{q_name}': {'(active)' if dqn_idx == dqn_plt_idx else ''}")
                 subplot_col_idx += 1
 
+                save_path = f"{save_plot_path}/{q_name}/{env.unwrapped.ep_len}"
+                if not os.path.exists(os.path.dirname(save_path)):
+                    os.makedirs(os.path.dirname(save_path))
+                plt.savefig(f"{save_path}.png")
+                plt.close()
+
                 for con_plt_idx, con_model in enumerate(dqn.con_models):
+                    fig, ax = plt.subplots()
                     con_model.eval()
                     con_q_vals = con_model(torch.tensor(obs).unsqueeze(0).float().to(device)).squeeze().detach().cpu().numpy()
                     con_mask = dqn.compute_mask(torch.tensor(obs).unsqueeze(0).float().to(device), up_to_idx=con_plt_idx + 1)
                     # plot con_q_vals
                     for a in range(env.action_space.n):
                         acc = action_to_acc(a)
-                        point = state_axs[subplot_row_idx, subplot_col_idx].scatter(acc[0], acc[1], s=800, c=con_q_vals[a], vmin=con_q_vals.min(), vmax=con_q_vals.max())
+                        # point = ax.scatter(acc[0], acc[1], s=800, c=con_q_vals[a], vmin=con_q_vals.min(), vmax=con_q_vals.max())
+                        point = ax.scatter(acc[0], acc[1], s=800, c=con_q_vals[a], vmin=0, vmax=1)
                         if con_mask[a]:
-                            state_axs[subplot_row_idx, subplot_col_idx].scatter(acc[0], acc[1], s=800, c="r", marker="x")
+                            ax.scatter(acc[0], acc[1], s=800, c="r", marker="x")
 
-                    plt.colorbar(point, ax=state_axs[subplot_row_idx, subplot_col_idx])
+                    plt.colorbar(point, ax=ax)
 
-                    state_axs[subplot_row_idx, subplot_col_idx].set_title(f"Q-values {dqn_plt_idx}, con: {con_plt_idx}")
+                    ax.set_title(f"Feasibility-values 'Safety'")
                     subplot_col_idx += 1
+
+                    save_path = f"{save_plot_path}/feasibility/{env.unwrapped.ep_len}"
+                    if not os.path.exists(os.path.dirname(save_path)):
+                        os.makedirs(os.path.dirname(save_path))
+                    plt.savefig(f"{save_path}.png")
+                    plt.close()
 
                 subplot_row_idx += 1
                 subplot_col_idx = 0
 
             # plot env, always at first row, last col
+            fig, ax = plt.subplots(figsize=(10, 6))
             lava_rect = plt.Rectangle(
                 (env.lava_x_min, env.lava_y_min),
                 env.lava_x_max - env.lava_x_min,
@@ -234,7 +252,17 @@ def env_interaction_numpy_env(
                 color="orange",
                 alpha=1
             )
-            state_axs[0, 2].add_patch(lava_rect)
+            ax.text(
+                env.lava_x_min + (env.lava_x_max - env.lava_x_min) / 2,
+                env.lava_y_min - 0.2 + (env.lava_y_max - env.lava_y_min) / 2,
+                "Unsafe area",
+                fontsize=15,
+                horizontalalignment='center',
+                verticalalignment='center',
+                color="red"
+            )
+
+            ax.add_patch(lava_rect)
             conveyer_rect = plt.Rectangle(
                 (env.conveyer_x_min, env.conveyer_y_min),
                 env.conveyer_x_max - env.conveyer_x_min,
@@ -242,17 +270,57 @@ def env_interaction_numpy_env(
                 color="gray",
                 alpha=1
             )
-            state_axs[0, 2].add_patch(conveyer_rect)
-            state_axs[0, 2].quiver(obs[0], obs[1], obs[2], obs[3], color="r")  # current state
-            state_axs[0, 2].set_xlim(env.x_min - 0.1, env.x_max + 0.1)
-            state_axs[0, 2].set_ylim(env.y_min - 0.1, env.y_max + 0.1)
-            state_axs[0, 2].set_title(f"Env: {np.around(obs, 2)}")
+            ax.add_patch(conveyer_rect)
+            ax.text(
+                env.lava_x_min - 8 + (env.lava_x_max - env.lava_x_min) / 2,
+                env.lava_y_min - 0.2 + (env.lava_y_max - env.lava_y_min) / 2,
+                "Unkown slope",
+                fontsize=15,
+                horizontalalignment='center',
+                verticalalignment='center',
+                color="k"
+            )
 
-            if save_plot_path:
-                if not os.path.exists(os.path.dirname(save_plot_path)):
-                    os.makedirs(os.path.dirname(save_plot_path))
-                plt.savefig(save_plot_path)
+            # plot some arrows on the conveyer belt, going from left to right
+            plt.quiver(2.5, 3.5, 1, 0, color="k", scale=0.5, scale_units="xy")
+            # plt.quiver(2.5, 5, 1, 0, color="k", scale=0.5, scale_units="xy")
+            plt.quiver(2.5, 6.5, 1, 0, color="k", scale=0.5, scale_units="xy")
 
+            plt.quiver(5., 3.5, 1, 0, color="k", scale=0.5, scale_units="xy")
+            plt.quiver(5., 6.5, 1, 0, color="k", scale=0.5, scale_units="xy")
+
+            plt.quiver(7.5, 3.5, 1, 0, color="k", scale=0.5, scale_units="xy")
+            # plt.quiver(7.5, 5, 1, 0, color="k", scale=0.5, scale_units="xy")
+            plt.quiver(7.5, 6.5, 1, 0, color="k", scale=0.5, scale_units="xy")
+
+            # goal
+            plt.scatter(
+                env.goal_x,
+                env.goal_y,
+                s=800,
+                c='gold',
+                zorder=10,
+                marker='*',
+                label="Goal"
+            )
+            circle = plt.Circle((env.goal_x, env.goal_y), 0.75, color="gold", fill=False, lw=3)
+            plt.gca().add_artist(circle)
+
+            # agent
+            ax.quiver(obs[0], obs[1], obs[2], obs[3], color="cyan")  # current state
+            ax.set_xlim(0 - 0.1, 20 + 0.1)
+            ax.set_ylim(0 - 0.1, 10 + 0.1)
+            ax.set_title(f"State [x-pos, y-pos, x-vel, y-vel]: {np.around(obs, 2)}")
+            ax.set_aspect("equal")
+
+            # agent trajectory
+            for traj in plot_trajs:
+                ax.plot(traj[:, 0], traj[:, 1], color="cyan", alpha=0.5)
+
+            save_path = f"{save_plot_path}/env/{env.unwrapped.ep_len}"
+            if not os.path.exists(os.path.dirname(save_path)):
+                os.makedirs(os.path.dirname(save_path))
+            plt.savefig(f"{save_path}.png")
             plt.close()
 
     if dqn_idx == len(dqns) - 1 and not eval_ep and forbidden_mask.sum() < 22:  # TODO, this is a hack! better to check that we have at least some actions that are feasible... But this seems to be key!
@@ -318,7 +386,7 @@ def main(args):
         "exp_base_dir": args.exp_base_dir,
         "which_env": which_env,
         "env_id": args.env_id,
-        "no_train_only_plot": False,
+        "no_train_only_plot": True,
         "total_timesteps": args.total_steps,
         "lr": 0.0005,
         "buffer_size": 500_000,
@@ -500,21 +568,21 @@ def main(args):
                         obs, info = env.reset()  # reset for next regular, non-eval episode...
 
     # SAVE MODEL AND DATA
-    learn_dqn.save_model(exp_dir)
-    replay_buffer.save(f"{exp_dir}/replay_buffer.npz")
+    # learn_dqn.save_model(exp_dir)
+    # replay_buffer.save(f"{exp_dir}/replay_buffer.npz")
 
-    # save logging data
-    np.savez(
-        f"{exp_dir}/logging_data.npz",
-        loss_hist=logging_dict["loss_hist"],
-        avg_q_hist=logging_dict["avg_q_hist"],
-        train_reward_hist=logging_dict["ep_reward_hist"],
-        train_len_hist=logging_dict["ep_len_hist"],
-        train_state_predicate_hist=logging_dict["ep_state_predicate_hist"],
-        eval_reward_hist=logging_dict["eval_reward_hist"],
-        eval_state_predicate_hist=logging_dict["eval_state_predicate_hist"],
-        eval_ep_times=logging_dict["eval_episodes_times"],
-    )
+    # # save logging data
+    # np.savez(
+    #     f"{exp_dir}/logging_data.npz",
+    #     loss_hist=logging_dict["loss_hist"],
+    #     avg_q_hist=logging_dict["avg_q_hist"],
+    #     train_reward_hist=logging_dict["ep_reward_hist"],
+    #     train_len_hist=logging_dict["ep_len_hist"],
+    #     train_state_predicate_hist=logging_dict["ep_state_predicate_hist"],
+    #     eval_reward_hist=logging_dict["eval_reward_hist"],
+    #     eval_state_predicate_hist=logging_dict["eval_state_predicate_hist"],
+    #     eval_ep_times=logging_dict["eval_episodes_times"],
+    # )
 
     # PLOT TRAINING CURVES
     img_dir = f"{exp_dir}/imgs"
@@ -546,40 +614,25 @@ def main(args):
             plt.close()
 
     if params["which_env"] == "numpy":
-        create_plots_numpy_env(
-            dqn=dqns[-1].q_net,
-            env=env,
-            device=device,
-            save_dir=f"{img_dir}",
-            plot_eval_states=True,
-            plot_value_function=False,  # to prevent OOD issue with large value function batch...
-            n_rollouts=10,
-            battery_levels=[None]
-        )
+        # create_plots_numpy_env(
+        #     dqn=dqns[-1].q_net,
+        #     env=env,
+        #     device=device,
+        #     save_dir=f"{img_dir}",
+        #     plot_eval_states=True,
+        #     plot_value_function=False,  # to prevent OOD issue with large value function batch...
+        #     n_rollouts=10,
+        #     battery_levels=[None]
+        # )
 
         # PLOT TRAJECTORIES
         trajectory_data = []
         rewards = []
         state_predicates = []
-        for j in range(100):
-            num_detailed_rollouts = 2
+        for j in range(10):
+            num_detailed_rollouts = 10
             print(f"Running episode {j} for plotting... (detailed plotting first: {num_detailed_rollouts})")
-            # battery = 0.1 if j % 2 == 0 else 0.9  # alternate between low and high battery episodes for plotting
-            # battery = 0.3
-            # if "goal" in params["env_id"]:
-            #     reset_options = {
-            #         "x": env.x_max / 2 + np.random.uniform(-4, 4),
-            #         "y": 1,
-            #         "battery": battery
-            #     }
-            # else:
-            #     reset_options = {  # randomly sample start points and override points close to unsafe area border
-            #         "x": np.random.uniform(env.x_min, env.x_max),
-            #         "y": np.random.uniform(env.y_min, env.y_max),
-            #         "battery": battery
-            #     }
             reset_options = {}
-
             obs, info = env.reset(
                 options=reset_options
             )
@@ -617,10 +670,11 @@ def main(args):
                     params=params,
                     logging_dict=eval_logging_dict,
                     with_plot=True if j < num_detailed_rollouts else False,
-                    save_plot_path=f"{exp_dir}/bt_rollouts/{j}/{eval_logging_dict['ep_len']}.png",
+                    save_plot_path=f"{exp_dir}/bt_rollouts/{j}",
                     device=device,
                     eval_ep=True,
-                    feasibility_aware_BT=params["feasibility_aware_BT"]
+                    feasibility_aware_BT=params["feasibility_aware_BT"],
+                    plot_trajs=trajectory_data + [np.array(trajectory)],
                 )
 
                 trajectory.append(new_obs[:2])
@@ -629,33 +683,6 @@ def main(args):
             trajectory_data.append(np.array(trajectory)[:-1, :])  # remove last obs, since it is new reset obs already...
             rewards.append(eval_logging_dict["ep_reward_hist"][-1])
             state_predicates.append(eval_logging_dict["ep_state_predicate_hist"][-1])
-
-        # append last obs to each trajectory to make them all the same length
-        max_len = max([len(traj) for traj in trajectory_data])
-        trajectory_data_same_len = []
-        for traj in trajectory_data:
-            while len(traj) < max_len:
-                traj = np.vstack([traj, traj[-1]])
-            trajectory_data_same_len.append(traj)
-        trajectory_data = np.array(trajectory_data_same_len)
-
-        rewards = np.array(rewards)
-        state_predicates = np.array(state_predicates)
-
-        plot_multiple_rollouts(
-            traj_data=trajectory_data,
-            save_path=f"{img_dir}/trajectories.png",
-            xlim=[env.x_min - 0.1, env.x_max + 0.1],
-            ylim=[env.y_min - 0.1, env.y_max + 0.1],
-            show=False
-        )
-        np.savez(
-            f"{exp_dir}/trajectories.npz",
-            trajectories=trajectory_data,
-            rewards=rewards,
-            state_predicates=state_predicates,
-            state_predicate_names=env.state_predicate_names
-        )
 
     env.close()
     writer.close()
@@ -670,8 +697,8 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--learning_starts", type=int, default=25_000, help="Do this many random actions before learning starts")
     parser.add_argument('--punishACC', default=False, action=argparse.BooleanOptionalAction, help="Agent receives reward penalty for ACC violation")
     parser.add_argument('--feasibility_aware_bt', default=False, action=argparse.BooleanOptionalAction, help="Wether BT selects higher prio based on feasibility even if constraint is not violated yet")
-    parser.add_argument("-e", "--exp_name", type=str, default="256x256_1M_goalReward-1-dist_batch4k_tau:0.001_ylim15_moreDistPunish_buffer500k_thresh:0.98", help="Additional string to append to the experiment directory")
-    parser.add_argument("-d", "--exp_base_dir", type=str, default="runs", help="Base directory for all experiments")
+    parser.add_argument("-e", "--exp_name", type=str, default="video_CBTRL", help="Additional string to append to the experiment directory")
+    parser.add_argument("-d", "--exp_base_dir", type=str, default="views", help="Base directory for all experiments")
 
     # TODO: Properly load ensemble DQN instead of just one of the ensemble members...
     # parser.add_argument("-ldqnp", "--lava_dqn_path", type=str, default="", help="Path to load the lava avoiding DQN policy from.")
@@ -688,8 +715,8 @@ if __name__ == "__main__":
     parser.add_argument("-bfcp", "--battery_constraint_feasibility_path", type=str, default="", help="Path to load Battery feasibility constraint network from.")
     # parser.add_argument("-bfcp", "--battery_constraint_feasibility_path", type=str, default="newBattery_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2025-03-04-04-51-22_debug_seed:4/feasibility_2025-03-04-09-04-36_invert/feasibility_dqn.pt", help="Path to load Battery feasibility constraint network from.")
 
-    parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="", help="Path to load the goal reaching DQN policy from.")
-    # parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-05-19-49-13_256x256_1M_goalReward-1-dist_batch1k_tau:0.001_ylim15/reach_goal_q_net_0.pth", help="Path to load the goal reaching DQN policy from.")
+    # parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="", help="Path to load the goal reaching DQN policy from.")
+    parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-06-21-01-14_CBTRL_seed:1/reach_goal_q_net_0.pth", help="Path to load the goal reaching DQN policy from.")
 
     # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-lava-v0", help="Which gym env to train on.")
     # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-battery-v0", help="Which gym env to train on.")
