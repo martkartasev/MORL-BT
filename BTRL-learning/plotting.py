@@ -6,6 +6,7 @@ from envs.simple_acc_env_noBattery import SimpleAccEnvNoBattery
 from networks import MLP
 import yaml
 import matplotlib.ticker as ticker
+from matplotlib.ticker import MultipleLocator
 
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE" # Flag from https://stackoverflow.com/questions/20554074/sklearn-omp-error-15-initializing-libiomp5md-dll-but-found-mk2iomp5md-dll-a
@@ -705,6 +706,8 @@ def plot_bt_comp_metrics(
         axs[0].set_xlabel("Timesteps")
         # axs[0].set_xscale("log")
         axs[0].set_xscale("symlog", linthresh=lin_thresh)
+        axs[0].xaxis.set_minor_locator(MultipleLocator(10000))
+        axs[0].tick_params(which='minor', length=5)
         # axs[0].axvline(lin_thresh, ls="--", color="k", zorder=-10)
 
         x_scaled = np.linspace(0, upper_x_lim, len(mean_len))
@@ -718,6 +721,8 @@ def plot_bt_comp_metrics(
         # axs[1].set_xticks([0, 500_000, 1e6], ["0", "5e5", "1e6"])
         # axs[1].set_xscale("log")
         axs[1].set_xscale("symlog", linthresh=lin_thresh)
+        axs[1].xaxis.set_minor_locator(MultipleLocator(10000))
+        axs[1].tick_params(which='minor', length=5)
         # axs[1].axvline(lin_thresh, ls="--", color="k", zorder=-10)
 
         x_scaled = np.linspace(0, upper_x_lim, len(mean_in_lava))
@@ -731,6 +736,8 @@ def plot_bt_comp_metrics(
         # axs[2].set_xticks([0, 500_000, 1e6], ["0", "5e5", "1e6"])
         axs[2].set_xscale("log")
         axs[2].set_xscale("symlog", linthresh=lin_thresh)
+        axs[2].xaxis.set_minor_locator(MultipleLocator(10000))
+        axs[2].tick_params(which='minor', length=5)
         # axs[2].axvline(lin_thresh, ls="--", color="k", zorder=-10)
 
         # x_scaled = np.linspace(0, upper_x_lim, len(mean_battery_empty))
