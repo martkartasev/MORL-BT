@@ -59,13 +59,15 @@ class DQN:
 
         self.q_ensemble = [self.q_net]
         self.q_ensemble_target = [self.q_target_net]
-        for _ in range(3):  # ensemble size - 1
+        for i in range(3):  # ensemble size - 1
             q_net = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.hidden_arch, with_batchNorm=self.batch_norm)
             # q_net.load_state_dict(self.q_net.state_dict())
             self.q_ensemble.append(q_net)
 
             if self.load_cp:
-                q_net.load_state_dict(torch.load(self.load_cp))
+                q_0_path = str(self.load_cp)
+                q_i_path = q_0_path.replace("_0.pth", f"_{i + 1}.pth")
+                q_net.load_state_dict(torch.load(q_i_path))
 
             q_net_target = MLP(input_size=self.state_dim, output_size=self.action_dim, hidden_activation=self.hidden_activation, hidden_arch=self.hidden_arch, with_batchNorm=self.batch_norm)
             q_net_target.load_state_dict(q_net.state_dict())
