@@ -206,9 +206,16 @@ def env_interaction_numpy_env(
                     point = ax.scatter(acc[0], acc[1], s=800, c=q_vals[a], vmin=q_vals.min(), vmax=q_vals.max())
                 plt.colorbar(point, ax=ax)
 
-                q_name = "Safety" if dqn_plt_idx == 0 else "Goal"
-                ax.set_title(f"Q-values '{q_name}': {'(active)' if dqn_idx == dqn_plt_idx else ''}")
+                # q_name = "Safety" if dqn_plt_idx == 0 else "Goal"
+                q_name = "Unshaped RL"  # when we do standard RL, we only have one DQN which is otherwise the lava DQN
+                ax.set_title(f"Q-values '{q_name}' {'(active)' if dqn_idx == dqn_plt_idx else ''}")
                 subplot_col_idx += 1
+
+                ax.set_xticks([-2, -1, 0, 1, 2], [-2, -1, 0, 1, 2])
+                ax.set_xlabel("Accelerate X")
+
+                ax.set_yticks([-2, -1, 0, 1, 2], [-2, -1, 0, 1, 2])
+                ax.set_ylabel("Accelerate Y")
 
                 save_path = f"{save_plot_path}/{q_name}/{env.unwrapped.ep_len}"
                 if not os.path.exists(os.path.dirname(save_path)):
@@ -230,6 +237,12 @@ def env_interaction_numpy_env(
                             ax.scatter(acc[0], acc[1], s=800, c="r", marker="x")
 
                     plt.colorbar(point, ax=ax)
+
+                    ax.set_xticks([-2, -1, 0, 1, 2], [-2, -1, 0, 1, 2])
+                    ax.set_xlabel("Accelerate X")
+
+                    ax.set_yticks([-2, -1, 0, 1, 2], [-2, -1, 0, 1, 2])
+                    ax.set_ylabel("Accelerate Y")
 
                     ax.set_title(f"Feasibility-values 'Safety'")
                     subplot_col_idx += 1
@@ -307,7 +320,7 @@ def env_interaction_numpy_env(
             plt.gca().add_artist(circle)
 
             # agent
-            ax.quiver(obs[0], obs[1], obs[2], obs[3], color="cyan")  # current state
+            ax.quiver(obs[0], obs[1], obs[2], obs[3], color="red")  # current state
             ax.set_xlim(0 - 0.1, 20 + 0.1)
             ax.set_ylim(0 - 0.1, 10 + 0.1)
             ax.set_title(f"State [x-pos, y-pos, x-vel, y-vel]: {np.around(obs, 2)}")
@@ -315,7 +328,7 @@ def env_interaction_numpy_env(
 
             # agent trajectory
             for traj in plot_trajs:
-                ax.plot(traj[:, 0], traj[:, 1], color="cyan", alpha=0.5)
+                ax.plot(traj[:, 0], traj[:, 1], color="red", alpha=0.5)
 
             save_path = f"{save_plot_path}/env/{env.unwrapped.ep_len}"
             if not os.path.exists(os.path.dirname(save_path)):
@@ -697,17 +710,17 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--learning_starts", type=int, default=25_000, help="Do this many random actions before learning starts")
     parser.add_argument('--punishACC', default=False, action=argparse.BooleanOptionalAction, help="Agent receives reward penalty for ACC violation")
     parser.add_argument('--feasibility_aware_bt', default=False, action=argparse.BooleanOptionalAction, help="Wether BT selects higher prio based on feasibility even if constraint is not violated yet")
-    parser.add_argument("-e", "--exp_name", type=str, default="video_CBTRL", help="Additional string to append to the experiment directory")
+    parser.add_argument("-e", "--exp_name", type=str, default="video_RL", help="Additional string to append to the experiment directory")
     parser.add_argument("-d", "--exp_base_dir", type=str, default="views", help="Base directory for all experiments")
 
-    # TODO: Properly load ensemble DQN instead of just one of the ensemble members...
     # parser.add_argument("-ldqnp", "--lava_dqn_path", type=str, default="", help="Path to load the lava avoiding DQN policy from.")
     # parser.add_argument("-ldqnp", "--lava_dqn_path", type=str, default="final_experiments/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-15-08-46_debug_seed:1/avoid_lava_q_net_0.pth", help="Path to load the lava avoiding DQN policy from.")
-    parser.add_argument("-ldqnp", "--lava_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-lava-v1/2025-03-05-08-48-54_lava/avoid_lava_q_net_0.pth", help="Path to load the lava avoiding DQN policy from.")
+    # parser.add_argument("-ldqnp", "--lava_dqn_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-lava-v1/2025-03-05-08-48-54_lava/avoid_lava_q_net_0.pth", help="Path to load the lava avoiding DQN policy from.")
+    parser.add_argument("-ldqnp", "--lava_dqn_path", type=str, default="final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-unshapedSum-v1/2025-03-07-00-23-24_StandardRL_seed:1/avoid_lava_q_net_0.pth", help="Path to load the lava avoiding DQN policy from.")
 
-    # parser.add_argument("-lfcp", "--lava_constraint_feasibility_path", type=str, default="", help="Path to load Lava feasibility constraint network from.")
+    parser.add_argument("-lfcp", "--lava_constraint_feasibility_path", type=str, default="", help="Path to load Lava feasibility constraint network from.")
     # parser.add_argument("-lfcp", "--lava_constraint_feasibility_path", type=str, default="final_experiments/SimpleAccEnv-wide-withConveyer-lava-v0/2024-09-28-15-08-46_debug_seed:1/feasibility_2025-03-03-11-57-05_invert/feasibility_dqn.pt", help="Path to load Lava feasibility constraint network from.")
-    parser.add_argument("-lfcp", "--lava_constraint_feasibility_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-lava-v1/2025-03-05-14-27-47_256x256/feasibility_2025-03-05-15-07-42_batch8k_noBatchNorm_gamma:0999_500epochs_weightDecay:1e-5/feasibility_dqn.pt", help="Path to load Lava feasibility constraint network from.")
+    # parser.add_argument("-lfcp", "--lava_constraint_feasibility_path", type=str, default="runs/SimpleAccEnv-wide-withConveyer-lava-v1/2025-03-05-14-27-47_256x256/feasibility_2025-03-05-15-07-42_batch8k_noBatchNorm_gamma:0999_500epochs_weightDecay:1e-5/feasibility_dqn.pt", help="Path to load Lava feasibility constraint network from.")
 
     parser.add_argument("-bdqnp", "--battery_dqn_path", type=str, default="", help="Path to load the battery charging DQN policy from.")
     # parser.add_argument("-bdqnp", "--battery_dqn_path", type=str, default="newBattery_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2025-03-04-04-51-22_debug_seed:4/battery_q_net_0.pth", help="Path to load the battery charging DQN policy from.")
@@ -715,8 +728,9 @@ if __name__ == "__main__":
     parser.add_argument("-bfcp", "--battery_constraint_feasibility_path", type=str, default="", help="Path to load Battery feasibility constraint network from.")
     # parser.add_argument("-bfcp", "--battery_constraint_feasibility_path", type=str, default="newBattery_experiments/SimpleAccEnv-wide-withConveyer-battery-v0/2025-03-04-04-51-22_debug_seed:4/feasibility_2025-03-04-09-04-36_invert/feasibility_dqn.pt", help="Path to load Battery feasibility constraint network from.")
 
-    # parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="", help="Path to load the goal reaching DQN policy from.")
-    parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-06-21-01-14_CBTRL_seed:1/reach_goal_q_net_0.pth", help="Path to load the goal reaching DQN policy from.")
+    parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="", help="Path to load the goal reaching DQN policy from.")
+    # parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-06-21-01-14_CBTRL_seed:1/reach_goal_q_net_0.pth", help="Path to load the goal reaching DQN policy from.")
+    # parser.add_argument("-gdqnp", "--goal_dqn_path", type=str, default="final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-06-22-16-41_BTRL_seed:1/reach_goal_q_net_0.pth", help="Path to load the goal reaching DQN policy from.")
 
     # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-lava-v0", help="Which gym env to train on.")
     # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-battery-v0", help="Which gym env to train on.")
@@ -724,8 +738,8 @@ if __name__ == "__main__":
     
     # new 2D env, no battery
     # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-lava-v1", help="Which gym env to train on.")
-    parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-goal-v1", help="Which gym env to train on.")
-    # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-unshapedSum-v1", help="Which gym env to train on.")
+    # parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-goal-v1", help="Which gym env to train on.")
+    parser.add_argument("-i", "--env_id", type=str, default="SimpleAccEnv-wide-withConveyer-unshapedSum-v1", help="Which gym env to train on.")
 
     args = parser.parse_args()
     print(args)
