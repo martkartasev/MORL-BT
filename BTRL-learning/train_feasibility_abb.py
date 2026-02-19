@@ -62,7 +62,13 @@ def load_mlagents_buffer(load_dir, max_obs, feasibility_label, label_ratio=0.35)
 
                 if len(obs) > max_obs:
                     break
-
+    # obs[:, 16:19] = obs[:, 16:19] * 37 / 8
+    # next_obs[:, 16:19] = next_obs[:, 16:19] * 37 / 8
+    #
+    # norm = np.linalg.norm(obs[:, 16:19], axis=1) > 1
+    # obs[norm.ravel(), 16:19] /= np.linalg.norm(obs[norm.ravel(), 16:19], axis=1)[:, None]
+    # norm = np.linalg.norm(next_obs[:, 16:19], axis=1) > 1
+    # next_obs[norm.ravel(), 16:19] /= np.linalg.norm(next_obs[norm.ravel(), 16:19], axis=1)[:, None]
     return None, obs, actions, next_obs, dones, labels
 
 
@@ -244,7 +250,7 @@ def main(args):
         "criterion": torch.nn.MSELoss,
         "with_batchNorm": False,
         # "criterion": torch.nn.L1Loss,
-        "discount_gamma": 0.995,  # unlike traditional finite-horizon TD, feasibility discount must always be <1!
+        "discount_gamma": 0.9,  # unlike traditional finite-horizon TD, feasibility discount must always be <1!
         # "higher_prio_load_path": args.higher_prio_feasibility_estimator,
         # "higher_prio_batchnorm": True,
         # "higher_prio_arch": [64, 64, 32, 32],
@@ -373,9 +379,9 @@ if __name__ == "__main__":
     parser.add_argument("--rb_dirs", type=str, nargs="+", help="List of replay buffer directories to load data from", default=["C:/Users/Mart9/Workspace/ABB-Warehouse/results/move_ppo_penalty/ABBMobile/"])
     parser.add_argument("--buffer_size", type=int, help="Max size of replay buffer", default=10000000)
     parser.add_argument("--higher_prio_feasibility_estimator", type=str, help="Higher-prio feasibility estimator to load for recursive training", default="")
-    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="have128x64x64")
-    parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="have")
-    parser.add_argument("--label_ratio", type=float, help="Minimum ratio between negative labelled data and all data. Between 0 and 1. 1 means all labels, 0 means no labels.", default=0.35)
+    parser.add_argument("--exp_str", type=str, help="String to append to the experiment directory", default="safe128x64x64")
+    parser.add_argument("--feasibility_label", type=str, help="Which labelling function to use", default="safe")
+    parser.add_argument("--label_ratio", type=float, help="Minimum ratio between negative labelled data and all data. Between 0 and 1. 1 means all labels, 0 means no labels.", default=0.20)
     parser.add_argument("--epochs", type=int, help="Number of epochs to train the model", default=100)
     args = parser.parse_args()
 
