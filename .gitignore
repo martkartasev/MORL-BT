@@ -130,3 +130,14 @@ BTRL-learning/runs
 /BTRL-learning/envs/unity_builds/
 /BTRL-learning/.venv
 
+Assets/Screenshots/
+BTRL-learning/newBattery_experiments/*
+BTRL-learning/final_noBattery_experiments/*
+BTRL-learning/final_experiment_StandardDQN/*
+BTRL-learning/final_experiment_StandardDQN_winPaths/*
+BTRL-learning/final_experiments/*
+BTRL-learning/final_experiments_winPaths/*
+BTRL-learning/views/*
+
+*__pycache__/
+*.pyc
