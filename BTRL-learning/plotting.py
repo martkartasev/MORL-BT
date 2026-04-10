@@ -574,6 +574,170 @@ def plot_bt_comp_rollouts(
     plt.rcParams.update({'font.size': 12})
 
 
+def plot_bt_comp_metrics_separate(
+                no_con_load_dirs=[],
+                con_load_dirs=[],
+                sum_load_dir=[],
+                standard_dqn_load_dirs=[],
+                which_data="eval",  # eval or train
+                fontsize=25,
+                method_names=["BT-DQN", "BT-MORL", "CBTRL (Ours)"],
+                method_colors=["magenta", "yellow", "cyan"],
+                method_ls=["--", ":", "-"],
+                zorders=[0, 1, 2],
+                save_prefix="runs/2D-lava-con-noCon-metrics-separate"
+        ):
+            """
+            Same as plot_bt_comp_metrics, but saves each subplot as a separate image file.
+            """
+            import matplotlib.pyplot as plt
+            from matplotlib.ticker import MultipleLocator
+
+            plt.rcParams.update({'font.size': fontsize})
+
+            # Prepare data for each subplot
+            all_mean_at_goal, all_std_at_goal = [], []
+            all_mean_len, all_std_len = [], []
+            all_mean_in_lava, all_std_in_lava = [], []
+            labels = []
+
+            bt_max_reward = -25
+            bt_min_reward = -200
+            dqn_min_reward = -600
+            dqn_max_reward = -40
+
+            for idx, method_dirs in enumerate([no_con_load_dirs, sum_load_dir, con_load_dirs, standard_dqn_load_dirs]):
+                eval_reward_hists = []
+                train_reward_hists = []
+                eval_predicate_hists = []
+                eval_time_hists = []
+                train_len_hists = []
+                train_predicate_hists = []
+                predicate_names = []
+
+                for load_dir in method_dirs:
+                    data = np.load(load_dir + "/logging_data.npz")
+                    trajectories = np.load(load_dir + "/trajectories.npz")
+                    eval_reward_hists.append(data["eval_reward_hist"])
+                    train_reward_hists.append(data["train_reward_hist"])
+                    eval_predicate_hists.append(data["eval_state_predicate_hist"])
+                    eval_time_hists.append(data["eval_ep_times"])
+                    train_len_hists.append(data["train_len_hist"])
+                    train_predicate_hists.append(data["train_state_predicate_hist"])
+                    predicate_names = trajectories["state_predicate_names"]
+
+                if which_data == "eval":
+                    reward_hists = np.array(eval_reward_hists)
+                    predicate_hists = np.array(eval_predicate_hists)
+                    len_hists = None
+                else:
+                    shortest_reward_hist = min([len(hist) for hist in train_reward_hists])
+                    train_reward_hists = [hist[:shortest_reward_hist] for hist in train_reward_hists]
+                    reward_hists = np.array(train_reward_hists)
+
+                    train_predicate_hists = [hist[:shortest_reward_hist] for hist in train_predicate_hists]
+                    predicate_hists = np.array(train_predicate_hists)
+
+                    train_len_hists = [hist[:shortest_reward_hist] for hist in train_len_hists]
+                    len_hists = np.array(train_len_hists)
+
+                in_lava = predicate_hists[:, :, 0]
+                at_goal = predicate_hists[:, :, 1]
+                at_goal = at_goal.clip(0, 1)
+
+                if method_names[idx] == "DQN":
+                    reward_hists = (reward_hists - dqn_min_reward) / (dqn_max_reward - dqn_min_reward)
+                else:
+                    reward_hists = (reward_hists - bt_min_reward) / (bt_max_reward - bt_min_reward)
+
+                smooth_len = 100
+                reward_hists = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in reward_hists])
+                mean_reward = np.mean(reward_hists, axis=0)
+                std_reward = np.std(reward_hists, axis=0)
+
+                len_hists = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in len_hists])
+                mean_len = np.mean(len_hists, axis=0)
+                std_len = np.std(len_hists, axis=0)
+
+                in_lava = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in in_lava])
+                mean_in_lava = np.mean(in_lava, axis=0)
+                std_in_lava = np.std(in_lava, axis=0)
+
+                at_goal = np.array([np.convolve(hist, np.ones(smooth_len) / smooth_len, mode="valid") for hist in at_goal])
+                mean_at_goal = np.mean(at_goal, axis=0)
+                std_at_goal = np.std(at_goal, axis=0)
+
+                all_mean_at_goal.append((mean_at_goal, std_at_goal, idx))
+                all_mean_len.append((mean_len, std_len, idx))
+                all_mean_in_lava.append((mean_in_lava, std_in_lava, idx))
+                labels.append(method_names[idx])
+
+            upper_x_lim = 1e6
+            lin_thresh = 1e5
+            lw = 2
+
+            fig_legend = plt.figure(figsize=(10, 2))
+
+            # Success rate
+            fig0, ax0 = plt.subplots(figsize=(10, 6))
+            for mean_at_goal, std_at_goal, idx in all_mean_at_goal:
+                x_scaled = np.linspace(0, upper_x_lim, len(mean_at_goal))
+                ax0.plot(x_scaled, mean_at_goal, color=method_colors[idx], label=method_names[idx], ls=method_ls[idx], lw=lw, zorder=zorders[idx])
+                ax0.fill_between(x_scaled, mean_at_goal - std_at_goal, mean_at_goal + std_at_goal, color=method_colors[idx], alpha=0.2, zorder=zorders[idx])
+            ax0.set_ylabel("Success rate")
+            ax0.set_xlim(0, upper_x_lim)
+            ax0.set_ylim(-0.1, 1.1)
+            ax0.set_xlabel("Timesteps")
+            ax0.set_xscale("symlog", linthresh=lin_thresh)
+            ax0.xaxis.set_minor_locator(MultipleLocator(10000))
+            ax0.tick_params(which='minor', length=5)
+            # ax0.legend(loc="upper center", bbox_to_anchor=(0.5, 1.15), ncol=len(method_names))
+
+            fig_legend.legend(handles=ax0.get_lines(), labels=labels, loc='center', ncol=len(method_names))
+            fig_legend.savefig(f"{save_prefix}_legend.png", bbox_inches='tight')
+
+
+            plt.tight_layout()
+            fig0.savefig(f"{save_prefix}_success_rate.png")
+            plt.close(fig0)
+
+            # Episode length
+            fig1, ax1 = plt.subplots(figsize=(10, 6))
+            for mean_len, std_len, idx in all_mean_len:
+                x_scaled = np.linspace(0, upper_x_lim, len(mean_len))
+                ax1.plot(x_scaled, mean_len, color=method_colors[idx], ls=method_ls[idx], lw=lw, zorder=zorders[idx], label=method_names[idx])
+                ax1.fill_between(x_scaled, mean_len - std_len, mean_len + std_len, color=method_colors[idx], alpha=0.2, zorder=zorders[idx])
+            ax1.set_ylabel("Episode length")
+            ax1.set_xlabel("Timesteps")
+            ax1.set_xlim(0, upper_x_lim)
+            ax1.set_ylim(20, 210)
+            ax1.set_xscale("symlog", linthresh=lin_thresh)
+            ax1.xaxis.set_minor_locator(MultipleLocator(10000))
+            ax1.tick_params(which='minor', length=5)
+            # ax1.legend(loc="upper center", bbox_to_anchor=(0.5, 1.15), ncol=len(method_names))
+            plt.tight_layout()
+            fig1.savefig(f"{save_prefix}_episode_length.png")
+            plt.close(fig1)
+
+            # Constraint violations
+            fig2, ax2 = plt.subplots(figsize=(10, 6))
+            for mean_in_lava, std_in_lava, idx in all_mean_in_lava:
+                x_scaled = np.linspace(0, upper_x_lim, len(mean_in_lava))
+                ax2.plot(x_scaled, mean_in_lava, color=method_colors[idx], label=method_names[idx], ls=method_ls[idx], lw=lw, zorder=zorders[idx])
+                ax2.fill_between(x_scaled, mean_in_lava - std_in_lava, mean_in_lava + std_in_lava, color=method_colors[idx], alpha=0.2, zorder=zorders[idx])
+            ax2.set_ylabel("Constraint violations")
+            ax2.set_xlabel("Timesteps")
+            ax2.set_xlim(0, upper_x_lim)
+            ax2.set_ylim(-5, 100)
+            ax2.set_xscale("symlog", linthresh=lin_thresh)
+            ax2.xaxis.set_minor_locator(MultipleLocator(10000))
+            ax2.tick_params(which='minor', length=5)
+            # ax2.legend(loc="upper center", bbox_to_anchor=(0.5, 1.15), ncol=len(method_names))
+            plt.tight_layout()
+            fig2.savefig(f"{save_prefix}_constraint_violations.png")
+            plt.close(fig2)
+
+
 def plot_bt_comp_metrics(
         no_con_load_dirs=[],
         con_load_dirs=[],
@@ -1250,6 +1414,20 @@ def plot_feasibility_value_function_comparison(
 
 
 if __name__ == "__main__":
+    
+    # plot env without trajectories
+    fig, ax = plt.subplots(figsize=(10, 5))
+    env = SimpleAccEnv(
+        with_conveyer=True,
+        x_max=20,
+        conveyer_x_min=2,
+        conveyer_x_max=10,
+        lava_x_min=10,
+        lava_x_max=18,
+        goal_x=10,
+    )
+    plot_simple_acc_env(env, ax=ax, show=False, save_path="simple_2d_env.png")
+
     # env_actuator = EnvActuatorGrid5x5()
     # env_actuator.plot_action_acceleration_mapping()
 
@@ -1333,6 +1511,90 @@ if __name__ == "__main__":
     # )
 
     plot_bt_comp_metrics(
+        which_data="train",
+        no_con_load_dirs=[
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-28-22-54-23_debug_noConstraints_seed:1",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-18-11-28_debug_noConstraints_seed:2",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-13-14-12_debug_noConstraints_seed:3",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-01-08-15-17_debug_noConstraints_seed:4",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-02-03-10-46_debug_noConstraints_seed:5",
+            # 
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-28-22-54-23_debug_noConstraints_seed-1",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-29-18-11-28_debug_noConstraints_seed-2",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-13-14-12_debug_noConstraints_seed-3",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-01-08-15-17_debug_noConstraints_seed-4",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-02-03-10-46_debug_noConstraints_seed-5"
+            # 
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-06-22-16-41_BTRL_seed:1",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-02-56-58_BTRL_seed:2",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-07-37-06_BTRL_seed:3",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-13-07-19_BTRL_seed:4",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-18-14-31_BTRL_seed:5",
+        ],
+        con_load_dirs=[
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-04-53-21_debug_feasibilityAwareBT_seed:1",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-00-10-33_debug_feasibilityAwareBT_seed:2",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-19-14-47_debug_feasibilityAwareBT_seed:3",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-01-14-17-29_debug_feasibilityAwareBT_seed:4",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-02-09-07-39_debug_feasibilityAwareBT_seed:5",
+            # 
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-29-04-53-21_debug_feasibilityAwareBT_seed-1",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-00-10-33_debug_feasibilityAwareBT_seed-2",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-19-14-47_debug_feasibilityAwareBT_seed-3",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-01-14-17-29_debug_feasibilityAwareBT_seed-4",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-02-09-07-39_debug_feasibilityAwareBT_seed-5"
+            # 
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-06-21-01-14_CBTRL_seed:1",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-01-41-36_CBTRL_seed:2",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-06-22-25_CBTRL_seed:3",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-11-49-54_CBTRL_seed:4",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-16-54-33_CBTRL_seed:5",
+        ],
+        sum_load_dir=[
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-01-53-13_debug_rewardPenalty_seed:1",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-29-21-10-25_debug_rewardPenalty_seed:2",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-30-16-13-34_debug_rewardPenalty_seed:3",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-01-11-15-06_debug_rewardPenalty_seed:4",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-10-02-06-09-03_debug_rewardPenalty_seed:5",
+            # 
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-29-01-53-13_debug_rewardPenalty_seed-1",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-29-21-10-25_debug_rewardPenalty_seed-2",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-16-13-34_debug_rewardPenalty_seed-3",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-09-30-16-13-34_debug_rewardPenalty_seed-3",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\SimpleAccEnv-wide-withConveyer-goal-v0\2024-10-02-06-09-03_debug_rewardPenalty_seed-5"
+            # 
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-06-23-21-39_PENALTY_seed:1",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-04-01-32_PENALTY_seed:2",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-08-44-14_PENALTY_seed:3",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-14-25-08_PENALTY_seed:4",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-goal-v1/2025-03-07-19-23-17_PENALTY_seed:5",
+        ],
+        standard_dqn_load_dirs=[
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiment_StandardDQN/SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__0__1740212518",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiment_StandardDQN/SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__1__1740221587",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiment_StandardDQN/SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__2__1740230580",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiment_StandardDQN/SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__3__1740239692",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiment_StandardDQN/SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__4__1740248762",
+            # 
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__0__1740212518",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__1__1740221587",
+            # # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__2__1740230580",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__3__1740239692",
+            # r"C:\Users\finnr\PycharmProjects\MORL-BT\BTRL-learning\final_experiments_winPaths\unshapedSum-StandardDQN\SimpleAccEnv-wide-withConveyer-unshapedSum-v0__StandardDQN-20kTargetFreq__4__1740248762"
+            # 
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-unshapedSum-v1/2025-03-07-00-23-24_StandardRL_seed:1",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-unshapedSum-v1/2025-03-07-05-04-30_StandardRL_seed:2",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-unshapedSum-v1/2025-03-07-10-07-27_StandardRL_seed:3",
+            "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-unshapedSum-v1/2025-03-07-15-31-59_StandardRL_seed:4",
+            # "/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-unshapedSum-v1/2025-03-07-20-28-57_StandardRL_seed:5",
+        ],
+        method_names=method_names,
+        method_colors=method_colors,
+        method_ls=method_ls,
+        zorders=zorders
+    )
+    
+    plot_bt_comp_metrics_separate(
         which_data="train",
         no_con_load_dirs=[
             # "/home/finn/repos/MORL-BT/BTRL-learning/final_experiments/SimpleAccEnv-wide-withConveyer-goal-v0/2024-09-28-22-54-23_debug_noConstraints_seed:1",
