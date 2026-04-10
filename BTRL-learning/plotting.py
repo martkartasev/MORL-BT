@@ -362,6 +362,8 @@ def plot_simple_acc_env(env, ax=None, show=True, save_path="", close=True):
         fontsize=15,
         horizontalalignment='center',
         verticalalignment='center',
+        fontdict={"family": "serif"},
+        backgroundcolor=(1.0, 1.0, 1.0, 0.7)
     )
 
     conveyer_rect = plt.Rectangle(
@@ -380,7 +382,9 @@ def plot_simple_acc_env(env, ax=None, show=True, save_path="", close=True):
         fontsize=15,
         horizontalalignment='center',
         verticalalignment='center',
-        )
+        fontdict={"family": "serif"},
+        backgroundcolor=(1.0, 1.0, 1.0, 0.7)
+    )
 
     # plot some arrows on the conveyer belt, going from left to right
     plt.quiver(2.5, 3.5, 1, 0, color="k", scale=0.5, scale_units="xy")
@@ -534,6 +538,7 @@ def plot_bt_comp_rollouts(
     :param sum_load_dir: The goal-reach DQN trained in MORL / sum-task fashion
     """
     # plot env
+    
     fig, ax = plt.subplots(figsize=(10, 5))
     env = SimpleAccEnv(
         with_conveyer=True,
@@ -547,6 +552,7 @@ def plot_bt_comp_rollouts(
     plot_simple_acc_env(env, ax=ax, show=False, close=False)
 
     plt.rcParams.update({'font.size': fontsize})
+    plt.rcParams.update({'font.family': 'serif'})
 
     for load_idx, load_dir in enumerate([no_con_load_dir, sum_load_dir, con_load_dir, rl_load_dir]):
         # load and plot con data
@@ -594,6 +600,7 @@ def plot_bt_comp_metrics_separate(
             from matplotlib.ticker import MultipleLocator
 
             plt.rcParams.update({'font.size': fontsize})
+            plt.rcParams.update({'font.family': 'serif'})
 
             # Prepare data for each subplot
             all_mean_at_goal, all_std_at_goal = [], []
@@ -679,7 +686,7 @@ def plot_bt_comp_metrics_separate(
             fig_legend = plt.figure(figsize=(10, 2))
 
             # Success rate
-            fig0, ax0 = plt.subplots(figsize=(10, 6))
+            fig0, ax0 = plt.subplots(figsize=(10, 5))
             for mean_at_goal, std_at_goal, idx in all_mean_at_goal:
                 x_scaled = np.linspace(0, upper_x_lim, len(mean_at_goal))
                 ax0.plot(x_scaled, mean_at_goal, color=method_colors[idx], label=method_names[idx], ls=method_ls[idx], lw=lw, zorder=zorders[idx])
@@ -702,7 +709,7 @@ def plot_bt_comp_metrics_separate(
             plt.close(fig0)
 
             # Episode length
-            fig1, ax1 = plt.subplots(figsize=(10, 6))
+            fig1, ax1 = plt.subplots(figsize=(10, 5))
             for mean_len, std_len, idx in all_mean_len:
                 x_scaled = np.linspace(0, upper_x_lim, len(mean_len))
                 ax1.plot(x_scaled, mean_len, color=method_colors[idx], ls=method_ls[idx], lw=lw, zorder=zorders[idx], label=method_names[idx])
@@ -720,7 +727,7 @@ def plot_bt_comp_metrics_separate(
             plt.close(fig1)
 
             # Constraint violations
-            fig2, ax2 = plt.subplots(figsize=(10, 6))
+            fig2, ax2 = plt.subplots(figsize=(10, 5))
             for mean_in_lava, std_in_lava, idx in all_mean_in_lava:
                 x_scaled = np.linspace(0, upper_x_lim, len(mean_in_lava))
                 ax2.plot(x_scaled, mean_in_lava, color=method_colors[idx], label=method_names[idx], ls=method_ls[idx], lw=lw, zorder=zorders[idx])
@@ -979,7 +986,7 @@ def plot_numpy_feasiblity_dqn(
         hidden_activation=params["hidden_activation"],
         with_batchNorm=with_batchnorm,
     )
-    dqn.load_state_dict(torch.load(f"{dqn_load_dir}/{file_name}"))
+    dqn.load_state_dict(torch.load(f"{dqn_load_dir}/{file_name}", map_location="cpu"))
     dqn.eval()
 
     fig = plt.figure(figsize=(10, 5))
@@ -1493,7 +1500,8 @@ if __name__ == "__main__":
         rl_load_dir="/home/finn/repos/MORL-BT/BTRL-learning/final_noBattery_experiments/SimpleAccEnv-wide-withConveyer-unshapedSum-v1/2025-03-07-05-04-30_StandardRL_seed:2",
         method_names=method_names,
         method_colors=method_colors,
-        method_ls=method_ls
+        method_ls=method_ls,
+        fontsize=12,
     )
 
     # plot_bt_comp_rollouts(
@@ -1675,7 +1683,8 @@ if __name__ == "__main__":
         method_names=method_names,
         method_colors=method_colors,
         method_ls=method_ls,
-        zorders=zorders
+        zorders=zorders,
+        fontsize=20
     )
 
     plot_numpy_feasiblity_dqn(
